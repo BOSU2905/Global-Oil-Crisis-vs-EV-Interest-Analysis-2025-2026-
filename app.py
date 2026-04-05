@@ -87,5 +87,6 @@ choice = st.selectbox(
 )
 
 st.scatter_chart(data=df,x='Price($)/Litre', y=choice, color='#D1855C')
+print("Jakson")
 
 
