@@ -109,7 +109,33 @@ st.scatter_chart(data=df,x='Price($)/Litre', y=choice, color="#B0440A")
 st.subheader(f"Key Insights for {choice.split(' ')[0]}")
 st.info(oil_vs_ev_insights[choice])
 
+st.divider()
+st.header("🏁 Executive Summary: The 2026 Energy Pivot")
+st.markdown("""
+            ### **Global Strategic Outlook**
+            Our cross-border analysis of the 2026 Energy Crisis reveals that **EV interest is no longer driven by environmental sentiment, but by National Energy Security.**
+            while raw oil prices fluctuated, the global 'Breaking Point' was identified at the **$0.65/Litre** mark, triggering a universal search surge across diverse economies.
+            """)
 
+col_summary1,col_summary2,col_summary3 = st.columns(3)
 
+with col_summary1:
+    st.info("**The Subsidized Buffer**")
+    st.write("""
+             **Indonesia** remains the most resilient yet reactive market. Government subsidies act as a 'psychological anchor,' delaying mass EV adoption until global volatility forces a policy shift.""")
+with col_summary2:
+    st.success("**The Proactive Shift**")
+    st.write("""
+        **Malaysia & USA** represent the 'Reactive-Proactive' spectrum. Early policy warnings in Malaysia and domestic industrial strength in the USA make these markets the fastest to pivot during supply shocks.
+    """)
+with col_summary3:
+    st.warning("**The Maturity Gap**")
+    st.write("""
+        **Norway** has officially 'graduated' from the oil-dependency era, showing market saturation. Meanwhile, **Singapore** faces a 'Desire-Reality' gap due to high economic barriers.
+    """)
 
-
+st.subheader("""
+**Final Conclusion:** The 2026 data proves that the transition to Electric Vehicles is inevitable. However, the speed of this transition is dictated not by technology, but by **Government Policy** and **Geopolitical Stability.**
+""", text_alignment='center')
+st.divider()
+st.caption("Dashboard Analysis by Benedictus Alfred | Data Sources: FRED & Google Trends", text_alignment='center')
