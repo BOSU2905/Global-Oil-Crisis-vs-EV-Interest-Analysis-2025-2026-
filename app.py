@@ -6,7 +6,7 @@ import seaborn as sns
 st.title("Global Oil Crisis vs EV Interest Analysis (2026)", text_alignment="center")
 st.subheader("Developed an interactive dashboard to analyze the correlation between Brent Oil price volatility and global EV adoption interest across 5 countries.", text_alignment="center")
 st.header("About the Data:")
-df = pd.read_csv("data/final_data.csv")
+df = pd.read_csv("data/processed/final_data.csv")
 st.write(df)
 st.write("The Global Synchronicity Dataset: Synthesized from Official FRED (St. Louis Fed) oil prices and Google Trends interest scores. Our findings highlight a unique anomaly: a synchronized peak in EV interest across 5 different countries in a single month. This data-driven discovery validates the hypothesis that geopolitical energy shocks create a unified global shift in consumer awareness, regardless of borders.")
 
