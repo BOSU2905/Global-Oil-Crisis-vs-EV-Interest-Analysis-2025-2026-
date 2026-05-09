@@ -1,71 +1,65 @@
-# 📱 Smartphone Market Analysis & Interactive Dashboard
+# 🛢️ Oil vs. ⚡ EV: The Global Energy Transition Analysis
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue.svg)
-![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B.svg)
-![Plotly](https://img.shields.io/badge/Plotly-Interactive-3F4F75.svg)
+![Data-Analysis](https://img.shields.io/badge/Analytic-Time--Series-green.svg)
+![Energy-Trends](https://img.shields.io/badge/Sector-Energy-orange.svg)
 
 ## 🎯 Overview
-Proyek ini mengeksplorasi dinamika pasar smartphone global melalui analisis data yang mendalam. Fokus utamanya adalah memahami bagaimana brand, harga, dan spesifikasi teknis membentuk tren pasar saat ini. Dashboard ini dibangun untuk memberikan visualisasi yang jujur dan akurat bagi pengambil keputusan.
+Proyek ini menganalisis pergeseran paradigma konsumsi energi global, membandingkan dominasi bahan bakar fosil (Oil) dengan pertumbuhan eksponensial Kendaraan Listrik (EV). Fokus utama adalah melihat kapan titik temu (*intersection point*) di mana efisiensi EV mulai secara signifikan mendisrupsi permintaan minyak mentah dunia.
 
-Sebagai mahasiswa **Data Science**, saya tidak hanya menyajikan angka, tetapi juga memastikan setiap insight berasal dari data yang telah divalidasi kebenarannya melalui proses pembersihan yang ketat.
+Sebagai **Data Science Learner**, saya mengeksplorasi dataset ini untuk memahami apakah narasi "End of Oil" didukung oleh data yang valid atau sekadar sentimen pasar.
 
+## 🛠️ Data Engineering & Logic
+Menganalisis dua sektor yang berbeda membutuhkan ketelitian ekstra pada "metabolisme" datanya:
 
+* **Unit Standardization:** Mengonversi berbagai metrik energi (misal: barrels of oil equivalent vs. Gigawatt-hours) ke dalam satu standar perbandingan yang adil.
+* **Time-Series Analysis:** Menggunakan teknik *smoothing* untuk melihat tren jangka panjang tanpa terganggu oleh fluktuasi harga minyak harian.
+* **Correlation Study:** Menganalisis apakah penurunan harga baterai EV berkorelasi langsung dengan adopsi kendaraan listrik di negara-negara berkembang.
+* **Forecasting:** Mencoba memproyeksikan tren adopsi menggunakan model regresi sederhana untuk melihat estimasi dominasi pasar di masa depan.
 
-## 🛠️ Data Science Logic (The "Core" Workout)
-Analisis ini menangani tantangan data dunia nyata dengan teknik yang disiplin:
-
-* **Data Cleaning:** Menggabungkan berbagai sumber dataset mentah menjadi satu sumber kebenaran (*single source of truth*).
-* **Missing Value Handling:** Menggunakan **Median Imputation** untuk mengisi data yang bolong tanpa merusak distribusi asli data.
-* **Outlier Management:** Menggunakan **Interquartile Range (IQR)** untuk mendeteksi dan menangani harga "Sultan" yang ekstrem agar tidak membiasakan rata-rata pasar, namun tetap mempertahankan konteks brand premium.
-* **Visual Storytelling:** Menggunakan **Plotly** untuk membuat grafik yang tidak hanya cantik, tapi juga fungsional dan interaktif.
-
-## 📂 Project Anatomy
-Struktur folder yang rapi memudahkan skalabilitas dan audit kode:
+## 📂 Project Structure
+Organisasi folder yang disiplin untuk memastikan audit data yang transparan:
 
 ```text
-Smartphone_Analysis/
+Oil_EV_Trends/
 ├── data/
-│   ├── raw/           # Bahan baku (Dataset asli yang masih kotor)
-│   └── processed/     # Hasil olahan (Dataset final siap analisis)
-├── notebooks/         # Lab riset (.ipynb) untuk eksperimen EDA & Cleaning
-├── app.py             # Mesin utama Dashboard Streamlit
-├── requirements.txt   # Daftar suplemen (Library dependencies)
-├── .gitignore         # Satpam (Memastikan file sampah tidak masuk ke GitHub)
-└── README.md          # Panggung utama portofolio
+│   ├── raw/           # Dataset mentah dari IEA/EIA/OPEC
+│   └── processed/     # Data yang sudah diseragamkan unitnya
+├── notebooks/         # Analisis korelasi dan forecasting (.ipynb)
+├── scripts/           # Helper scripts untuk konversi unit
+├── .venv/             # Isolated environment (Python 3.14)
+├── requirements.txt   # Dependensi (Pandas, Scipy, Matplotlib)
+├── .gitignore         # Guardrail untuk file cache dan sistem
+└── README.md          # Dokumentasi utama proyek
+🚀 Installation & Usage
+Proyek ini menggunakan Python 3.14 untuk performa komputasi yang lebih optimal.
 
-🚀 Cara Menjalankan Dashboard
-Bagi Anda yang ingin melihat hasil analisis secara lokal:
-
-Clone Repository:
+Clone & Enter:
 
 Bash
-git clone [https://github.com/username/Smartphone_Analysis.git](https://github.com/username/Smartphone_Analysis.git)
-cd Smartphone_Analysis
-Setup Virtual Environment:
+git clone [https://github.com/username/Oil_EV_Trends.git](https://github.com/username/Oil_EV_Trends.git)
+cd Oil_EV_Trends
+Environment Setup:
 
 Bash
 python -m venv .venv
-# Aktifkan venv (Windows: .venv\Scripts\activate | Mac/Linux: source .venv/bin/activate)
+# Aktifkan venv sesuai OS Anda
 Install Dependencies:
 
 Bash
 pip install -r requirements.txt
-Run Application:
+📊 Key Insights Captured
+Visualisasi laju pertumbuhan tahunan (CAGR) dari adopsi EV yang melampaui prediksi awal dekade.
 
-Bash
-streamlit run app.py
-📊 Insights & Discovery
-Identifikasi korelasi kuat antara kapasitas RAM dan harga di segmen mid-range.
+Analisis "Energy Density": Mengapa sektor logistik berat masih sulit lepas dari ketergantungan minyak dibandingkan kendaraan penumpang.
 
-Visualisasi dominasi pasar brand tertentu yang memiliki variasi model paling luas.
+Peta adopsi EV global yang menunjukkan kesenjangan antara infrastruktur pengisian daya dan minat beli konsumen.
 
-Distribusi harga smartphone yang cenderung right-skewed, menunjukkan pasar yang didominasi oleh perangkat budget-friendly.
-
-👤 Author
+✍️ Author
 Benedictus Alfred Djaja
 
-Data Science Student at Bina Nusantara University
+Data Science Undergraduate | Bina Nusantara University
 
-Aspiring Developer Academy Learner
+Aspiring Apple Developer Academy Member
 
 LinkedIn | GitHub
