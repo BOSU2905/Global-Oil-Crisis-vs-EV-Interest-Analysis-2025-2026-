@@ -1,0 +1,604 @@
+/**
+ * Design tokens for the Oil vs EV analytical product.
+ *
+ * PRINCIPLES
+ * 1. Semantic names only. Components reference `--color-fg-muted`, never a hex
+ *    literal. The original project scattered two arbitrary hex values through
+ *    its charts; that class of drift is designed out here.
+ * 2. The interface recedes, the data does not. UI chrome uses deep, slightly
+ *    desaturated colour; the data palette is the only place saturated hue
+ *    appears. That is what keeps an analytical page from reading as a BI
+ *    dashboard.
+ * 3. Light-first with a complete dark theme. Both are first-class: a dark-only
+ *    analytics template is a cliché, and a light-only one is not credible for a
+ *    2026 product.
+ * 4. No build-time network dependency. System font stacks only -- no
+ *    `next/font/google`, no downloaded webfonts.
+ *
+ * THEMING
+ * Defaults are light. Dark applies automatically via `prefers-color-scheme` and
+ * can be forced with `[data-theme="dark"]` / `[data-theme="light"]` on <html>.
+ */
+
+/* ========================================================================== */
+/* 1. Primitive palette                                                       */
+/*    Raw values. Components must NOT use these directly -- use the semantic   */
+/*    tokens in section 2, which is what makes theming possible.               */
+/* ========================================================================== */
+
+:root {
+  /* Neutrals: very slightly cool, so surfaces read as paper rather than grey */
+  --neutral-0: #ffffff;
+  --neutral-25: #fcfcfd;
+  --neutral-50: #f7f8f9;
+  --neutral-100: #eff1f3;
+  --neutral-150: #e6e8eb;
+  --neutral-200: #d8dbdf;
+  --neutral-300: #b9bfc5;
+  --neutral-400: #8f979f;
+  --neutral-500: #6e767d;
+  --neutral-600: #545c63;
+  --neutral-700: #3c4348;
+  --neutral-800: #24292d;
+  --neutral-850: #1a1e21;
+  --neutral-900: #131619;
+  --neutral-950: #0b0d0e;
+
+  /* Data hues. Chosen for maximum separation at equivalent perceived weight. */
+  --hue-rust-600: #c2410c;
+  --hue-rust-400: #fb923c;
+  --hue-blue-600: #2563eb;
+  --hue-blue-400: #60a5fa;
+  --hue-teal-600: #0891b2;
+  --hue-teal-400: #22d3ee;
+  --hue-violet-600: #7c3aed;
+  --hue-violet-400: #a78bfa;
+  --hue-pink-600: #db2777;
+  --hue-pink-400: #f472b6;
+  --hue-emerald-600: #059669;
+  --hue-emerald-400: #34d399;
+
+  /* Deeper, less saturated tones for UI status. Deliberately distinct in
+     weight from the data palette so a callout never competes with a chart. */
+  --status-positive-700: #15803d;
+  --status-positive-400: #4ade80;
+  --status-warning-700: #a16207;
+  --status-warning-400: #facc15;
+  --status-negative-700: #b91c1c;
+  --status-negative-400: #f87171;
+  --status-info-800: #1e40af;
+  --status-info-400: #93b4fd;
+}
+
+/* ========================================================================== */
+/* 2. Semantic tokens -- LIGHT (default)                                      */
+/* ========================================================================== */
+
+:root {
+  /* --- surfaces & text --- */
+  --color-bg: var(--neutral-25);
+  --color-surface: var(--neutral-0);
+  --color-surface-raised: var(--neutral-50);
+  --color-surface-sunken: var(--neutral-100);
+
+  --color-border: var(--neutral-150);
+  --color-border-strong: var(--neutral-200);
+  --color-border-interactive: var(--neutral-300);
+
+  --color-fg: var(--neutral-950);
+  --color-fg-secondary: var(--neutral-600);
+  --color-fg-muted: var(--neutral-500);
+  /* Decorative only. Never the sole carrier of meaning -- fails AA at body size. */
+  --color-fg-subtle: var(--neutral-400);
+
+  /* Accent is contrast, not hue: dark fill on light ground. Restrained by design. */
+  --color-accent: var(--neutral-950);
+  --color-accent-hover: var(--neutral-800);
+  --color-accent-fg: var(--neutral-0);
+
+  /* --- status --- */
+  --color-positive: var(--status-positive-700);
+  --color-warning: var(--status-warning-700);
+  --color-negative: var(--status-negative-700);
+  --color-info: var(--status-info-800);
+  --color-positive-surface: #ecfdf3;
+  --color-warning-surface: #fefce8;
+  --color-negative-surface: #fef2f2;
+  --color-info-surface: #eff4ff;
+
+  /* --- focus --- */
+  --color-focus-ring: var(--hue-blue-600);
+
+  /* --- data series --- */
+  /* Oil is RESERVED. It is never used for a country, so a rust line always
+     means the price series wherever it appears. */
+  --color-oil: var(--hue-rust-600);
+  --color-oil-fill: #fff1e8;
+
+  /* Worldwide is near-ink rather than a hue: it is an aggregate, not a peer of
+     the five markets, and should not compete with them for attention. */
+  --color-series-worldwide: var(--neutral-800);
+
+  /*
+   * COUNTRY COLOURS ARE IDENTIFIERS ONLY.
+   *
+   * They encode no ranking, quality, sentiment or magnitude. Assignment is
+   * fixed and arbitrary, and must stay consistent everywhere in the product.
+   *
+   * Red is deliberately excluded from this palette (it is reserved for
+   * `--color-negative`), so no red/green pair exists among the countries and
+   * the set cannot be read as good-vs-bad.
+   *
+   * Cyan (Singapore) and blue (United States) are the closest pair. Colour is
+   * therefore never the only cue: every country series must ALSO carry a dash
+   * pattern and a direct label. See chart-language.ts.
+   */
+  --color-country-indonesia: var(--hue-pink-600);
+  --color-country-malaysia: var(--hue-violet-600);
+  --color-country-norway: var(--hue-emerald-600);
+  --color-country-singapore: var(--hue-teal-600);
+  --color-country-us: var(--hue-blue-600);
+
+  /* --- regime / annotation --- */
+  /* The elevated-price window. A wash, not a fill: it must sit behind data. */
+  --color-regime-elevated: color-mix(in srgb, var(--hue-rust-600) 8%, transparent);
+  --color-regime-elevated-edge: color-mix(in srgb, var(--hue-rust-600) 28%, transparent);
+  --color-regime-baseline: transparent;
+  /* Uncertainty bands (confidence intervals). Neutral, so the band never reads
+     as a second series. */
+  --color-uncertainty: color-mix(in srgb, var(--neutral-500) 14%, transparent);
+  --color-reference-line: var(--neutral-300);
+  --color-zero-line: var(--neutral-400);
+  /* Data that is present but must not be read as equivalent: the partial week. */
+  --color-provisional: var(--neutral-400);
+}
+
+/* ========================================================================== */
+/* 3. Semantic tokens -- DARK                                                 */
+/* ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: var(--neutral-950);
+    --color-surface: var(--neutral-900);
+    --color-surface-raised: var(--neutral-850);
+    --color-surface-sunken: #08090a;
+
+    --color-border: #23282c;
+    --color-border-strong: #2f353a;
+    --color-border-interactive: #3d444a;
+
+    --color-fg: #ecedee;
+    --color-fg-secondary: #a8b0b7;
+    --color-fg-muted: #8b9298;
+    --color-fg-subtle: #6b7278;
+
+    --color-accent: #f5f6f7;
+    --color-accent-hover: #ffffff;
+    --color-accent-fg: var(--neutral-950);
+
+    --color-positive: var(--status-positive-400);
+    --color-warning: var(--status-warning-400);
+    --color-negative: var(--status-negative-400);
+    --color-info: var(--status-info-400);
+    --color-positive-surface: #0d2b1b;
+    --color-warning-surface: #2b2410;
+    --color-negative-surface: #2c1517;
+    --color-info-surface: #111d3d;
+
+    --color-focus-ring: var(--hue-blue-400);
+
+    --color-oil: var(--hue-rust-400);
+    --color-oil-fill: #2a1a10;
+
+    --color-series-worldwide: #d4d7da;
+
+    --color-country-indonesia: var(--hue-pink-400);
+    --color-country-malaysia: var(--hue-violet-400);
+    --color-country-norway: var(--hue-emerald-400);
+    --color-country-singapore: var(--hue-teal-400);
+    --color-country-us: var(--hue-blue-400);
+
+    --color-regime-elevated: color-mix(in srgb, var(--hue-rust-400) 10%, transparent);
+    --color-regime-elevated-edge: color-mix(in srgb, var(--hue-rust-400) 34%, transparent);
+    --color-uncertainty: color-mix(in srgb, #ffffff 12%, transparent);
+    --color-reference-line: #3d444a;
+    --color-zero-line: #4d545a;
+    --color-provisional: #6b7278;
+  }
+}
+
+/* Forced dark, for an explicit theme toggle. Mirrors the block above. */
+:root[data-theme="dark"] {
+  --color-bg: var(--neutral-950);
+  --color-surface: var(--neutral-900);
+  --color-surface-raised: var(--neutral-850);
+  --color-surface-sunken: #08090a;
+
+  --color-border: #23282c;
+  --color-border-strong: #2f353a;
+  --color-border-interactive: #3d444a;
+
+  --color-fg: #ecedee;
+  --color-fg-secondary: #a8b0b7;
+  --color-fg-muted: #8b9298;
+  --color-fg-subtle: #6b7278;
+
+  --color-accent: #f5f6f7;
+  --color-accent-hover: #ffffff;
+  --color-accent-fg: var(--neutral-950);
+
+  --color-positive: var(--status-positive-400);
+  --color-warning: var(--status-warning-400);
+  --color-negative: var(--status-negative-400);
+  --color-info: var(--status-info-400);
+  --color-positive-surface: #0d2b1b;
+  --color-warning-surface: #2b2410;
+  --color-negative-surface: #2c1517;
+  --color-info-surface: #111d3d;
+
+  --color-focus-ring: var(--hue-blue-400);
+
+  --color-oil: var(--hue-rust-400);
+  --color-oil-fill: #2a1a10;
+
+  --color-series-worldwide: #d4d7da;
+
+  --color-country-indonesia: var(--hue-pink-400);
+  --color-country-malaysia: var(--hue-violet-400);
+  --color-country-norway: var(--hue-emerald-400);
+  --color-country-singapore: var(--hue-teal-400);
+  --color-country-us: var(--hue-blue-400);
+
+  --color-regime-elevated: color-mix(in srgb, var(--hue-rust-400) 10%, transparent);
+  --color-regime-elevated-edge: color-mix(in srgb, var(--hue-rust-400) 34%, transparent);
+  --color-uncertainty: color-mix(in srgb, #ffffff 12%, transparent);
+  --color-reference-line: #3d444a;
+  --color-zero-line: #4d545a;
+  --color-provisional: #6b7278;
+}
+
+/* ========================================================================== */
+/* 4. Typography                                                              */
+/*    System stacks only. `--font-numeric` exists because statistics must      */
+/*    align in columns: tabular figures are non-negotiable for a data product. */
+/* ========================================================================== */
+
+:root {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  --font-numeric: var(--font-mono);
+
+  /* Only two weights. More weights is the fastest route to looking generic. */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Scale. Display and headings use clamp() so the hero adapts without a
+     media query; body sizes stay fixed because readable prose should not
+     grow with the viewport. */
+  --text-display-size: clamp(2.25rem, 1.25rem + 3.6vw, 3.75rem);
+  --text-display-line: 1.06;
+  --text-display-tracking: -0.028em;
+  --text-display-weight: var(--weight-semibold);
+
+  --text-h1-size: clamp(1.875rem, 1.25rem + 2vw, 2.75rem);
+  --text-h1-line: 1.12;
+  --text-h1-tracking: -0.022em;
+
+  --text-h2-size: clamp(1.5rem, 1.15rem + 1.1vw, 2rem);
+  --text-h2-line: 1.18;
+  --text-h2-tracking: -0.018em;
+
+  --text-h3-size: 1.25rem;
+  --text-h3-line: 1.3;
+  --text-h3-tracking: -0.012em;
+
+  --text-h4-size: 1.0625rem;
+  --text-h4-line: 1.4;
+  --text-h4-tracking: -0.006em;
+
+  /* Lead paragraph: the analytical thesis under a section heading. */
+  --text-lead-size: 1.1875rem;
+  --text-lead-line: 1.62;
+
+  --text-body-size: 1rem;
+  --text-body-line: 1.68;
+
+  --text-small-size: 0.9375rem;
+  --text-small-line: 1.6;
+
+  /* Metadata: sources, footnotes, chart captions. */
+  --text-meta-size: 0.8125rem;
+  --text-meta-line: 1.5;
+
+  /*
+   * Section eyebrow labels ("04 — GLOBAL RELATIONSHIP"). Uppercase is used
+   * ONLY here, at one size. Uppercase elsewhere is what makes a dashboard
+   * look shouty.
+   */
+  --text-label-size: 0.75rem;
+  --text-label-line: 1.35;
+  --text-label-tracking: 0.075em;
+  --text-label-weight: var(--weight-medium);
+  --text-label-transform: uppercase;
+
+  /* Numeric display, for statistics in cards and tables. */
+  --text-stat-size: clamp(1.5rem, 1.2rem + 1vw, 2.125rem);
+  --text-stat-line: 1.1;
+  --text-stat-tracking: -0.02em;
+  --text-stat-weight: var(--weight-medium);
+
+  --text-stat-small-size: 1.0625rem;
+  --text-stat-small-line: 1.3;
+
+  /* Axis ticks and inline data. */
+  --text-data-size: 0.8125rem;
+  --text-data-line: 1.4;
+}
+
+/* Utility: every element rendering a number should carry tabular figures. */
+.numeric,
+[data-numeric] {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ========================================================================== */
+/* 5. Spacing, layout, radius, border, elevation                              */
+/* ========================================================================== */
+
+:root {
+  /* 4px base. Named by step, not by pixel, so the scale can be retuned once. */
+  --space-0: 0;
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem; /*   8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /*    16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /*  24px */
+  --space-8: 2rem; /*    32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /*   48px */
+  --space-16: 4rem; /*   64px */
+  --space-20: 5rem; /*   80px */
+  --space-24: 6rem; /*   96px */
+  --space-32: 8rem; /*  128px */
+
+  /* --- widths --- */
+  /* Shell maximum. Beyond this the page stops growing and gains side margin. */
+  --width-page: 1440px;
+  /* Standard section content: cards, grids, tables. */
+  --width-content: 1120px;
+  /* Prose. Capped in ch so measure stays right regardless of font size. */
+  --width-reading: 68ch;
+  /* Charts may exceed content width; prose never may. */
+  --width-chart: 1280px;
+  /* Narrow column for pull quotes and key-insight callouts. */
+  --width-narrow: 52ch;
+
+  /* --- rhythm --- */
+  --page-padding-inline: var(--space-6);
+  --page-padding-inline-sm: var(--space-4);
+  --section-spacing: var(--space-24);
+  --section-spacing-sm: var(--space-16);
+  --section-header-gap: var(--space-6);
+  --card-padding: var(--space-8);
+  --card-padding-sm: var(--space-5);
+  --grid-gap: var(--space-6);
+  --grid-gap-sm: var(--space-4);
+  --stack-gap: var(--space-4);
+
+  /* --- radius --- */
+  /* Deliberately tight. Large radii read as consumer app, not analytical tool. */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  /* Reserved for the hero and the executive summary panels only. */
+  --radius-xl: 12px;
+  --radius-full: 999px;
+
+  /* --- borders --- */
+  --border-width: 1px;
+  --border-width-strong: 2px;
+  --border: var(--border-width) solid var(--color-border);
+  --border-strong: var(--border-width) solid var(--color-border-strong);
+
+  /* --- elevation --- */
+  /*
+   * Elevation comes from border + background delta, not shadow. That is what
+   * makes a light analytical UI read as precise rather than plastic, and it is
+   * the reason cards here do not float.
+   *
+   * Shadow is reserved for genuinely overlaid surfaces: popovers, dialogs,
+   * dropdowns. Cards must not use it.
+   */
+  --shadow-none: none;
+  --shadow-overlay: 0 1px 2px -1px rgb(11 13 14 / 0.08), 0 8px 24px -8px rgb(11 13 14 / 0.16);
+  --shadow-overlay-strong:
+    0 2px 4px -2px rgb(11 13 14 / 0.1), 0 16px 40px -12px rgb(11 13 14 / 0.22);
+
+  /* --- focus --- */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring: var(--focus-ring-width) solid var(--color-focus-ring);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --shadow-overlay: 0 1px 2px -1px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.6);
+    --shadow-overlay-strong:
+      0 2px 4px -2px rgb(0 0 0 / 0.5), 0 16px 40px -12px rgb(0 0 0 / 0.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --shadow-overlay: 0 1px 2px -1px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.6);
+  --shadow-overlay-strong: 0 2px 4px -2px rgb(0 0 0 / 0.5), 0 16px 40px -12px rgb(0 0 0 / 0.7);
+}
+
+/* ========================================================================== */
+/* 6. Motion                                                                  */
+/*    Fast, few, purposeful. Nothing animates that delays reading a number.   */
+/* ========================================================================== */
+
+:root {
+  --duration-instant: 80ms;
+  --duration-fast: 140ms; /* hover, focus, colour */
+  --duration-medium: 200ms; /* disclosure open/close */
+  --duration-slow: 360ms; /* section reveal, once only */
+
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+
+  --transition-colors:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+  --transition-transform: transform var(--duration-fast) var(--ease-out);
+
+  /* Scroll-reveal offset. Small: content should never appear to jump. */
+  --reveal-offset: 12px;
+}
+
+/*
+ * Reduced motion is honoured globally rather than per-component, so a missed
+ * component cannot reintroduce motion. Transitions collapse to ~0 instead of
+ * being removed, which keeps state changes from flickering.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 1ms;
+    --duration-fast: 1ms;
+    --duration-medium: 1ms;
+    --duration-slow: 1ms;
+    --reveal-offset: 0px;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ========================================================================== */
+/* 7. Chart language tokens                                                   */
+/*    The future ECharts layer resolves these at runtime rather than hard-     */
+/*    coding colour, so charts inherit the theme (including dark mode) and     */
+/*    every chart in the product shares one visual language.                  */
+/*    Mirrored as a typed contract in src/styles/chart-language.ts.            */
+/* ========================================================================== */
+
+:root {
+  /* axis */
+  --chart-axis-label-color: var(--color-fg-muted);
+  --chart-axis-label-size: var(--text-data-size);
+  --chart-axis-label-font: var(--font-numeric);
+  --chart-axis-line-color: var(--color-border-strong);
+  --chart-axis-title-color: var(--color-fg-secondary);
+  --chart-axis-title-size: var(--text-meta-size);
+
+  /* grid: horizontal only. Vertical gridlines add noise to a time series. */
+  --chart-grid-color: var(--color-border);
+  --chart-grid-width: 1px;
+  --chart-grid-dash: 0;
+
+  /* tooltip: a surface, not the library default */
+  --chart-tooltip-bg: var(--color-surface);
+  --chart-tooltip-border: var(--color-border-strong);
+  --chart-tooltip-fg: var(--color-fg);
+  --chart-tooltip-muted-fg: var(--color-fg-muted);
+  --chart-tooltip-radius: var(--radius-md);
+  --chart-tooltip-shadow: var(--shadow-overlay);
+  --chart-tooltip-padding: var(--space-3);
+
+  /* series geometry */
+  --chart-line-width: 2px;
+  --chart-line-width-emphasis: 2.75px;
+  --chart-point-radius: 4px;
+  --chart-point-radius-emphasis: 6px;
+  --chart-scatter-opacity: 0.85;
+  --chart-area-opacity: 0.1;
+
+  /* legend */
+  --chart-legend-fg: var(--color-fg-secondary);
+  --chart-legend-size: var(--text-meta-size);
+  --chart-legend-inactive-fg: var(--color-fg-subtle);
+
+  /* annotation, reference, regime */
+  --chart-annotation-fg: var(--color-fg-secondary);
+  --chart-annotation-size: var(--text-meta-size);
+  --chart-annotation-line: var(--color-border-strong);
+  --chart-reference-line-color: var(--color-reference-line);
+  --chart-reference-line-dash: 4 4;
+  --chart-zero-line-color: var(--color-zero-line);
+  --chart-zero-line-width: 1px;
+  --chart-regime-fill: var(--color-regime-elevated);
+  --chart-regime-edge: var(--color-regime-elevated-edge);
+  --chart-regime-label-fg: var(--color-fg-muted);
+
+  /* uncertainty (confidence interval bands and whiskers) */
+  --chart-uncertainty-fill: var(--color-uncertainty);
+  --chart-uncertainty-stroke: var(--color-border-strong);
+  --chart-uncertainty-whisker-width: 1.5px;
+
+  /* interaction states */
+  --chart-hover-bg: color-mix(in srgb, var(--color-fg) 4%, transparent);
+  --chart-crosshair-color: var(--color-border-interactive);
+  --chart-crosshair-dash: 3 3;
+  --chart-selected-outline: var(--color-focus-ring);
+  --chart-dimmed-opacity: 0.28;
+
+  /* provisional / partial data, e.g. the single-trading-day week */
+  --chart-provisional-color: var(--color-provisional);
+  --chart-provisional-dash: 5 4;
+
+  /* responsive heights: charts change height by breakpoint, not just width */
+  --chart-height-hero: 420px;
+  --chart-height-standard: 360px;
+  --chart-height-compact: 300px;
+  --chart-height-mobile: 280px;
+  --chart-height-sparkline: 40px;
+}
+
+/* ========================================================================== */
+/* 8. Breakpoints (documentation)                                             */
+/*    CSS custom properties cannot be used inside @media queries, so these are */
+/*    recorded here as the single source of truth for the values and mirrored  */
+/*    in chart-language.ts for JS/chart use. Media queries must use the        */
+/*    literal px values below.                                                */
+/*                                                                            */
+/*      sm   640px   large phone                                              */
+/*      md   768px   tablet portrait -- dual-axis charts split here            */
+/*      lg  1024px   tablet landscape / small laptop                          */
+/*      xl  1280px   desktop -- full editorial composition                     */
+/*      2xl 1536px   large desktop                                            */
+/* ========================================================================== */
+
+:root {
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* Mobile rhythm: tighter gutters and section spacing, same scale. */
+@media (max-width: 767px) {
+  :root {
+    --page-padding-inline: var(--page-padding-inline-sm);
+    --section-spacing: var(--section-spacing-sm);
+    --card-padding: var(--card-padding-sm);
+    --grid-gap: var(--grid-gap-sm);
+  }
+}
