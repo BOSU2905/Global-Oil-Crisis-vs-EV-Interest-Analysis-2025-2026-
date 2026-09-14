@@ -1,0 +1,19 @@
+{
+  "name": "oil-ev-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Presentation layer for the Oil vs EV interest analysis. Phase 3A: framework-independent foundation only.",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run typecheck && npm run test && npm run format:check"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
