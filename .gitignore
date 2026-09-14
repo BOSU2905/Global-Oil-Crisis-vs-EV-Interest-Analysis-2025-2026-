@@ -2,3 +2,14 @@
 .idea/
 __pycache__/
 *.pyc
+
+# tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# NOTE: web/src/data/generated/*.json is deliberately COMMITTED.
+# The frontend imports those artifacts at build time, so committing them keeps
+# the build reproducible without requiring a Python toolchain. Verify freshness
+# with: cd pipeline && python -m pipeline.build --check

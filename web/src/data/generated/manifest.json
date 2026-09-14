@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0.0",
+  "pipeline_version": "1.0.0",
+  "generated_at": "2026-09-14T16:37:37Z",
+  "_determinism_note": "generated_at is the only non-reproducible field in any artifact. Compare content_hash to verify that two runs produced identical analytical output.",
+  "content_hash": "333c51d03b36d80078b95454b0bc0aa87080f2b52916c5287962ca89b70e6b8d",
+  "sources": [
+    {
+      "id": "fred_dcoilbrenteu",
+      "name": "Crude Oil Prices: Brent - Europe",
+      "publisher": "U.S. Energy Information Administration, via FRED (Federal Reserve Bank of St. Louis)",
+      "url": "https://fred.stlouisfed.org/series/DCOILBRENTEU",
+      "series_id": "DCOILBRENTEU",
+      "units": "U.S. dollars per barrel",
+      "frequency": "daily (business days)",
+      "notes": "Spot price, not seasonally adjusted. Market holidays are present as empty values and are forward-filled by this pipeline. This is a CRUDE benchmark price and is not a retail pump price."
+    },
+    {
+      "id": "google_trends_electric_car",
+      "name": "Google Trends: search interest for \"Electric Car\"",
+      "publisher": "Google Trends",
+      "url": "https://trends.google.com/trends/",
+      "series_id": null,
+      "units": "relative search interest (0-100, rescaled per query)",
+      "frequency": "weekly (week beginning Sunday)",
+      "notes": "Six independent exports: Worldwide, Indonesia, Malaysia, Norway, Singapore, United States. Each export is independently rescaled so its own maximum week equals 100, so LEVELS ARE NOT COMPARABLE ACROSS EXPORTS. Exact query terms, category and retrieval date were not recorded by the original project and are listed as an open provenance gap in reports/VALIDATION_REPORT.md."
+    }
+  ],
+  "source_files": {
+    "DCOILBRENTEU.csv": "90c0f922ec37fa38f1a74fb52aabf8093844f97c4ea72103bed33723ca4c7466",
+    "EV Trends.csv": "9cc8bd330dd11fba8313dbcc47c910503d2025f880c220cf38a4e40e34a9068f",
+    "Indonesia_EV_Trends.csv": "e21060a7f23bbd36d5fa98d171ff3bce437af095bee8c50b50f85d18871348f0",
+    "Malaysia_EV_Trends.csv": "13dfc5db9310bf9312da88d8d7522d5beb827140a43ed3c4fe56e62252b06857",
+    "Norway_EV_Trends.csv": "e9e24b504aa1dc226a894d8f8816ab16c77ecea1c8d836d9846a317fe4c076e9",
+    "Singapore_EV_Trends.csv": "7e1977b37ebff87f199575ce694e6e90de08c4abd273512f4f4f241cddabf872",
+    "US_EV_Trends.csv": "b01aeffa9305f56895de74d8921caa0c5ebb7e029fa9e34c06ecf507d41251a5"
+  },
+  "artifacts": {
+    "panel.json": "e446aeb525e12d5b5ff3a0291fa1d06260aa46e7ab45da8cf5b8c032596d471c",
+    "metrics.json": "5e5f43bf255b1ff70715e391a13b786b55b23128a1e1388fbff8c98674fb4002",
+    "countries.json": "6789e21c6b3a3aa019832348995e7545b8f5b4cbff88697284ba22687e4ee1fb",
+    "claims.json": "c46072971a2b59e7b0199351cec59c8c12bf5b53cc0c374c8629b17459112231"
+  },
+  "coverage": {
+    "trends_weeks": 31,
+    "oil_weeks": 30,
+    "first_week": "2025-08-31",
+    "last_week": "2026-03-29",
+    "weeks_without_oil": [
+      "2026-03-29"
+    ],
+    "partial_weeks": [
+      "2026-03-22"
+    ]
+  },
+  "analytical_configuration": {
+    "primary_lag_weeks": 0,
+    "lag_window_weeks": [
+      -4,
+      4
+    ],
+    "confidence_level": 0.95,
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20260329,
+    "litres_per_barrel": 158.987294928,
+    "regime_rule": "max_week_over_week_pct_increase",
+    "trends_normalisation": "per_series_max_100_independent_queries"
+  },
+  "claims_summary": {
+    "total": 22,
+    "by_disposition": {
+      "rewrite": [
+        "synchronised_peak_single_month",
+        "near_perfect_correlation",
+        "peak_week_and_price_attribution",
+        "universal_breaking_point_price",
+        "malaysia_exceptional_sensitivity",
+        "usa_strong_association",
+        "norway_decoupled",
+        "indonesia_subsidised_shield",
+        "singapore_association"
+      ],
+      "remove": [
+        "oil_shocks_greatest_driver",
+        "energy_security_motivation",
+        "most_enthusiastic_market",
+        "malaysia_future_crisis_foresight",
+        "readme_describes_other_project"
+      ],
+      "requires_citation": [
+        "iran_israel_usa_conflict",
+        "malaysia_subsidy_quota_change",
+        "singapore_pump_prices",
+        "singapore_ev_ownership_share",
+        "singapore_coe_barrier",
+        "indonesia_pump_price",
+        "us_energy_policy_attribution",
+        "us_market_rank_and_manufacturers"
+      ]
+    },
+    "by_status": {
+      "contradicted_by_data": [
+        "synchronised_peak_single_month",
+        "peak_week_and_price_attribution",
+        "malaysia_exceptional_sensitivity"
+      ],
+      "overstated_relative_to_data": [
+        "near_perfect_correlation",
+        "oil_shocks_greatest_driver",
+        "universal_breaking_point_price",
+        "norway_decoupled",
+        "indonesia_subsidised_shield",
+        "singapore_association"
+      ],
+      "external_unverifiable_from_dataset": [
+        "energy_security_motivation",
+        "iran_israel_usa_conflict",
+        "malaysia_subsidy_quota_change",
+        "singapore_pump_prices",
+        "singapore_ev_ownership_share",
+        "singapore_coe_barrier",
+        "indonesia_pump_price",
+        "us_energy_policy_attribution",
+        "us_market_rank_and_manufacturers"
+      ],
+      "invalid_method": [
+        "most_enthusiastic_market"
+      ],
+      "beyond_data_window": [
+        "malaysia_future_crisis_foresight"
+      ],
+      "supported_by_data": [
+        "usa_strong_association"
+      ],
+      "describes_work_not_present": [
+        "readme_describes_other_project"
+      ]
+    },
+    "requiring_citation": [
+      "iran_israel_usa_conflict",
+      "malaysia_subsidy_quota_change",
+      "singapore_pump_prices",
+      "singapore_ev_ownership_share",
+      "singapore_coe_barrier",
+      "indonesia_pump_price",
+      "us_energy_policy_attribution",
+      "us_market_rank_and_manufacturers"
+    ],
+    "unsourced_count": 11
+  }
+}

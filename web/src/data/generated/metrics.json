@@ -1,0 +1,3067 @@
+{
+  "schema_version": "1.0.0",
+  "configuration": {
+    "primary_lag_weeks": 0,
+    "lag_window_weeks": [
+      -4,
+      4
+    ],
+    "min_pairs_for_lag": 20,
+    "confidence_level": 0.95,
+    "bootstrap_iterations": 10000,
+    "bootstrap_seed": 20260329,
+    "significance_alpha": 0.05,
+    "litres_per_barrel": 158.987294928,
+    "include_partial_weeks_in_primary": true,
+    "regime_rule": "max_week_over_week_pct_increase",
+    "lag_sign_convention": "lag = k pairs oil from week (t - k) with interest at week t; k > 0 means oil leads interest"
+  },
+  "global": {
+    "oil": {
+      "weeks": 30,
+      "first_week": "2025-08-31",
+      "last_week": "2026-03-22",
+      "mean_usd_per_barrel": 70.3854666667,
+      "median_usd_per_barrel": 66.92,
+      "min_usd_per_barrel": 60.826,
+      "min_week": "2025-12-14",
+      "max_usd_per_barrel": 111.398,
+      "max_week": "2026-03-15",
+      "max_usd_per_litre": 0.7006723402,
+      "total_pct_change_first_to_max": 66.6287731475,
+      "partial_weeks": [
+        "2026-03-22"
+      ],
+      "weeks_with_imputed_days": [
+        {
+          "week_start": "2025-12-21",
+          "imputed_days": 2
+        },
+        {
+          "week_start": "2025-12-28",
+          "imputed_days": 1
+        }
+      ]
+    },
+    "regime": {
+      "rule": "max_week_over_week_pct_increase",
+      "onset_week": "2026-03-01",
+      "onset_pct_change": 0.1951622849,
+      "baseline_weeks": 26,
+      "elevated_weeks": 4,
+      "baseline_max_usd_per_barrel": 71.656,
+      "elevated_min_usd_per_barrel": 85.282,
+      "regimes_separated": true
+    },
+    "peak_dispersion": {
+      "peaks": {
+        "indonesia": "2026-02-15",
+        "malaysia": "2026-02-15",
+        "norway": "2026-01-25",
+        "singapore": "2026-03-08",
+        "us": "2026-03-29"
+      },
+      "distinct_weeks": 4,
+      "distinct_months": [
+        "2026-01",
+        "2026-02",
+        "2026-03"
+      ],
+      "span_weeks": 9,
+      "synchronised_within_one_month": false
+    },
+    "worldwide": {
+      "id": "worldwide",
+      "label": "Worldwide",
+      "short": "WLD",
+      "is_country": false,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.7268628893,
+        "pearson_p": 5.3931e-06,
+        "spearman_rho": 0.7211526067,
+        "spearman_p": 6.927e-06,
+        "bootstrap_ci": {
+          "low": 0.545213137,
+          "high": 0.8868098474,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": 0.496649429,
+          "high": 0.8615271584,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": 102.9251487869,
+          "intercept": 12.9672103775,
+          "r_squared": 0.5283296599,
+          "slope_stderr": 18.3784666887,
+          "n": 30
+        },
+        "significant_at_alpha": true,
+        "alpha": 0.05,
+        "ci_includes_zero": false,
+        "strength_label": "strong",
+        "direction": "positive",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.8299586499,
+          "pearson_p": 1.574e-07,
+          "spearman_rho": 0.3965718018
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.8061763077,
+          "pearson_p": 3.855e-07,
+          "spearman_rho": 0.4216833926
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.7842315721,
+          "pearson_p": 7.894e-07,
+          "spearman_rho": 0.4945814417
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.7536810986,
+          "pearson_p": 2.3596e-06,
+          "spearman_rho": 0.6255114249
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": 0.7268628893,
+          "pearson_p": 5.3931e-06,
+          "spearman_rho": 0.7211526067
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": 0.7764881044,
+          "pearson_p": 4.564e-07,
+          "spearman_rho": 0.7362921639
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": 0.7817371853,
+          "pearson_p": 5.53e-07,
+          "spearman_rho": 0.6878948867
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": 0.783477433,
+          "pearson_p": 8.222e-07,
+          "spearman_rho": 0.5726837702
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": 0.7359063375,
+          "pearson_p": 1.2165e-05,
+          "spearman_rho": 0.4332938319
+        }
+      ],
+      "best_lag": {
+        "lag_weeks": 3,
+        "n": 28,
+        "pearson_r": 0.783477433,
+        "pearson_p": 8.222e-07,
+        "spearman_rho": 0.5726837702
+      },
+      "unrestricted_lag_maximum_is_negative": true,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.7033639138,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": 0.7268628893,
+            "pearson_p": 5.3931e-06,
+            "significant_at_alpha": true
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": -0.1162824134,
+            "pearson_p": 0.5480407112,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": 0.5273446581,
+            "pearson_p": 0.0027490067,
+            "significant_at_alpha": true
+          }
+        ],
+        "agreement": "significance_disagreement",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": 0.7268628893,
+          "min_r": 0.6712998397,
+          "max_r": 0.7795145459,
+          "max_abs_delta": 0.0555630496,
+          "most_influential_index": 27,
+          "sign_flips": false,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": 0.7295030588,
+              "delta": 0.0026401694
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": 0.7262999262,
+              "delta": -0.0005629631
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": 0.7282800905,
+              "delta": 0.0014172012
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": 0.7285704244,
+              "delta": 0.0017075351
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": 0.7274569188,
+              "delta": 0.0005940295
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": 0.7262206668,
+              "delta": -0.0006422225
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": 0.7219655895,
+              "delta": -0.0048972999
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": 0.7229980636,
+              "delta": -0.0038648257
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": 0.7274246987,
+              "delta": 0.0005618094
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": 0.7259024152,
+              "delta": -0.0009604741
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": 0.722581119,
+              "delta": -0.0042817703
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": 0.723397797,
+              "delta": -0.0034650924
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": 0.7324753149,
+              "delta": 0.0056124256
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": 0.737475414,
+              "delta": 0.0106125247
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": 0.7291484489,
+              "delta": 0.0022855596
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": 0.7290057638,
+              "delta": 0.0021428745
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": 0.7232491831,
+              "delta": -0.0036137062
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": 0.721479922,
+              "delta": -0.0053829674
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": 0.7228154719,
+              "delta": -0.0040474174
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": 0.7272347394,
+              "delta": 0.0003718501
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": 0.7267292506,
+              "delta": -0.0001336387
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": 0.7270767519,
+              "delta": 0.0002138626
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": 0.7269201946,
+              "delta": 5.73053e-05
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": 0.7490351321,
+              "delta": 0.0221722428
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": 0.7795145459,
+              "delta": 0.0526516566
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": 0.7435616476,
+              "delta": 0.0166987582
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": 0.7107492997,
+              "delta": -0.0161135897
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.6712998397,
+              "delta": -0.0555630496
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.7783657593,
+              "delta": 0.05150287
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.674304687,
+              "delta": -0.0525582023
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.674304687,
+            "pearson_p": 6.04797e-05,
+            "delta_vs_primary": -0.0525582023,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.6594363077,
+            "pearson_p": 0.0002479753,
+            "delta_vs_primary": -0.0674265816,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": -0.1237161054,
+            "pearson_p": 0.8762838946,
+            "delta_vs_primary": -0.8505789947,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.7211526067,
+            "pearson_p": 6.927e-06,
+            "delta_vs_primary": -0.0057102826,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 59.8709677419,
+          "median_interest": 56.0,
+          "min_interest": 47.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 55.6923076923,
+          "elevated_mean_interest": 81.6,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-03-29",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 79.5580110497,
+          "baseline_to_elevated_pct_change": 46.5193370166,
+          "peak_lag_weeks": 2,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "strong",
+        "direction": "positive",
+        "significance": "significant",
+        "robustness": "moderate",
+        "evidence_group": "level_only_association",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "shared_trend_confound_possible",
+          "no_short_run_comovement",
+          "specification_sensitive",
+          "negative_lag_maximum"
+        ]
+      }
+    },
+    "evidence_groups": {
+      "no_detectable_association": [
+        "indonesia",
+        "norway"
+      ],
+      "inconclusive": [
+        "malaysia"
+      ],
+      "level_only_association": [
+        "singapore",
+        "us"
+      ]
+    }
+  },
+  "series": {
+    "worldwide": {
+      "id": "worldwide",
+      "label": "Worldwide",
+      "short": "WLD",
+      "is_country": false,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.7268628893,
+        "pearson_p": 5.3931e-06,
+        "spearman_rho": 0.7211526067,
+        "spearman_p": 6.927e-06,
+        "bootstrap_ci": {
+          "low": 0.545213137,
+          "high": 0.8868098474,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": 0.496649429,
+          "high": 0.8615271584,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": 102.9251487869,
+          "intercept": 12.9672103775,
+          "r_squared": 0.5283296599,
+          "slope_stderr": 18.3784666887,
+          "n": 30
+        },
+        "significant_at_alpha": true,
+        "alpha": 0.05,
+        "ci_includes_zero": false,
+        "strength_label": "strong",
+        "direction": "positive",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.8299586499,
+          "pearson_p": 1.574e-07,
+          "spearman_rho": 0.3965718018
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.8061763077,
+          "pearson_p": 3.855e-07,
+          "spearman_rho": 0.4216833926
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.7842315721,
+          "pearson_p": 7.894e-07,
+          "spearman_rho": 0.4945814417
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.7536810986,
+          "pearson_p": 2.3596e-06,
+          "spearman_rho": 0.6255114249
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": 0.7268628893,
+          "pearson_p": 5.3931e-06,
+          "spearman_rho": 0.7211526067
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": 0.7764881044,
+          "pearson_p": 4.564e-07,
+          "spearman_rho": 0.7362921639
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": 0.7817371853,
+          "pearson_p": 5.53e-07,
+          "spearman_rho": 0.6878948867
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": 0.783477433,
+          "pearson_p": 8.222e-07,
+          "spearman_rho": 0.5726837702
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": 0.7359063375,
+          "pearson_p": 1.2165e-05,
+          "spearman_rho": 0.4332938319
+        }
+      ],
+      "best_lag": {
+        "lag_weeks": 3,
+        "n": 28,
+        "pearson_r": 0.783477433,
+        "pearson_p": 8.222e-07,
+        "spearman_rho": 0.5726837702
+      },
+      "unrestricted_lag_maximum_is_negative": true,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.7033639138,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": 0.7268628893,
+            "pearson_p": 5.3931e-06,
+            "significant_at_alpha": true
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": -0.1162824134,
+            "pearson_p": 0.5480407112,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": 0.5273446581,
+            "pearson_p": 0.0027490067,
+            "significant_at_alpha": true
+          }
+        ],
+        "agreement": "significance_disagreement",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": 0.7268628893,
+          "min_r": 0.6712998397,
+          "max_r": 0.7795145459,
+          "max_abs_delta": 0.0555630496,
+          "most_influential_index": 27,
+          "sign_flips": false,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": 0.7295030588,
+              "delta": 0.0026401694
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": 0.7262999262,
+              "delta": -0.0005629631
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": 0.7282800905,
+              "delta": 0.0014172012
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": 0.7285704244,
+              "delta": 0.0017075351
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": 0.7274569188,
+              "delta": 0.0005940295
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": 0.7262206668,
+              "delta": -0.0006422225
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": 0.7219655895,
+              "delta": -0.0048972999
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": 0.7229980636,
+              "delta": -0.0038648257
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": 0.7274246987,
+              "delta": 0.0005618094
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": 0.7259024152,
+              "delta": -0.0009604741
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": 0.722581119,
+              "delta": -0.0042817703
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": 0.723397797,
+              "delta": -0.0034650924
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": 0.7324753149,
+              "delta": 0.0056124256
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": 0.737475414,
+              "delta": 0.0106125247
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": 0.7291484489,
+              "delta": 0.0022855596
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": 0.7290057638,
+              "delta": 0.0021428745
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": 0.7232491831,
+              "delta": -0.0036137062
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": 0.721479922,
+              "delta": -0.0053829674
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": 0.7228154719,
+              "delta": -0.0040474174
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": 0.7272347394,
+              "delta": 0.0003718501
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": 0.7267292506,
+              "delta": -0.0001336387
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": 0.7270767519,
+              "delta": 0.0002138626
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": 0.7269201946,
+              "delta": 5.73053e-05
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": 0.7490351321,
+              "delta": 0.0221722428
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": 0.7795145459,
+              "delta": 0.0526516566
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": 0.7435616476,
+              "delta": 0.0166987582
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": 0.7107492997,
+              "delta": -0.0161135897
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.6712998397,
+              "delta": -0.0555630496
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.7783657593,
+              "delta": 0.05150287
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.674304687,
+              "delta": -0.0525582023
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.674304687,
+            "pearson_p": 6.04797e-05,
+            "delta_vs_primary": -0.0525582023,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.6594363077,
+            "pearson_p": 0.0002479753,
+            "delta_vs_primary": -0.0674265816,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": -0.1237161054,
+            "pearson_p": 0.8762838946,
+            "delta_vs_primary": -0.8505789947,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.7211526067,
+            "pearson_p": 6.927e-06,
+            "delta_vs_primary": -0.0057102826,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 59.8709677419,
+          "median_interest": 56.0,
+          "min_interest": 47.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 55.6923076923,
+          "elevated_mean_interest": 81.6,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-03-29",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 79.5580110497,
+          "baseline_to_elevated_pct_change": 46.5193370166,
+          "peak_lag_weeks": 2,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "strong",
+        "direction": "positive",
+        "significance": "significant",
+        "robustness": "moderate",
+        "evidence_group": "level_only_association",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "shared_trend_confound_possible",
+          "no_short_run_comovement",
+          "specification_sensitive",
+          "negative_lag_maximum"
+        ]
+      }
+    },
+    "indonesia": {
+      "id": "indonesia",
+      "label": "Indonesia",
+      "short": "IDN",
+      "is_country": true,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": -0.0190636114,
+        "pearson_p": 0.9203540192,
+        "spearman_rho": 0.1151833669,
+        "spearman_p": 0.5444478127,
+        "bootstrap_ci": {
+          "low": -0.1807735938,
+          "high": 0.2703403321,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": -0.3767453348,
+          "high": 0.3435652284,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": -4.8629040715,
+          "intercept": 26.2195290862,
+          "r_squared": 0.0003634213,
+          "slope_stderr": 48.1983954655,
+          "n": 30
+        },
+        "significant_at_alpha": false,
+        "alpha": 0.05,
+        "ci_includes_zero": true,
+        "strength_label": "negligible",
+        "direction": "negative",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.8063165712,
+          "pearson_p": 6.589e-07,
+          "spearman_rho": 0.3978775482
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.5587582429,
+          "pearson_p": 0.0024502011,
+          "spearman_rho": 0.305670471
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.2600341652,
+          "pearson_p": 0.1814309239,
+          "spearman_rho": 0.1981910575
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.0441930374,
+          "pearson_p": 0.8199343868,
+          "spearman_rho": 0.1366553051
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": -0.0190636114,
+          "pearson_p": 0.9203540192,
+          "spearman_rho": 0.1151833669
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": -0.0754931504,
+          "pearson_p": 0.6917438137,
+          "spearman_rho": -0.0037870384
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": -0.0716300904,
+          "pearson_p": 0.7119435596,
+          "spearman_rho": -0.1038097051
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": -0.0740715615,
+          "pearson_p": 0.7079614783,
+          "spearman_rho": -0.2547946735
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": -0.1096720857,
+          "pearson_p": 0.586060004,
+          "spearman_rho": -0.317494452
+        }
+      ],
+      "best_lag": null,
+      "unrestricted_lag_maximum_is_negative": true,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.4777566092,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": -0.0190636114,
+            "pearson_p": 0.9203540192,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": -0.0869740267,
+            "pearson_p": 0.6537065526,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": -0.4481454687,
+            "pearson_p": 0.0130062973,
+            "significant_at_alpha": true
+          }
+        ],
+        "agreement": "significance_disagreement",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": -0.0190636114,
+          "min_r": -0.0477415076,
+          "max_r": 0.0371159745,
+          "max_abs_delta": 0.0561795859,
+          "most_influential_index": 28,
+          "sign_flips": true,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": -0.0282113448,
+              "delta": -0.0091477334
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": -0.0257564798,
+              "delta": -0.0066928684
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": -0.0234797666,
+              "delta": -0.0044161553
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": -0.0218366164,
+              "delta": -0.0027730051
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": -0.0264274135,
+              "delta": -0.0073638022
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": -0.0269634058,
+              "delta": -0.0078997944
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": -0.0397376467,
+              "delta": -0.0206740353
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": -0.0309067863,
+              "delta": -0.0118431749
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": -0.0287271947,
+              "delta": -0.0096635833
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": -0.0209806437,
+              "delta": -0.0019170324
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": -0.0292412351,
+              "delta": -0.0101776237
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": -0.0221863655,
+              "delta": -0.0031227542
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": -0.0131093536,
+              "delta": 0.0059542578
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": -0.0071505327,
+              "delta": 0.0119130787
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": -0.0079540987,
+              "delta": 0.0111095127
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": -0.0123752737,
+              "delta": 0.0066883377
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": -0.0233276874,
+              "delta": -0.0042640761
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": -0.0279250814,
+              "delta": -0.00886147
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": -0.0269375879,
+              "delta": -0.0078739765
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": -0.0206061421,
+              "delta": -0.0015425308
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": -0.0186296114,
+              "delta": 0.000434
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": -0.0191647605,
+              "delta": -0.0001011491
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": -0.0189912412,
+              "delta": 7.23702e-05
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": -0.0246066518,
+              "delta": -0.0055430404
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": -0.0477415076,
+              "delta": -0.0286778962
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": -0.0217306986,
+              "delta": -0.0026670872
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": -0.0172117917,
+              "delta": 0.0018518196
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.0079851637,
+              "delta": 0.027048775
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.0371159745,
+              "delta": 0.0561795859
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.023291145,
+              "delta": 0.0423547564
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.023291145,
+            "pearson_p": 0.9045421743,
+            "delta_vs_primary": 0.0423547564,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.4534789912,
+            "pearson_p": 0.0199798109,
+            "delta_vs_primary": 0.4725426026,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": -0.8892739433,
+            "pearson_p": 0.1107260567,
+            "delta_vs_primary": -0.8702103319,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.1151833669,
+            "pearson_p": 0.5444478127,
+            "delta_vs_primary": 0.1342469782,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 23.7419354839,
+          "median_interest": 17.0,
+          "min_interest": 7.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 25.0,
+          "elevated_mean_interest": 17.2,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-02-15",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 300.0,
+          "baseline_to_elevated_pct_change": -31.2,
+          "peak_lag_weeks": -4,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "negligible",
+        "direction": "negative",
+        "significance": "not_significant",
+        "robustness": "fragile",
+        "evidence_group": "no_detectable_association",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "ci_includes_zero",
+          "not_significant",
+          "regime_sensitive",
+          "shared_trend_confound_possible",
+          "specification_sensitive",
+          "negative_lag_maximum"
+        ]
+      }
+    },
+    "malaysia": {
+      "id": "malaysia",
+      "label": "Malaysia",
+      "short": "MYS",
+      "is_country": true,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.2203213384,
+        "pearson_p": 0.2420341439,
+        "spearman_rho": 0.2016941026,
+        "spearman_p": 0.2851529293,
+        "bootstrap_ci": {
+          "low": -0.0007298341,
+          "high": 0.4712841256,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": -0.1520139946,
+          "high": 0.5378951361,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": 45.0618730661,
+          "intercept": 32.8172677787,
+          "r_squared": 0.0485414922,
+          "slope_stderr": 37.7023646836,
+          "n": 30
+        },
+        "significant_at_alpha": false,
+        "alpha": 0.05,
+        "ci_includes_zero": true,
+        "strength_label": "weak",
+        "direction": "positive",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.707221231,
+          "pearson_p": 5.34918e-05,
+          "spearman_rho": 0.3580355128
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.4479006584,
+          "pearson_p": 0.0191355496,
+          "spearman_rho": 0.224090754
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.2078138138,
+          "pearson_p": 0.2886210411,
+          "spearman_rho": 0.1099384885
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.1237762043,
+          "pearson_p": 0.5223659734,
+          "spearman_rho": 0.159427754
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": 0.2203213384,
+          "pearson_p": 0.2420341439,
+          "spearman_rho": 0.2016941026
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": 0.2664321893,
+          "pearson_p": 0.1546852457,
+          "spearman_rho": 0.2769547117
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": 0.209558472,
+          "pearson_p": 0.2752563631,
+          "spearman_rho": 0.1316216303
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": 0.1936343,
+          "pearson_p": 0.32350178,
+          "spearman_rho": 0.1089466232
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": 0.1130659924,
+          "pearson_p": 0.5744473484,
+          "spearman_rho": 0.1742200451
+        }
+      ],
+      "best_lag": {
+        "lag_weeks": 1,
+        "n": 30,
+        "pearson_r": 0.2664321893,
+        "pearson_p": 0.1546852457,
+        "spearman_rho": 0.2769547117
+      },
+      "unrestricted_lag_maximum_is_negative": true,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.6412136771,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": 0.2203213384,
+            "pearson_p": 0.2420341439,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": -0.1483808041,
+            "pearson_p": 0.4423838811,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": -0.2834228066,
+            "pearson_p": 0.1290839032,
+            "significant_at_alpha": false
+          }
+        ],
+        "agreement": "consistent",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": 0.2203213384,
+          "min_r": 0.1175025015,
+          "max_r": 0.2605384439,
+          "max_abs_delta": 0.102818837,
+          "most_influential_index": 29,
+          "sign_flips": false,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": 0.214196996,
+              "delta": -0.0061243425
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": 0.2152981594,
+              "delta": -0.0050231791
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": 0.2183059895,
+              "delta": -0.002015349
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": 0.2257120648,
+              "delta": 0.0053907263
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": 0.2150085069,
+              "delta": -0.0053128315
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": 0.2159202552,
+              "delta": -0.0044010832
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": 0.2035464363,
+              "delta": -0.0167749021
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": 0.206484371,
+              "delta": -0.0138369674
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": 0.2176153286,
+              "delta": -0.0027060099
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": 0.2215346069,
+              "delta": 0.0012132684
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": 0.2120614405,
+              "delta": -0.0082598979
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": 0.2243088703,
+              "delta": 0.0039875319
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": 0.2286758345,
+              "delta": 0.008354496
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": 0.2605384439,
+              "delta": 0.0402171054
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": 0.2236595417,
+              "delta": 0.0033382032
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": 0.2322864863,
+              "delta": 0.0119651478
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": 0.2206166472,
+              "delta": 0.0002953087
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": 0.2256228051,
+              "delta": 0.0053014667
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": 0.2121220395,
+              "delta": -0.0081992989
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": 0.2164101333,
+              "delta": -0.0039112052
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": 0.2250679386,
+              "delta": 0.0047466002
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": 0.2210831844,
+              "delta": 0.0007618459
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": 0.2212710038,
+              "delta": 0.0009496653
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": 0.2389580787,
+              "delta": 0.0186367403
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": 0.2528556615,
+              "delta": 0.0325343231
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": 0.2205300576,
+              "delta": 0.0002087191
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": 0.2487624701,
+              "delta": 0.0284411317
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.2283624899,
+              "delta": 0.0080411515
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.2330796558,
+              "delta": 0.0127583173
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.1175025015,
+              "delta": -0.102818837
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.1175025015,
+            "pearson_p": 0.5438207911,
+            "delta_vs_primary": -0.102818837,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.2571713553,
+            "pearson_p": 0.2046941755,
+            "delta_vs_primary": 0.0368500168,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": 0.6680572057,
+            "pearson_p": 0.3319427943,
+            "delta_vs_primary": 0.4477358672,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.2016941026,
+            "pearson_p": 0.2851529293,
+            "delta_vs_primary": -0.0186272358,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 52.935483871,
+          "median_interest": 53.0,
+          "min_interest": 27.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 52.0,
+          "elevated_mean_interest": 57.8,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-02-15",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 92.3076923077,
+          "baseline_to_elevated_pct_change": 11.1538461538,
+          "peak_lag_weeks": -4,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "weak",
+        "direction": "positive",
+        "significance": "not_significant",
+        "robustness": "fragile",
+        "evidence_group": "inconclusive",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "ci_includes_zero",
+          "not_significant",
+          "shared_trend_confound_possible",
+          "negative_lag_maximum"
+        ]
+      }
+    },
+    "norway": {
+      "id": "norway",
+      "label": "Norway",
+      "short": "NOR",
+      "is_country": true,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.146035519,
+        "pearson_p": 0.4412858062,
+        "spearman_rho": 0.1449082027,
+        "spearman_p": 0.4448579429,
+        "bootstrap_ci": {
+          "low": -0.1564173521,
+          "high": 0.4424899923,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": -0.2261309272,
+          "high": 0.4809984041,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": 32.1472690415,
+          "intercept": 46.0347084805,
+          "r_squared": 0.0213263728,
+          "slope_stderr": 41.1552755076,
+          "n": 30
+        },
+        "significant_at_alpha": false,
+        "alpha": 0.05,
+        "ci_includes_zero": true,
+        "strength_label": "negligible",
+        "direction": "positive",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.4360589345,
+          "pearson_p": 0.0259523341,
+          "spearman_rho": 0.5682519291
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.4439276779,
+          "pearson_p": 0.02036156,
+          "spearman_rho": 0.5436775602
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.4268970993,
+          "pearson_p": 0.0234756932,
+          "spearman_rho": 0.4683008081
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.3399967717,
+          "pearson_p": 0.0711383969,
+          "spearman_rho": 0.2927911831
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": 0.146035519,
+          "pearson_p": 0.4412858062,
+          "spearman_rho": 0.1449082027
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": -0.0704967887,
+          "pearson_p": 0.7112477803,
+          "spearman_rho": -0.0104618825
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": -0.1486664638,
+          "pearson_p": 0.4414959951,
+          "spearman_rho": -0.0754159108
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": -0.2509483251,
+          "pearson_p": 0.1977178635,
+          "spearman_rho": -0.2231959992
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": -0.28661043,
+          "pearson_p": 0.1472225227,
+          "spearman_rho": -0.2559560649
+        }
+      ],
+      "best_lag": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.146035519,
+        "pearson_p": 0.4412858062,
+        "spearman_rho": 0.1449082027
+      },
+      "unrestricted_lag_maximum_is_negative": true,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.7029875667,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": 0.146035519,
+            "pearson_p": 0.4412858062,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": 0.1431666701,
+            "pearson_p": 0.4587586358,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": -0.5050538841,
+            "pearson_p": 0.0044190106,
+            "significant_at_alpha": true
+          }
+        ],
+        "agreement": "significance_disagreement",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": 0.146035519,
+          "min_r": 0.0722053162,
+          "max_r": 0.2659956545,
+          "max_abs_delta": 0.1199601355,
+          "most_influential_index": 29,
+          "sign_flips": false,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": 0.1406435744,
+              "delta": -0.0053919446
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": 0.1409899702,
+              "delta": -0.0050455488
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": 0.142769624,
+              "delta": -0.003265895
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": 0.1466420533,
+              "delta": 0.0006065343
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": 0.1377472096,
+              "delta": -0.0082883094
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": 0.1376094314,
+              "delta": -0.0084260877
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": 0.1184927625,
+              "delta": -0.0275427565
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": 0.1194296654,
+              "delta": -0.0266058536
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": 0.1359970267,
+              "delta": -0.0100384924
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": 0.1378777209,
+              "delta": -0.0081577981
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": 0.1479411575,
+              "delta": 0.0019056385
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": 0.1421144811,
+              "delta": -0.0039210379
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": 0.1505630819,
+              "delta": 0.0045275629
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": 0.1432999891,
+              "delta": -0.0027355299
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": 0.1654660064,
+              "delta": 0.0194304874
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": 0.1521160172,
+              "delta": 0.0060804981
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": 0.1679605586,
+              "delta": 0.0219250396
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": 0.1873828712,
+              "delta": 0.0413473522
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": 0.1710152739,
+              "delta": 0.0249797549
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": 0.1491313295,
+              "delta": 0.0030958105
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": 0.1484916671,
+              "delta": 0.0024561481
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": 0.1621079649,
+              "delta": 0.0160724459
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": 0.1460167739,
+              "delta": -1.87451e-05
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": 0.147693964,
+              "delta": 0.001658445
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": 0.1448382152,
+              "delta": -0.0011973038
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": 0.1453208446,
+              "delta": -0.0007146744
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": 0.1040760256,
+              "delta": -0.0419594934
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.0722053162,
+              "delta": -0.0738302028
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.119327401,
+              "delta": -0.026708118
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.2659956545,
+              "delta": 0.1199601355
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.2659956545,
+            "pearson_p": 0.1631073973,
+            "delta_vs_primary": 0.1199601355,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.1154776016,
+            "pearson_p": 0.5742874108,
+            "delta_vs_primary": -0.0305579174,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": -0.5527244733,
+            "pearson_p": 0.4472755267,
+            "delta_vs_primary": -0.6987599923,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.1449082027,
+            "pearson_p": 0.4448579429,
+            "delta_vs_primary": -0.0011273163,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 59.935483871,
+          "median_interest": 61.0,
+          "min_interest": 33.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 59.0769230769,
+          "elevated_mean_interest": 64.4,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-01-25",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 69.2708333333,
+          "baseline_to_elevated_pct_change": 9.0104166667,
+          "peak_lag_weeks": -7,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "negligible",
+        "direction": "positive",
+        "significance": "not_significant",
+        "robustness": "fragile",
+        "evidence_group": "no_detectable_association",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "ci_includes_zero",
+          "not_significant",
+          "shared_trend_confound_possible",
+          "specification_sensitive",
+          "negative_lag_maximum"
+        ]
+      }
+    },
+    "singapore": {
+      "id": "singapore",
+      "label": "Singapore",
+      "short": "SGP",
+      "is_country": true,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.5795634486,
+        "pearson_p": 0.0007898504,
+        "spearman_rho": 0.5102453052,
+        "spearman_p": 0.0039676485,
+        "bootstrap_ci": {
+          "low": 0.2836011181,
+          "high": 0.7554629546,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": 0.2771662205,
+          "high": 0.7774930074,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": 121.6638108385,
+          "intercept": 1.5047269048,
+          "r_squared": 0.335893791,
+          "slope_stderr": 32.3295889091,
+          "n": 30
+        },
+        "significant_at_alpha": true,
+        "alpha": 0.05,
+        "ci_includes_zero": false,
+        "strength_label": "moderate",
+        "direction": "positive",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.555577367,
+          "pearson_p": 0.0032132632,
+          "spearman_rho": 0.6513708179
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.4809043435,
+          "pearson_p": 0.0111073289,
+          "spearman_rho": 0.5686341098
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.5856832232,
+          "pearson_p": 0.0010585946,
+          "spearman_rho": 0.5927656976
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.6665338411,
+          "pearson_p": 7.88786e-05,
+          "spearman_rho": 0.5442667516
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": 0.5795634486,
+          "pearson_p": 0.0007898504,
+          "spearman_rho": 0.5102453052
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": 0.444727244,
+          "pearson_p": 0.0138016259,
+          "spearman_rho": 0.4478345418
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": 0.2783776173,
+          "pearson_p": 0.1436721657,
+          "spearman_rho": 0.2764149156
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": 0.2090894167,
+          "pearson_p": 0.2856049243,
+          "spearman_rho": 0.1969324138
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": 0.1346584793,
+          "pearson_p": 0.5030764168,
+          "spearman_rho": 0.0785212673
+        }
+      ],
+      "best_lag": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.5795634486,
+        "pearson_p": 0.0007898504,
+        "spearman_rho": 0.5102453052
+      },
+      "unrestricted_lag_maximum_is_negative": true,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.8285477116,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": 0.5795634486,
+            "pearson_p": 0.0007898504,
+            "significant_at_alpha": true
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": 0.0888773095,
+            "pearson_p": 0.6466112359,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": 0.1639174147,
+            "pearson_p": 0.3867429437,
+            "significant_at_alpha": false
+          }
+        ],
+        "agreement": "significance_disagreement",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": 0.5795634486,
+          "min_r": 0.4784574959,
+          "max_r": 0.6206139912,
+          "max_abs_delta": 0.1011059527,
+          "most_influential_index": 27,
+          "sign_flips": false,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": 0.5851936744,
+              "delta": 0.0056302258
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": 0.5812474694,
+              "delta": 0.0016840208
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": 0.5802644378,
+              "delta": 0.0007009892
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": 0.5920841971,
+              "delta": 0.0125207485
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": 0.579596038,
+              "delta": 3.25894e-05
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": 0.5868818873,
+              "delta": 0.0073184387
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": 0.5714918454,
+              "delta": -0.0080716032
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": 0.5736760752,
+              "delta": -0.0058873734
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": 0.5772405698,
+              "delta": -0.0023228788
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": 0.5758178276,
+              "delta": -0.003745621
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": 0.5737212841,
+              "delta": -0.0058421645
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": 0.5744093375,
+              "delta": -0.0051541111
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": 0.5827006429,
+              "delta": 0.0031371943
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": 0.5789693865,
+              "delta": -0.0005940621
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": 0.5927160655,
+              "delta": 0.0131526168
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": 0.5945555078,
+              "delta": 0.0149920592
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": 0.583674189,
+              "delta": 0.0041107404
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": 0.6206139912,
+              "delta": 0.0410505426
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": 0.5783117986,
+              "delta": -0.00125165
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": 0.5897571429,
+              "delta": 0.0101936943
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": 0.5860417164,
+              "delta": 0.0064782678
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": 0.5933299522,
+              "delta": 0.0137665036
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": 0.5850324458,
+              "delta": 0.0054689972
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": 0.5872151541,
+              "delta": 0.0076517055
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": 0.5811238378,
+              "delta": 0.0015603892
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": 0.5815905352,
+              "delta": 0.0020270865
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": 0.5747286258,
+              "delta": -0.0048348228
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.4784574959,
+              "delta": -0.1011059527
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.5369179134,
+              "delta": -0.0426455352
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.5993912241,
+              "delta": 0.0198277755
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.5993912241,
+            "pearson_p": 0.0005901731,
+            "delta_vs_primary": 0.0198277755,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.3035179155,
+            "pearson_p": 0.1317217093,
+            "delta_vs_primary": -0.2760455331,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": 0.1857524264,
+            "pearson_p": 0.8142475736,
+            "delta_vs_primary": -0.3938110222,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.5102453052,
+            "pearson_p": 0.0039676485,
+            "delta_vs_primary": -0.0693181434,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 55.6129032258,
+          "median_interest": 57.0,
+          "min_interest": 32.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 51.9230769231,
+          "elevated_mean_interest": 74.8,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-03-08",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 92.5925925926,
+          "baseline_to_elevated_pct_change": 44.0592592593,
+          "peak_lag_weeks": -1,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "moderate",
+        "direction": "positive",
+        "significance": "significant",
+        "robustness": "moderate",
+        "evidence_group": "level_only_association",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "loses_significance_without_elevated_regime",
+          "shared_trend_confound_possible",
+          "no_short_run_comovement",
+          "specification_sensitive",
+          "negative_lag_maximum"
+        ]
+      }
+    },
+    "us": {
+      "id": "us",
+      "label": "United States",
+      "short": "USA",
+      "is_country": true,
+      "primary": {
+        "lag_weeks": 0,
+        "n": 30,
+        "pearson_r": 0.7466080748,
+        "pearson_p": 2.1596e-06,
+        "spearman_rho": 0.5274324524,
+        "spearman_p": 0.0027436978,
+        "bootstrap_ci": {
+          "low": 0.5071515307,
+          "high": 0.8646681025,
+          "level": 0.95,
+          "method": "percentile_bootstrap(iterations=10000,seed=20260329)"
+        },
+        "fisher_ci": {
+          "low": 0.5284927977,
+          "high": 0.8722575417,
+          "level": 0.95,
+          "method": "fisher_z"
+        },
+        "fit": {
+          "slope": 79.8488351147,
+          "intercept": 8.8833544254,
+          "r_squared": 0.5574236173,
+          "slope_stderr": 13.445934889,
+          "n": 30
+        },
+        "significant_at_alpha": true,
+        "alpha": 0.05,
+        "ci_includes_zero": false,
+        "strength_label": "strong",
+        "direction": "positive",
+        "includes_partial_week": true
+      },
+      "lag_profile": [
+        {
+          "lag_weeks": -4,
+          "n": 26,
+          "pearson_r": 0.6264544231,
+          "pearson_p": 0.0006172229,
+          "spearman_rho": 0.5085828961
+        },
+        {
+          "lag_weeks": -3,
+          "n": 27,
+          "pearson_r": 0.6293457124,
+          "pearson_p": 0.0004366043,
+          "spearman_rho": 0.509038111
+        },
+        {
+          "lag_weeks": -2,
+          "n": 28,
+          "pearson_r": 0.685351428,
+          "pearson_p": 5.71428e-05,
+          "spearman_rho": 0.4773560054
+        },
+        {
+          "lag_weeks": -1,
+          "n": 29,
+          "pearson_r": 0.72240421,
+          "pearson_p": 9.6498e-06,
+          "spearman_rho": 0.4541878949
+        },
+        {
+          "lag_weeks": 0,
+          "n": 30,
+          "pearson_r": 0.7466080748,
+          "pearson_p": 2.1596e-06,
+          "spearman_rho": 0.5274324524
+        },
+        {
+          "lag_weeks": 1,
+          "n": 30,
+          "pearson_r": 0.7733530813,
+          "pearson_p": 5.431e-07,
+          "spearman_rho": 0.57050624
+        },
+        {
+          "lag_weeks": 2,
+          "n": 29,
+          "pearson_r": 0.8405364963,
+          "pearson_p": 1.16e-08,
+          "spearman_rho": 0.4942613273
+        },
+        {
+          "lag_weeks": 3,
+          "n": 28,
+          "pearson_r": 0.808732573,
+          "pearson_p": 1.913e-07,
+          "spearman_rho": 0.4127821237
+        },
+        {
+          "lag_weeks": 4,
+          "n": 27,
+          "pearson_r": 0.7348043036,
+          "pearson_p": 1.27304e-05,
+          "spearman_rho": 0.3399121692
+        }
+      ],
+      "best_lag": {
+        "lag_weeks": 2,
+        "n": 29,
+        "pearson_r": 0.8405364963,
+        "pearson_p": 1.16e-08,
+        "spearman_rho": 0.4942613273
+      },
+      "unrestricted_lag_maximum_is_negative": false,
+      "trend_diagnostics": {
+        "oil_vs_time_r": 0.6118772562,
+        "interest_vs_time_r": 0.8172659549,
+        "both_series_trend_same_direction": true,
+        "specifications": [
+          {
+            "id": "levels",
+            "description": "Weekly levels, as published. The primary specification.",
+            "n": 30,
+            "pearson_r": 0.7466080748,
+            "pearson_p": 2.1596e-06,
+            "significant_at_alpha": true
+          },
+          {
+            "id": "first_differences",
+            "description": "Week-over-week changes. Removes any shared trend, but is noisy and has low power when the true relationship operates on levels.",
+            "n": 29,
+            "pearson_r": 0.1325564276,
+            "pearson_p": 0.493045566,
+            "significant_at_alpha": false
+          },
+          {
+            "id": "linear_detrended",
+            "description": "Residuals after removing a linear time trend from each series. Only a straight line is removed, so a flat-then-step price path is not fully detrended by this specification.",
+            "n": 30,
+            "pearson_r": 0.5409046864,
+            "pearson_p": 0.0020268439,
+            "significant_at_alpha": true
+          }
+        ],
+        "agreement": "significance_disagreement",
+        "note": "Two series that both trend upward across a window will correlate in levels whether or not they are related. First differences test week-to-week co-movement; detrended residuals remove a linear trend only, which models a flat-then-step price path poorly. Neither check is decisive on its own, so all three specifications are reported and their disagreement is treated as a finding rather than resolved by choosing a favourite."
+      },
+      "sensitivity": {
+        "leave_one_out": {
+          "baseline_r": 0.7466080748,
+          "min_r": 0.6874301135,
+          "max_r": 0.765155866,
+          "max_abs_delta": 0.0591779613,
+          "most_influential_index": 29,
+          "sign_flips": false,
+          "per_observation": [
+            {
+              "index": 0,
+              "label": "2025-08-31",
+              "r_without": 0.745919344,
+              "delta": -0.0006887308
+            },
+            {
+              "index": 1,
+              "label": "2025-09-07",
+              "r_without": 0.7569459219,
+              "delta": 0.0103378471
+            },
+            {
+              "index": 2,
+              "label": "2025-09-14",
+              "r_without": 0.7466834518,
+              "delta": 7.53771e-05
+            },
+            {
+              "index": 3,
+              "label": "2025-09-21",
+              "r_without": 0.7474334802,
+              "delta": 0.0008254054
+            },
+            {
+              "index": 4,
+              "label": "2025-09-28",
+              "r_without": 0.7495673917,
+              "delta": 0.002959317
+            },
+            {
+              "index": 5,
+              "label": "2025-10-05",
+              "r_without": 0.7457891532,
+              "delta": -0.0008189216
+            },
+            {
+              "index": 6,
+              "label": "2025-10-12",
+              "r_without": 0.7473744306,
+              "delta": 0.0007663558
+            },
+            {
+              "index": 7,
+              "label": "2025-10-19",
+              "r_without": 0.756081138,
+              "delta": 0.0094730632
+            },
+            {
+              "index": 8,
+              "label": "2025-10-26",
+              "r_without": 0.7634700634,
+              "delta": 0.0168619886
+            },
+            {
+              "index": 9,
+              "label": "2025-11-02",
+              "r_without": 0.7446404582,
+              "delta": -0.0019676166
+            },
+            {
+              "index": 10,
+              "label": "2025-11-09",
+              "r_without": 0.7427094834,
+              "delta": -0.0038985913
+            },
+            {
+              "index": 11,
+              "label": "2025-11-16",
+              "r_without": 0.7450138144,
+              "delta": -0.0015942604
+            },
+            {
+              "index": 12,
+              "label": "2025-11-23",
+              "r_without": 0.7460606325,
+              "delta": -0.0005474423
+            },
+            {
+              "index": 13,
+              "label": "2025-11-30",
+              "r_without": 0.761349348,
+              "delta": 0.0147412732
+            },
+            {
+              "index": 14,
+              "label": "2025-12-07",
+              "r_without": 0.764915457,
+              "delta": 0.0183073822
+            },
+            {
+              "index": 15,
+              "label": "2025-12-14",
+              "r_without": 0.7538995575,
+              "delta": 0.0072914828
+            },
+            {
+              "index": 16,
+              "label": "2025-12-21",
+              "r_without": 0.7590831338,
+              "delta": 0.012475059
+            },
+            {
+              "index": 17,
+              "label": "2025-12-28",
+              "r_without": 0.7494588947,
+              "delta": 0.00285082
+            },
+            {
+              "index": 18,
+              "label": "2026-01-04",
+              "r_without": 0.7466466766,
+              "delta": 3.86018e-05
+            },
+            {
+              "index": 19,
+              "label": "2026-01-11",
+              "r_without": 0.7464521707,
+              "delta": -0.0001559041
+            },
+            {
+              "index": 20,
+              "label": "2026-01-18",
+              "r_without": 0.7523491541,
+              "delta": 0.0057410793
+            },
+            {
+              "index": 21,
+              "label": "2026-01-25",
+              "r_without": 0.7467102401,
+              "delta": 0.0001021654
+            },
+            {
+              "index": 22,
+              "label": "2026-02-01",
+              "r_without": 0.7486291159,
+              "delta": 0.0020210411
+            },
+            {
+              "index": 23,
+              "label": "2026-02-08",
+              "r_without": 0.7477914413,
+              "delta": 0.0011833665
+            },
+            {
+              "index": 24,
+              "label": "2026-02-15",
+              "r_without": 0.765155866,
+              "delta": 0.0185477912
+            },
+            {
+              "index": 25,
+              "label": "2026-02-22",
+              "r_without": 0.7512005172,
+              "delta": 0.0045924424
+            },
+            {
+              "index": 26,
+              "label": "2026-03-01",
+              "r_without": 0.7349557892,
+              "delta": -0.0116522856
+            },
+            {
+              "index": 27,
+              "label": "2026-03-08",
+              "r_without": 0.6962790882,
+              "delta": -0.0503289866
+            },
+            {
+              "index": 28,
+              "label": "2026-03-15",
+              "r_without": 0.7438424027,
+              "delta": -0.0027656721
+            },
+            {
+              "index": 29,
+              "label": "2026-03-22",
+              "r_without": 0.6874301135,
+              "delta": -0.0591779613
+            }
+          ]
+        },
+        "variants": [
+          {
+            "id": "exclude_partial_weeks",
+            "description": "Weeks whose oil mean came from fewer than 5 trading days are removed.",
+            "n": 29,
+            "pearson_r": 0.6874301135,
+            "pearson_p": 3.79238e-05,
+            "delta_vs_primary": -0.0591779613,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "baseline_regime_only",
+            "description": "Only weeks before the price-regime onset (2026-03-01) are used.",
+            "n": 26,
+            "pearson_r": 0.4083422833,
+            "pearson_p": 0.0383580338,
+            "delta_vs_primary": -0.3382657915,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "elevated_regime_only",
+            "description": "Only weeks from the price-regime onset (2026-03-01) onward are used.",
+            "n": 4,
+            "pearson_r": 0.4795137024,
+            "pearson_p": 0.5204862976,
+            "delta_vs_primary": -0.2670943724,
+            "computable": true,
+            "reason": null
+          },
+          {
+            "id": "rank_based",
+            "description": "Spearman rank correlation, which limits the leverage of extreme values.",
+            "n": 30,
+            "pearson_r": 0.5274324524,
+            "pearson_p": 0.0027436978,
+            "delta_vs_primary": -0.2191756224,
+            "computable": true,
+            "reason": null
+          }
+        ]
+      },
+      "profile": {
+        "series_local": {
+          "mean_interest": 46.0322580645,
+          "median_interest": 43.0,
+          "min_interest": 30.0,
+          "peak_value": 100.0,
+          "baseline_mean_interest": 41.9615384615,
+          "elevated_mean_interest": 67.2,
+          "_comparable_across_series": false
+        },
+        "scale_free": {
+          "peak_week": "2026-03-29",
+          "peak_week_ties": 1,
+          "baseline_to_peak_pct_change": 138.3134738772,
+          "baseline_to_elevated_pct_change": 60.1466544455,
+          "peak_lag_weeks": 2,
+          "_comparable_across_series": true
+        }
+      },
+      "classification": {
+        "strength": "strong",
+        "direction": "positive",
+        "significance": "significant",
+        "robustness": "moderate",
+        "evidence_group": "level_only_association",
+        "caveats": [
+          "series_local_scale",
+          "small_sample",
+          "few_elevated_observations",
+          "includes_partial_week",
+          "regime_sensitive",
+          "shared_trend_confound_possible",
+          "no_short_run_comovement",
+          "specification_sensitive"
+        ]
+      }
+    }
+  },
+  "countries": [
+    "indonesia",
+    "malaysia",
+    "norway",
+    "singapore",
+    "us"
+  ],
+  "category_review": [
+    {
+      "id": "subsidized_buffer",
+      "original_title": "The Subsidized Buffer",
+      "original_members": [
+        "indonesia"
+      ],
+      "data_supported_members": [
+        "indonesia"
+      ],
+      "unsupported_members": [],
+      "verdict": "supported",
+      "requires_external_evidence": true,
+      "basis": "Asserts that Indonesian interest is insulated from oil-price movement, which predicts no detectable association. Observed: indonesia measured as 'no_detectable_association'."
+    },
+    {
+      "id": "proactive_shift",
+      "original_title": "The Proactive Shift",
+      "original_members": [
+        "malaysia",
+        "us"
+      ],
+      "data_supported_members": [],
+      "unsupported_members": [
+        "malaysia",
+        "us"
+      ],
+      "verdict": "not_supported",
+      "requires_external_evidence": true,
+      "basis": "Asserts that both markets pivot quickly and strongly with oil-price pressure, which predicts a positive association that survives differencing. Observed: malaysia measured as 'inconclusive', us measured as 'level_only_association'."
+    },
+    {
+      "id": "maturity_gap",
+      "original_title": "The Maturity Gap",
+      "original_members": [
+        "norway",
+        "singapore"
+      ],
+      "data_supported_members": [
+        "norway",
+        "singapore"
+      ],
+      "unsupported_members": [],
+      "verdict": "supported",
+      "requires_external_evidence": true,
+      "basis": "Asserts Norwegian saturation (no association) alongside Singaporean responsiveness constrained by adoption barriers (a positive association). Observed: norway measured as 'no_detectable_association', singapore measured as 'level_only_association'."
+    }
+  ],
+  "interpretation_vocabulary": {
+    "strength": [
+      "negligible",
+      "weak",
+      "moderate",
+      "strong",
+      "very_strong"
+    ],
+    "robustness": [
+      "fragile",
+      "moderate",
+      "robust"
+    ],
+    "evidence_group": [
+      "inconclusive",
+      "level_only_association",
+      "no_detectable_association"
+    ],
+    "note": "These are classification codes, not published prose. The content layer maps codes to wording; the analytical layer never stores editorial text."
+  }
+}

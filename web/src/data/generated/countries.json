@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0.0",
+  "series": [
+    {
+      "id": "worldwide",
+      "label": "Worldwide",
+      "short": "WLD",
+      "is_country": false,
+      "source_file": "EV Trends.csv",
+      "legacy_column": "Worldwide Trends"
+    },
+    {
+      "id": "indonesia",
+      "label": "Indonesia",
+      "short": "IDN",
+      "is_country": true,
+      "source_file": "Indonesia_EV_Trends.csv",
+      "legacy_column": "Indonesia EV Trends"
+    },
+    {
+      "id": "malaysia",
+      "label": "Malaysia",
+      "short": "MYS",
+      "is_country": true,
+      "source_file": "Malaysia_EV_Trends.csv",
+      "legacy_column": "Malaysia EV Trends"
+    },
+    {
+      "id": "norway",
+      "label": "Norway",
+      "short": "NOR",
+      "is_country": true,
+      "source_file": "Norway_EV_Trends.csv",
+      "legacy_column": "Norway EV Trends"
+    },
+    {
+      "id": "singapore",
+      "label": "Singapore",
+      "short": "SGP",
+      "is_country": true,
+      "source_file": "Singapore_EV_Trends.csv",
+      "legacy_column": "Singapore EV Trends"
+    },
+    {
+      "id": "us",
+      "label": "United States",
+      "short": "USA",
+      "is_country": true,
+      "source_file": "US_EV_Trends.csv",
+      "legacy_column": "USA EV Trends"
+    }
+  ],
+  "comparability": {
+    "trends_normalisation": "per_series_max_100_independent_queries",
+    "explanation": "Each Google Trends export is an independent query rescaled so its own maximum week equals 100. Every series therefore contains a 100 and sits on its own scale.",
+    "scale_free_metrics": [
+      "pearson_r",
+      "spearman_rho",
+      "peak_week",
+      "peak_lag_weeks",
+      "baseline_to_peak_pct_change",
+      "baseline_to_elevated_pct_change",
+      "best_lag_weeks"
+    ],
+    "series_local_metrics": [
+      "mean_interest",
+      "median_interest",
+      "peak_value",
+      "baseline_mean_interest",
+      "elevated_mean_interest",
+      "min_interest"
+    ],
+    "forbidden_comparisons": [
+      "ranking series by mean interest",
+      "ranking series by peak interest value",
+      "describing one market as having more search interest than another",
+      "any statement comparing absolute interest levels between series"
+    ],
+    "remedy": "A single Google Trends multi-region comparison query would place all five markets on one shared scale and make level comparison valid. That requires a new export; it cannot be recovered from the committed files."
+  }
+}

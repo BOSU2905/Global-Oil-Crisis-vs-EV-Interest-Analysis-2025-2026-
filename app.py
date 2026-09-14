@@ -1,3 +1,36 @@
+# =============================================================================
+# SUPERSEDED PROTOTYPE -- DO NOT USE AS A SOURCE OF FACTS OR COPY
+# =============================================================================
+# This is the original Streamlit prototype, kept unmodified (apart from this
+# header) as a before/after reference. Its numbers and narrative have been
+# audited and are NOT the source of truth.
+#
+# Known problems, all fixed in pipeline/ and documented in METHODOLOGY.md:
+#
+#   * It does not run. st.set_page_config() is called after other st.* calls,
+#     which raises StreamlitSetPageConfigMustBeFirstCommandError.
+#   * Its dataset lost two observations to a hard-coded skiprows=2.
+#   * Its oil/interest join was mis-aligned by one week.
+#   * "Price($)/Litre" is a CRUDE benchmark cost, not a pump price, and the
+#     prose below conflates the two.
+#   * "near-perfect correlation" overstates the measured r.
+#   * The "synchronized peak ... in a single month" claim is contradicted by
+#     the data: the peaks span three calendar months.
+#   * Ranking countries by mean Google Trends score is invalid, because each
+#     series is independently normalised to its own maximum.
+#   * Roughly eight geopolitical, policy and price claims below have no source.
+#
+# Current source of truth:
+#   analysis .... pipeline/  ->  web/src/data/generated/*.json
+#   results ..... reports/VALIDATION_REPORT.md
+#   editorial ... docs/analytical-decision-memo.md
+#   claim status  web/src/data/generated/claims.json
+#
+# Every claim in this file is registered in claims.json with a status and a
+# disposition. Do not copy prose from here into the new frontend; take it from
+# the decision memo instead.
+# =============================================================================
+
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
