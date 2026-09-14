@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oil-ev-pipeline"
+version = "1.0.0"
+description = "Reproducible analytical pipeline: Brent crude oil prices vs Google Trends EV interest (2025-2026)"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# ---------------------------------------------------------------------------
+# ZERO RUNTIME DEPENDENCIES -- this is deliberate.
+#
+# The entire analytical dataset is 31 weekly observations (~1 KB). pandas +
+# numpy + scipy would add >100 MB of dependency surface to do arithmetic on
+# 31 numbers.
+#
+# The original project's single worst reproducibility failure was its
+# dependency situation: requirements.txt was UTF-16LE encoded (unparseable by
+# pip) and pinned pandas==3.0.2 / numpy==2.4.4, which require Python >=3.11.
+# A stdlib-only pipeline removes that failure mode permanently: it runs on any
+# CPython >=3.11, with no lockfile, forever.
+#
+# Every statistic used here (Pearson, Spearman with tie correction, Student-t
+# p-values via the regularised incomplete beta function, percentile bootstrap,
+# Fisher z intervals, OLS) is implemented in pipeline.statistics and validated
+# in tests/test_statistics.py against published reference values.
+# ---------------------------------------------------------------------------
+dependencies = []
+
+[project.optional-dependencies]
+# Installed only in a networked CI. tests/test_statistics_scipy.py
+# cross-validates our stdlib implementations against SciPy and is skipped
+# automatically when SciPy is absent.
+validate = ["scipy>=1.11", "numpy>=1.26"]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11"]
+
+[project.scripts]
+oil-ev-build = "pipeline.build:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# report.py renders Markdown for humans and deliberately emits typographic
+# characters (Greek rho for Spearman, en/em dashes, box-drawing pipes).
+"src/pipeline/report.py" = ["RUF001"]
+# Tests document exact expected values inline; long parametrised rows are
+# clearer on one line than wrapped.
+"tests/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+files = ["src", "tests"]
+
+# Production code is checked under full strict mode with no exemptions.
+# Tests are checked strictly EXCEPT for two rules that only penalise pytest's
+# own idioms: fixture functions and test methods whose types mypy cannot infer
+# from decorators. This is a scoped, documented relaxation of annotation
+# requirements in test code -- not a relaxation of any type-safety rule that
+# could hide a defect in the analytical layer. Every other strict check,
+# including argument and return type compatibility, still applies to tests.
+#
+# tests/__init__.py exists so these resolve as `tests.*`; mypy module patterns
+# match whole dotted components, so a bare `test_*` pattern would be rejected.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
