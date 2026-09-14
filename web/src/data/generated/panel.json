@@ -1,0 +1,762 @@
+{
+  "schema_version": "1.0.0",
+  "units": {
+    "brent_usd_per_barrel": "USD per barrel (Brent crude benchmark spot price)",
+    "brent_usd_per_litre": "USD per litre of crude, derived as USD/barrel / 158.987294928. This is a crude benchmark cost, NOT a retail pump price.",
+    "interest": "Google Trends relative search interest, 0-100, rescaled independently per series. Levels are not comparable between series."
+  },
+  "conventions": {
+    "week_key": "week_start (the Sunday beginning the 7-day week)",
+    "oil_aggregation": "arithmetic mean of daily closes within the week",
+    "missing_daily_values": "forward-filled from the previous trading day, counted in imputed_days",
+    "rows_without_oil": "oil is null where the Trends grid extends beyond the oil extract; such rows are retained rather than dropped so no interest observation is lost"
+  },
+  "coverage": {
+    "trends_weeks": 31,
+    "oil_weeks": 30,
+    "first_week": "2025-08-31",
+    "last_week": "2026-03-29",
+    "weeks_without_oil": [
+      "2026-03-29"
+    ],
+    "partial_weeks": [
+      "2026-03-22"
+    ]
+  },
+  "rows": [
+    {
+      "week_start": "2025-08-31",
+      "week_end": "2025-09-06",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 66.85,
+        "brent_usd_per_litre": 0.4205,
+        "brent_usd_per_barrel_exact": 66.854,
+        "brent_usd_per_litre_exact": 0.4204990092,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 64.92,
+        "max_usd_per_barrel": 68.09
+      },
+      "interest": {
+        "worldwide": 60.0,
+        "indonesia": 7.0,
+        "malaysia": 36.0,
+        "norway": 49.0,
+        "singapore": 34.0,
+        "us": 42.0
+      }
+    },
+    {
+      "week_start": "2025-09-07",
+      "week_end": "2025-09-13",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 67.23,
+        "brent_usd_per_litre": 0.4229,
+        "brent_usd_per_barrel_exact": 67.23,
+        "brent_usd_per_litre_exact": 0.4228639781,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 65.44,
+        "max_usd_per_barrel": 67.97
+      },
+      "interest": {
+        "worldwide": 56.0,
+        "indonesia": 10.0,
+        "malaysia": 36.0,
+        "norway": 48.0,
+        "singapore": 57.0,
+        "us": 34.0
+      }
+    },
+    {
+      "week_start": "2025-09-14",
+      "week_end": "2025-09-20",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 68.33,
+        "brent_usd_per_litre": 0.4298,
+        "brent_usd_per_barrel_exact": 68.328,
+        "brent_usd_per_litre_exact": 0.4297701903,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 67.05,
+        "max_usd_per_barrel": 69.69
+      },
+      "interest": {
+        "worldwide": 52.0,
+        "indonesia": 10.0,
+        "malaysia": 38.0,
+        "norway": 38.0,
+        "singapore": 45.0,
+        "us": 41.0
+      }
+    },
+    {
+      "week_start": "2025-09-21",
+      "week_end": "2025-09-27",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 69.22,
+        "brent_usd_per_litre": 0.4354,
+        "brent_usd_per_barrel_exact": 69.22,
+        "brent_usd_per_litre_exact": 0.4353807015,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 66.87,
+        "max_usd_per_barrel": 71.15
+      },
+      "interest": {
+        "worldwide": 53.0,
+        "indonesia": 9.0,
+        "malaysia": 27.0,
+        "norway": 36.0,
+        "singapore": 35.0,
+        "us": 41.0
+      }
+    },
+    {
+      "week_start": "2025-09-28",
+      "week_end": "2025-10-04",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 67.15,
+        "brent_usd_per_litre": 0.4224,
+        "brent_usd_per_barrel_exact": 67.152,
+        "brent_usd_per_litre_exact": 0.4223733729,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 65.44,
+        "max_usd_per_barrel": 69.0
+      },
+      "interest": {
+        "worldwide": 51.0,
+        "indonesia": 9.0,
+        "malaysia": 33.0,
+        "norway": 33.0,
+        "singapore": 42.0,
+        "us": 37.0
+      }
+    },
+    {
+      "week_start": "2025-10-05",
+      "week_end": "2025-10-11",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 66.65,
+        "brent_usd_per_litre": 0.4192,
+        "brent_usd_per_barrel_exact": 66.65,
+        "brent_usd_per_litre_exact": 0.4192158878,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 64.41,
+        "max_usd_per_barrel": 67.42
+      },
+      "interest": {
+        "worldwide": 52.0,
+        "indonesia": 10.0,
+        "malaysia": 44.0,
+        "norway": 42.0,
+        "singapore": 32.0,
+        "us": 40.0
+      }
+    },
+    {
+      "week_start": "2025-10-12",
+      "week_end": "2025-10-18",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 62.36,
+        "brent_usd_per_litre": 0.3922,
+        "brent_usd_per_barrel_exact": 62.358,
+        "brent_usd_per_litre_exact": 0.39222002,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 61.08,
+        "max_usd_per_barrel": 64.15
+      },
+      "interest": {
+        "worldwide": 48.0,
+        "indonesia": 7.0,
+        "malaysia": 38.0,
+        "norway": 36.0,
+        "singapore": 33.0,
+        "us": 32.0
+      }
+    },
+    {
+      "week_start": "2025-10-19",
+      "week_end": "2025-10-25",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 63.22,
+        "brent_usd_per_litre": 0.3977,
+        "brent_usd_per_barrel_exact": 63.222,
+        "brent_usd_per_litre_exact": 0.3976544165,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 60.71,
+        "max_usd_per_barrel": 66.32
+      },
+      "interest": {
+        "worldwide": 49.0,
+        "indonesia": 13.0,
+        "malaysia": 39.0,
+        "norway": 33.0,
+        "singapore": 34.0,
+        "us": 30.0
+      }
+    },
+    {
+      "week_start": "2025-10-26",
+      "week_end": "2025-11-01",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 65.02,
+        "brent_usd_per_litre": 0.409,
+        "brent_usd_per_barrel_exact": 65.022,
+        "brent_usd_per_litre_exact": 0.4089760759,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 64.03,
+        "max_usd_per_barrel": 65.52
+      },
+      "interest": {
+        "worldwide": 47.0,
+        "indonesia": 12.0,
+        "malaysia": 49.0,
+        "norway": 47.0,
+        "singapore": 37.0,
+        "us": 30.0
+      }
+    },
+    {
+      "week_start": "2025-11-02",
+      "week_end": "2025-11-08",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 64.3,
+        "brent_usd_per_litre": 0.4044,
+        "brent_usd_per_barrel_exact": 64.3,
+        "brent_usd_per_litre_exact": 0.4044348325,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 63.41,
+        "max_usd_per_barrel": 65.79
+      },
+      "interest": {
+        "worldwide": 47.0,
+        "indonesia": 22.0,
+        "malaysia": 53.0,
+        "norway": 51.0,
+        "singapore": 36.0,
+        "us": 37.0
+      }
+    },
+    {
+      "week_start": "2025-11-09",
+      "week_end": "2025-11-15",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 62.87,
+        "brent_usd_per_litre": 0.3954,
+        "brent_usd_per_barrel_exact": 62.868,
+        "brent_usd_per_litre_exact": 0.3954278235,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 61.88,
+        "max_usd_per_barrel": 63.86
+      },
+      "interest": {
+        "worldwide": 50.0,
+        "indonesia": 15.0,
+        "malaysia": 45.0,
+        "norway": 61.0,
+        "singapore": 45.0,
+        "us": 38.0
+      }
+    },
+    {
+      "week_start": "2025-11-16",
+      "week_end": "2025-11-22",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 63.64,
+        "brent_usd_per_litre": 0.4003,
+        "brent_usd_per_barrel_exact": 63.644,
+        "brent_usd_per_litre_exact": 0.4003087167,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 62.78,
+        "max_usd_per_barrel": 64.86
+      },
+      "interest": {
+        "worldwide": 50.0,
+        "indonesia": 21.0,
+        "malaysia": 55.0,
+        "norway": 56.0,
+        "singapore": 45.0,
+        "us": 41.0
+      }
+    },
+    {
+      "week_start": "2025-11-23",
+      "week_end": "2025-11-29",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 64.38,
+        "brent_usd_per_litre": 0.4049,
+        "brent_usd_per_barrel_exact": 64.376,
+        "brent_usd_per_litre_exact": 0.4049128582,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 63.99,
+        "max_usd_per_barrel": 64.83
+      },
+      "interest": {
+        "worldwide": 60.0,
+        "indonesia": 31.0,
+        "malaysia": 59.0,
+        "norway": 64.0,
+        "singapore": 56.0,
+        "us": 42.0
+      }
+    },
+    {
+      "week_start": "2025-11-30",
+      "week_end": "2025-12-06",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 63.98,
+        "brent_usd_per_litre": 0.4024,
+        "brent_usd_per_barrel_exact": 63.982,
+        "brent_usd_per_litre_exact": 0.4024346727,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 63.37,
+        "max_usd_per_barrel": 64.42
+      },
+      "interest": {
+        "worldwide": 62.0,
+        "indonesia": 37.0,
+        "malaysia": 77.0,
+        "norway": 57.0,
+        "singapore": 52.0,
+        "us": 48.0
+      }
+    },
+    {
+      "week_start": "2025-12-07",
+      "week_end": "2025-12-13",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 62.6,
+        "brent_usd_per_litre": 0.3938,
+        "brent_usd_per_barrel_exact": 62.604,
+        "brent_usd_per_litre_exact": 0.3937673135,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 61.87,
+        "max_usd_per_barrel": 63.3
+      },
+      "interest": {
+        "worldwide": 57.0,
+        "indonesia": 34.0,
+        "malaysia": 54.0,
+        "norway": 73.0,
+        "singapore": 61.0,
+        "us": 48.0
+      }
+    },
+    {
+      "week_start": "2025-12-14",
+      "week_end": "2025-12-20",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 60.83,
+        "brent_usd_per_litre": 0.3826,
+        "brent_usd_per_barrel_exact": 60.826,
+        "brent_usd_per_litre_exact": 0.3825840299,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 59.93,
+        "max_usd_per_barrel": 61.55
+      },
+      "interest": {
+        "worldwide": 56.0,
+        "indonesia": 29.0,
+        "malaysia": 58.0,
+        "norway": 63.0,
+        "singapore": 60.0,
+        "us": 44.0
+      }
+    },
+    {
+      "week_start": "2025-12-21",
+      "week_end": "2025-12-27",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 63.4,
+        "brent_usd_per_litre": 0.3988,
+        "brent_usd_per_barrel_exact": 63.404,
+        "brent_usd_per_litre_exact": 0.3987991621,
+        "trading_days": 5,
+        "imputed_days": 2,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 62.22,
+        "max_usd_per_barrel": 63.7
+      },
+      "interest": {
+        "worldwide": 51.0,
+        "indonesia": 20.0,
+        "malaysia": 52.0,
+        "norway": 76.0,
+        "singapore": 56.0,
+        "us": 47.0
+      }
+    },
+    {
+      "week_start": "2025-12-28",
+      "week_end": "2026-01-03",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 62.02,
+        "brent_usd_per_litre": 0.3901,
+        "brent_usd_per_barrel_exact": 62.016,
+        "brent_usd_per_litre_exact": 0.3900689047,
+        "trading_days": 5,
+        "imputed_days": 1,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 61.35,
+        "max_usd_per_barrel": 63.1
+      },
+      "interest": {
+        "worldwide": 48.0,
+        "indonesia": 17.0,
+        "malaysia": 55.0,
+        "norway": 84.0,
+        "singapore": 72.0,
+        "us": 43.0
+      }
+    },
+    {
+      "week_start": "2026-01-04",
+      "week_end": "2026-01-10",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 62.93,
+        "brent_usd_per_litre": 0.3958,
+        "brent_usd_per_barrel_exact": 62.926,
+        "brent_usd_per_litre_exact": 0.3957926325,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 61.08,
+        "max_usd_per_barrel": 65.11
+      },
+      "interest": {
+        "worldwide": 48.0,
+        "indonesia": 17.0,
+        "malaysia": 45.0,
+        "norway": 77.0,
+        "singapore": 51.0,
+        "us": 42.0
+      }
+    },
+    {
+      "week_start": "2026-01-11",
+      "week_end": "2026-01-17",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 67.0,
+        "brent_usd_per_litre": 0.4214,
+        "brent_usd_per_barrel_exact": 66.996,
+        "brent_usd_per_litre_exact": 0.4213921624,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 65.4,
+        "max_usd_per_barrel": 68.87
+      },
+      "interest": {
+        "worldwide": 51.0,
+        "indonesia": 21.0,
+        "malaysia": 44.0,
+        "norway": 65.0,
+        "singapore": 65.0,
+        "us": 43.0
+      }
+    },
+    {
+      "week_start": "2026-01-18",
+      "week_end": "2026-01-24",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 66.99,
+        "brent_usd_per_litre": 0.4213,
+        "brent_usd_per_barrel_exact": 66.986,
+        "brent_usd_per_litre_exact": 0.4213292643,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 65.46,
+        "max_usd_per_barrel": 68.16
+      },
+      "interest": {
+        "worldwide": 57.0,
+        "indonesia": 25.0,
+        "malaysia": 59.0,
+        "norway": 64.0,
+        "singapore": 62.0,
+        "us": 47.0
+      }
+    },
+    {
+      "week_start": "2026-01-25",
+      "week_end": "2026-01-31",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 70.43,
+        "brent_usd_per_litre": 0.443,
+        "brent_usd_per_barrel_exact": 70.426,
+        "brent_usd_per_litre_exact": 0.4429662133,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 67.7,
+        "max_usd_per_barrel": 72.25
+      },
+      "interest": {
+        "worldwide": 60.0,
+        "indonesia": 32.0,
+        "malaysia": 46.0,
+        "norway": 100.0,
+        "singapore": 74.0,
+        "us": 45.0
+      }
+    },
+    {
+      "week_start": "2026-02-01",
+      "week_end": "2026-02-07",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 69.84,
+        "brent_usd_per_litre": 0.4393,
+        "brent_usd_per_barrel_exact": 69.84,
+        "brent_usd_per_litre_exact": 0.4392803842,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 67.72,
+        "max_usd_per_barrel": 71.15
+      },
+      "interest": {
+        "worldwide": 57.0,
+        "indonesia": 25.0,
+        "malaysia": 58.0,
+        "norway": 60.0,
+        "singapore": 66.0,
+        "us": 47.0
+      }
+    },
+    {
+      "week_start": "2026-02-08",
+      "week_end": "2026-02-14",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 70.7,
+        "brent_usd_per_litre": 0.4447,
+        "brent_usd_per_barrel_exact": 70.696,
+        "brent_usd_per_litre_exact": 0.4446644622,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 69.8,
+        "max_usd_per_barrel": 71.52
+      },
+      "interest": {
+        "worldwide": 73.0,
+        "indonesia": 76.0,
+        "malaysia": 87.0,
+        "norway": 77.0,
+        "singapore": 70.0,
+        "us": 47.0
+      }
+    },
+    {
+      "week_start": "2026-02-15",
+      "week_end": "2026-02-21",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 71.66,
+        "brent_usd_per_litre": 0.4507,
+        "brent_usd_per_barrel_exact": 71.656,
+        "brent_usd_per_litre_exact": 0.4507026806,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 69.77,
+        "max_usd_per_barrel": 73.17
+      },
+      "interest": {
+        "worldwide": 81.0,
+        "indonesia": 100.0,
+        "malaysia": 100.0,
+        "norway": 75.0,
+        "singapore": 65.0,
+        "us": 55.0
+      }
+    },
+    {
+      "week_start": "2026-02-22",
+      "week_end": "2026-02-28",
+      "regime": "baseline",
+      "oil": {
+        "brent_usd_per_barrel": 71.36,
+        "brent_usd_per_litre": 0.4488,
+        "brent_usd_per_barrel_exact": 71.356,
+        "brent_usd_per_litre_exact": 0.4488157373,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 70.69,
+        "max_usd_per_barrel": 71.9
+      },
+      "interest": {
+        "worldwide": 72.0,
+        "indonesia": 41.0,
+        "malaysia": 65.0,
+        "norway": 71.0,
+        "singapore": 65.0,
+        "us": 50.0
+      }
+    },
+    {
+      "week_start": "2026-03-01",
+      "week_end": "2026-03-07",
+      "regime": "elevated",
+      "oil": {
+        "brent_usd_per_barrel": 85.28,
+        "brent_usd_per_litre": 0.5364,
+        "brent_usd_per_barrel_exact": 85.282,
+        "brent_usd_per_litre_exact": 0.5364076421,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 77.24,
+        "max_usd_per_barrel": 95.74
+      },
+      "interest": {
+        "worldwide": 73.0,
+        "indonesia": 23.0,
+        "malaysia": 45.0,
+        "norway": 79.0,
+        "singapore": 64.0,
+        "us": 53.0
+      }
+    },
+    {
+      "week_start": "2026-03-08",
+      "week_end": "2026-03-14",
+      "regime": "elevated",
+      "oil": {
+        "brent_usd_per_barrel": 96.16,
+        "brent_usd_per_litre": 0.6048,
+        "brent_usd_per_barrel_exact": 96.156,
+        "brent_usd_per_litre_exact": 0.6048030444,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 89.84,
+        "max_usd_per_barrel": 103.23
+      },
+      "interest": {
+        "worldwide": 84.0,
+        "indonesia": 17.0,
+        "malaysia": 55.0,
+        "norway": 79.0,
+        "singapore": 100.0,
+        "us": 63.0
+      }
+    },
+    {
+      "week_start": "2026-03-15",
+      "week_end": "2026-03-21",
+      "regime": "elevated",
+      "oil": {
+        "brent_usd_per_barrel": 111.4,
+        "brent_usd_per_litre": 0.7007,
+        "brent_usd_per_barrel_exact": 111.398,
+        "brent_usd_per_litre_exact": 0.7006723402,
+        "trading_days": 5,
+        "imputed_days": 0,
+        "is_partial_week": false,
+        "min_usd_per_barrel": 101.04,
+        "max_usd_per_barrel": 118.42
+      },
+      "interest": {
+        "worldwide": 71.0,
+        "indonesia": 16.0,
+        "malaysia": 58.0,
+        "norway": 68.0,
+        "singapore": 80.0,
+        "us": 58.0
+      }
+    },
+    {
+      "week_start": "2026-03-22",
+      "week_end": "2026-03-28",
+      "regime": "elevated",
+      "oil": {
+        "brent_usd_per_barrel": 103.79,
+        "brent_usd_per_litre": 0.6528,
+        "brent_usd_per_barrel_exact": 103.79,
+        "brent_usd_per_litre_exact": 0.6528194599,
+        "trading_days": 1,
+        "imputed_days": 0,
+        "is_partial_week": true,
+        "min_usd_per_barrel": 103.79,
+        "max_usd_per_barrel": 103.79
+      },
+      "interest": {
+        "worldwide": 80.0,
+        "indonesia": 16.0,
+        "malaysia": 73.0,
+        "norway": 46.0,
+        "singapore": 67.0,
+        "us": 62.0
+      }
+    },
+    {
+      "week_start": "2026-03-29",
+      "week_end": "2026-04-04",
+      "regime": null,
+      "oil": null,
+      "interest": {
+        "worldwide": 100.0,
+        "indonesia": 14.0,
+        "malaysia": 58.0,
+        "norway": 50.0,
+        "singapore": 63.0,
+        "us": 100.0
+      }
+    }
+  ]
+}
