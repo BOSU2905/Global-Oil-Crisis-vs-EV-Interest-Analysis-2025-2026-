@@ -1106,6 +1106,13 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 | 3C step 1 docs | **`64d904f`** | docs: record the Phase 3C step 1 commit hash in KIRO.md |
 | Reconciliation | `f002259` | docs: correct the KIRO.md push status and phase header after reconciliation |
 | 3C step 2 | **`0131f74`** | feat: replace the hand-rolled validator with a Zod runtime schema boundary |
+| 3C step 2 docs | `97b69f1` | docs: record the Phase 3C step 2 commit hash in KIRO.md |
+| 3C step 3 | **`6acb553`** | feat: build the application shell and layout primitives |
+
+`6acb553` changed 17 files: 10 created (7 components, `contract.ts`,
+`src/content/sections.ts`, and the two test files), 3 source files modified
+(`app/layout.tsx`, `app/page.tsx`, `tokens.css`) and 4 documents updated. Nothing
+under `web/src/data/` was touched.
 
 `0131f74` changed 3 files: `web/src/data/validate.ts` (+643/−990), plus `KIRO.md`
 and `web/README.md`. Nothing else in `web/src/data/` was touched.
