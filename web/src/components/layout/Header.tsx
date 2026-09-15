@@ -39,7 +39,7 @@ export function Header({ items, period }: HeaderProps) {
         className="flex flex-col gap-1 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8"
       >
         <div className="flex items-baseline justify-between gap-4">
-          <span className="text-h4 font-medium tracking-tight text-fg">
+          <span className="text-h4 font-semibold tracking-tight text-fg">
             Oil Prices <span className="text-fg-subtle">vs</span> EV Interest
           </span>
           <span className="numeric text-meta text-fg-muted">{period}</span>

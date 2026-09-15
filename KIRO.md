@@ -4,7 +4,8 @@
 
 **Last updated:** 2026-09-15 — Phase 3C step 4 of 8 COMPLETE (content components),
 plus a Windows device-transition fix (typography diagnosis, Windows path defect,
-line-ending determinism). Steps 1–4 done; step 5 is next.
+line-ending determinism) and a **visual refinement pass** (one shared layout frame,
+display-type measure, weight-500 removed). Steps 1–4 done; step 5 is next.
 
 ---
 
@@ -189,6 +190,168 @@ test — see §4.
 ---
 
 ## 4. Completed work
+
+### Visual refinement pass (between steps 4 and 5) — COMPLETE
+
+A focused typography and composition pass, triggered by a 1920×1080 preview on the
+Windows PC: "the font still feels different from the Linux preview" and "the page
+feels too narrowly centered". **Not step 5.** No chart, no ECharts import, no
+country component, no narrative section, and no change to the analytical layer.
+
+Nine files changed, one created. No colour, radius, motion or spacing token was
+touched, and no component was added or removed.
+
+#### Typography: the face is OS-owned, but weight 500 was a real defect
+
+The face difference is **confirmed again as not a defect** — and this time the
+consequence that *was* a defect got fixed.
+
+Measured on this machine by drawing one string to a canvas at each weight and
+hashing the pixels, plus advance widths:
+
+| Weight | Pixel digest | Advance |
+| --- | --- | --- |
+| 400 | `8be5c6f4` | 696.41px |
+| **500** | **`271406a1`** | **707.06px** |
+| **600** | **`271406a1`** | **707.06px** |
+| 700 | `c16e1714` | 741.38px |
+
+**500 and 600 are byte-identical on Segoe UI.** A face shipping only 400/700 —
+common on Linux — renders 500 as 400 instead. So every role set to 500 read as
+emphasised on Windows and as body text on Linux: `--text-label-weight` (every
+section eyebrow), `--text-stat-weight` (every statistic), the header identity, and
+`StatHighlight`. That is not a glyph difference, it is the **hierarchy** being
+decided by the operating system, and it is the most likely thing that read as "the
+typography changed".
+
+Fixed by moving emphasis to `--weight-semibold`, which is a real face on Segoe UI
+and maps to 700 where only 400/700 exist — emphasised on both, differing only in
+degree. `--weight-medium` is retained as a scale value that no role consumes.
+
+**This is a no-op on Windows and a fix on Linux.** 500 already resolved to the 600
+face here, so the user's current preview is unchanged by it; what changes is that
+Linux stops losing the emphasis. Stated plainly because it would be easy to
+misreport as a visible improvement.
+
+Two tests make it a rule rather than a habit: `tests/typography-contract.test.ts`
+rejects any `--text-*-weight: var(--weight-medium)` declaration **and** any
+`font-medium` utility in a component, and an E2E test asserts no element on the page
+computes to weight 500. The unit test earned its keep immediately — it found
+`StatHighlight` still using `font-medium`, in a component whose own comment already
+noted that 500 was unreliable and kept it anyway.
+
+**The typeface itself is still OS-supplied and no font was added.** No `next/font`,
+no Google Fonts, no `.woff2`, zero font requests — the E2E assertions for that are
+untouched and still pass. Deterministic typography would require shipping a
+typeface, which remains an unmade product decision.
+
+#### One responsible measure change, and one rejected after measuring it
+
+**Accepted — display type stops borrowing the prose measure.** `SectionHeader`
+capped eyebrow, title and lead together at `--width-reading` on a wrapper. 68
+characters is a measure for 16px prose; applied to a 60px display heading it
+confined the page's largest element to 586.5px — under a third of a 1920px viewport
+— and broke the h1 after "EV". New token `--width-title: 22ch`, placed on the
+heading element itself because `ch` resolves against the element's own font size, so
+one value gives ~733px at 60px and ~343px at 36px with no breakpoint logic. Plus
+`text-wrap: balance` on `h1`–`h4`, so the break is a function of line count rather
+than of whichever face the OS supplied. The h1 now breaks as "Global Oil Crisis vs /
+EV Interest Analysis" instead of "Global Oil Crisis vs EV / Interest Analysis".
+
+**Rejected — a px ceiling on the reading measure.** `--width-reading: min(68ch,
+42rem)` was implemented to bound the fact that `1ch` differs per face, then measured
+and reverted: `ch` scales with the element's font size and `rem` does not, so the
+ceiling **binds on the 19px lead (clamping it to 65 characters) and is inert on 16px
+body copy**. A measure token that means different things per role is a worse defect
+than the wrapping drift it was meant to fix. The drift stays, documented and
+accepted. A unit test now asserts `--width-reading` is exactly `68ch`.
+
+Consequence of moving the cap onto the lead itself: the lead's measure is ~696px
+rather than the ~586px it inherited from a 16px wrapper. That is the 68-character
+rule applied correctly — the old number was an artifact of where the cap sat — and
+it is why the E2E reading-measure probe had to be corrected (below).
+
+#### The composition defect was misalignment, not narrowness
+
+"Too narrowly centered" was diagnosed by measurement before anything was changed,
+and the cause was not the width. The shell used `--width-page` (1440px) while the
+page body used `--width-content` (1120px). Both centred on the same axis, so:
+
+| Viewport | Header content starts | Body content starts | Inset |
+| --- | ---: | ---: | ---: |
+| 375px | x=16 | x=16 | 0 |
+| 1280px | x=24 | x=104 | **80px** |
+| 1440px | x=24 | x=184 | **160px** |
+| 1920px | x=264 | x=424 | **160px** |
+
+Two centred containers of different widths have **no alignment spine**. Nothing
+failed and no gate noticed; the page simply read as a narrow column floating inside
+a wider frame — exactly the impression `design-system.md` §1 forbids.
+
+**The fix is one frame, shared.** `--width-page` becomes the frame the shell and the
+page body both use, and it is **banded**: 1120px up to `2xl`, 1280px from 1536px. A
+step rather than a `clamp()`, for the same reason charts adapt by band — a
+continuously growing frame makes every chart a different width at every viewport.
+The boundary is the documented 1536px `2xl`, not a new breakpoint, and above it the
+frame equals `--width-chart`, which is what "prose stays readable, analytical visuals
+can breathe" resolves to concretely.
+
+Measured after the change:
+
+| Viewport | Frame | Coverage | Spine offset | Overflow |
+| --- | ---: | ---: | ---: | ---: |
+| 375px | 375px | 100% | **0px** | 0 |
+| 1280px | 1120px | 87.5% | **0px** | 0 |
+| 1440px | 1120px | 77.8% | **0px** | 0 |
+| 1920px | **1280px** | **66.7%** (was 58.3%) | **0px** | 0 |
+
+Header identity, body eyebrow, `h1`, card grid and footer now share one left edge at
+every width. 1280px keeps the composition it already had; mobile is byte-identical
+in layout.
+
+**Why the body was not simply widened to 1440px.** Step 3 tried a `page`-width body
+and reverted it after looking at a screenshot, because prose left-aligned in a very
+wide frame leaves a void. That finding still holds — which is why the frame was
+brought *down* to meet the body rather than the body pushed out to meet a 1440px
+shell, and why the growth above `2xl` stops at `--width-chart`. A unit test asserts
+the frame never exceeds `--width-chart`, since a frame wider than the widest
+permitted chart is space no content variant can fill.
+
+**No multi-column grid was introduced.** The frame now has the width for the `≥1280`
+multi-column evidence row in `product-architecture.md` §7, but nothing in the
+scaffold justifies one yet, and a grid added before there is content for it is the
+dense-card-grid outcome the design system rejects. Recorded as deferred rather than
+skipped.
+
+#### Files changed
+
+```text
+web/src/styles/tokens.css                      frame band, --width-title, weight roles
+web/app/globals.css                            --container-title, text-wrap: balance
+web/app/page.tsx                               body Container: content → page
+web/src/components/layout/SectionHeader.tsx    per-role measures, wrapper measure removed
+web/src/components/layout/Container.tsx        docstring: frame vs role measure
+web/src/components/layout/Header.tsx           font-medium → font-semibold
+web/src/components/content/StatHighlight.tsx   font-medium → font-semibold
+web/e2e/shell.e2e.ts                           spine + frame band + overflow; probe fixed
+web/e2e/typography.e2e.ts                      weight expectations; no-weight-500 test
+web/tests/typography-contract.test.ts          NEW — 10 tests
+```
+
+#### One existing test was corrected, and it was wrong before
+
+`shell.e2e.ts` → "prose never exceeds the reading measure" probed
+`var(--width-reading)` on a bare `div` appended to `document.body`, i.e. resolved
+`ch` in the **root's 16px font**, then compared the result against the 19px lead
+paragraph. It passed only because the measure used to be applied to a 16px wrapper.
+The probe now copies the lead's computed `font` before measuring, so it checks the
+actual rule — 68 characters of that element's own type. This is a **correction of a
+faulty assertion, not a relaxation**: the test still fails if a container regresses
+to the frame width.
+
+The two weight expectations in `typography.e2e.ts` (eyebrow, header identity) moved
+`500` → `600` to match the deliberate change. Nothing was skipped, deleted or
+loosened, and the suite grew from 47 to 56.
 
 ### Phase 3C step 4 — content components — COMPLETE
 
@@ -1255,6 +1418,16 @@ Version notes:
 | `Card` takes an `as` prop, and its optional props are typed `| undefined` | `exactOptionalPropertyTypes` is on, so a wrapper cannot forward a possibly-undefined prop through a plain `?:`. `Card` is the primitive designed to be wrapped, so it absorbs that instead of forcing every caller to invent a default |
 | Metric cards sit in a `<ul>`, not a `<dl>` | `MetricCard` renders `<p>` for label and value, and a `div` inside a `dl` must contain `dt`/`dd`. Making the component emit `dt`/`dd` would force every future use into a definition list |
 | Kept the foundation page free of inferential metrics even though the component now exists | Steps 6–7 build the sections that can carry a specification comparison. A coefficient here would have nowhere to be qualified, which is exactly what §16 forbids. Two tests assert it stays that way |
+| **Refinement pass** — one shared frame: `--width-page` is used by the shell *and* the page body | Two centred containers of different widths have no alignment spine. Measured: the body sat 80px inside the header's left edge at 1280px and 160px inside it at 1440px/1920px. That inset, not the width, is what made a 1920px canvas read as a narrow floating column |
+| Brought the frame **down** to 1120px rather than pushing the body out to 1440px | Step 3 already tried a `page`-width body and reverted it on a screenshot: prose left-aligned in a very wide frame leaves a void. Meeting in the middle fixes the alignment without recreating the defect step 3 found |
+| The frame is **banded** (1120px → 1280px at `2xl`), not a `clamp()` | A continuously growing frame makes every chart a different width at every viewport, which is the opposite of the banded adaptation design-system §5 requires. The boundary reuses the documented 1536px `2xl` rather than inventing a sixth breakpoint |
+| The frame may never exceed `--width-chart` | A frame wider than the widest permitted chart is space no content variant can fill. Asserted by a unit test rather than left as an intention |
+| No multi-column grid, even though the frame now has room for one | `product-architecture.md` §7 permits multi-column evidence at `≥1280`, but nothing in the scaffold needs it. A grid built before there is content to justify it is the dense-card-grid outcome design-system §1 rejects. Deferred explicitly, not skipped |
+| `--width-title: 22ch` on the **heading element**, not a wrapper | `ch` resolves against the element's own font size, so one value tracks the fluid display scale — ~733px at 60px, ~343px at 36px — with no breakpoint logic. A wrapper would also clamp the heading to the wrapper's measure, which is the bug being fixed |
+| No type role may request weight 500 | Measured, not assumed: on Segoe UI 500 and 600 produce an identical pixel digest and an identical 707.06px advance, while a 400/700-only face renders 500 as 400. A role at 500 lets the OS decide whether text reads as emphasised. A unit test rejects the declaration and the `font-medium` utility; an E2E test rejects the computed value. **A no-op on Windows** — 500 already resolved to the 600 face here — so it is honest to report it as a Linux fix rather than a visible improvement |
+| Rejected `--width-reading: min(68ch, 42rem)` after implementing and measuring it | `ch` scales with the element's font size and `rem` does not, so one ceiling binds on the 19px lead and is inert on 16px body copy — the token would mean different things per role. Bounding cross-OS wrapping drift is not worth a measure that is inconsistent by role, and the drift is already documented and accepted |
+| `text-wrap: balance` on `h1`–`h4` | With an OS-supplied typeface the same heading occupies a different pixel width per machine, so a greedy break lands somewhere different on each. Balance makes the break depend on line count instead, which is the only way heading wrapping can be deliberate on a machine that is not the author's |
+| Corrected the reading-measure E2E probe rather than deleting it | It resolved `ch` in the root's 16px font and compared the result against the 19px lead, so it was asserting the wrong number and passed only by coincidence of where the cap sat. The probe now copies the element's computed font. A faulty assertion is worse than a missing one, and this is a correction, not a relaxation |
 
 ---
 
@@ -1266,13 +1439,20 @@ Open items, none blocking:
 
 - **The product ships no typeface, so the rendered face is OS-dependent.** This is
   the documented decision (`tokens.css` principle 4, `design-system.md` §3) and it
-  is now measured rather than assumed: Segoe UI + Consolas on Windows, whatever
-  fontconfig resolves on Linux. Two consequences are open by design — `500` is not
-  a distinct weight on Segoe UI, and `--width-reading: 68ch` is a different
-  physical width per face, so paragraph wrapping and section heights legitimately
-  differ between machines. **Fully deterministic typography would require shipping
-  a typeface, which is a product decision that has not been made.** Recorded in §4
-  and `design-system.md` §3 with the evidence.
+  is measured rather than assumed: Segoe UI + Consolas on Windows, whatever
+  fontconfig resolves on Linux. **Fully deterministic typography would require
+  shipping a typeface, which is a product decision that has not been made.**
+
+  Re-examined in the refinement pass rather than accepted on the previous session's
+  word, and one consequence turned out to be a real defect that is now fixed: weight
+  500 is not a distinct face (identical digest *and* identical 707.06px advance to
+  600 on Segoe UI; renders as 400 on a 400/700-only face), so four roles let the OS
+  decide whether text read as emphasised. Emphasis now uses 600 and two tests
+  forbid 500. **What remains open is only the face itself**, plus the `ch`-measure
+  consequence: `--width-reading: 68ch` is a different physical width per face, so
+  paragraph wrapping and section heights legitimately differ between machines. A px
+  ceiling on that was implemented, measured and rejected — it resolves differently
+  per role (§4).
 - **Only chromium is installed for Playwright.** Firefox/WebKit binaries are
   absent, so cross-engine behaviour is unverified. The cyan/blue colourblind check
   and the screen-reader pass in `docs/product-architecture.md` §5 also remain
@@ -1318,6 +1498,64 @@ Resolved this session:
 ---
 
 ## 9. Validation status
+
+### Visual refinement pass validation (2026-09-15, Windows)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| New typography/frame tests | `node --test tests/typography-contract.test.ts` | **10 / 10 pass** |
+| Full frontend suite | `npm test` | **150 / 150 pass**, 0 fail, 0 skipped (140 + 10) |
+| Types | `npm run typecheck` | **clean**, exit 0 |
+| Lint | `npm run lint` | **clean**, exit 0 |
+| Format | `npm run format:check` | **clean** — all matched files use Prettier style |
+| Combined | `npm run verify` | **exit 0** |
+| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
+| Browser E2E | `npm run test:e2e` | **56 / 56 pass** (was 47; +9) |
+| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
+| Artifact freshness | `python -m pipeline.build --check` | **PASS** — all 4 artifacts up to date |
+
+Port 3100 was explicitly cleared and every `node` process killed before the E2E run,
+and the listener was confirmed absent, so Playwright built and started its own
+server rather than reusing a stale one. No existing test was skipped, deleted or
+weakened; the two changed weight expectations track a deliberate token change, and
+the corrected reading-measure probe is a fix to an assertion that was checking the
+wrong number (§4).
+
+**Responsive verification — measured in-browser at four viewports.**
+
+| Viewport | Frame | Coverage | Spine offset | Overflow | Prose |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 375px | 375px | 100% | 0px | 0 | within measure |
+| 1280px | 1120px | 87.5% | 0px | 0 | within measure |
+| 1440px | 1120px | 77.8% | 0px | 0 | within measure |
+| 1920px | 1280px | 66.7% | 0px | 0 | within measure |
+
+"Spine offset" is the header identity's left edge minus the body eyebrow's left
+edge; it was 80px at 1280px and 160px at 1440px/1920px before the change. Four E2E
+tests now assert it is 0 at each of these widths, and three more assert zero
+horizontal overflow at 1280/1440/1920 (375px was already covered).
+
+**Visual verification.** Screenshots at all four viewports, before and after, were
+looked at: at 1920px the header identity, eyebrow, `h1` and card grid now share one
+left edge and the grid's right edge lines up with the navigation rail; the `h1`
+breaks as "Global Oil Crisis vs / EV Interest Analysis" rather than splitting "EV
+Interest Analysis"; 375px is unchanged — stacked cards, wrapped badges, the callout,
+the narrative list and the footer all intact with no overflow. The probe script and
+its screenshots lived outside the tracked tree and were deleted.
+
+**Analytical integrity.** Tree hashes identical to the baseline:
+
+| Path | Tree hash | vs baseline |
+| --- | --- | --- |
+| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
+| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+
+`git diff HEAD -- pipeline/ data/ reports/ web/src/data/ METHODOLOGY.md` is
+**empty**, and the four artifact digests on disk still match §9's record exactly:
+`panel.json e446aeb525e12d5b`, `metrics.json 5e5f43bf255b1ff7`,
+`countries.json 6789e21c6b3a3aa0`, `claims.json c46072971a2b59e7`.
 
 ### Phase 3C step 4 validation (2026-09-15, Windows)
 
@@ -1719,6 +1957,19 @@ Still binding for every remaining step:
 - Typography is OS-supplied by design (§4). Do not "fix" a per-machine typeface
   difference; chart label sizes come from `--chart-*-size` tokens, which are
   deterministic, while the face is not.
+- **The shell and the page body share one frame** (`Container width="page"`,
+  `--width-page`, banded 1120px → 1280px at `2xl`). A chart may take the full frame;
+  prose stays at `--width-reading`. Do not introduce a second centred width at page
+  level — a unit test asserts `Header`, `Footer` and `page.tsx` all request `page`,
+  and an E2E test asserts they share one left edge at 375/1280/1440/1920. This is
+  the concrete meaning of "prose stays readable, analytical visuals can breathe".
+- **No type role or component may request weight 500.** It is not a distinct face in
+  these system stacks (§4). Use `--weight-semibold` / `font-semibold`. A unit test
+  rejects the declaration and the utility; an E2E test rejects the computed value.
+  Chart label weights are subject to the same rule.
+- Prose measures go on the element that carries the role, never on a wrapper:
+  `--width-reading` and `--width-title` are in `ch`, which resolves against the
+  element's own font size.
 
 ---
 

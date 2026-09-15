@@ -32,6 +32,24 @@ interface SectionHeaderProps {
  *
  * The heading carries `sectionTitleId(sectionId)` because `Section` points
  * `aria-labelledby` at exactly that id.
+ *
+ * THREE MEASURES, NOT ONE
+ * The wrapper used to cap eyebrow, title and lead together at `max-w-reading`.
+ * That is right for the lead and wrong for the title: `--width-reading` is a
+ * measure for 16px prose, and applying it to a 60px display heading confined the
+ * page's largest element to 586px — a third of a 1920px viewport — and broke the
+ * h1 after "EV". Each role now carries the measure that belongs to it:
+ *
+ *   eyebrow  none        it is a few words; a measure would never apply
+ *   title    max-w-title `--width-title` is 22ch, resolved against the HEADING's
+ *                        own font size, so it tracks the fluid display scale with
+ *                        no breakpoint logic. It must sit on the heading element
+ *                        rather than a wrapper for that reason
+ *   lead     max-w-reading  unchanged: prose never exceeds the measure
+ *
+ * The wrapper therefore takes the width of whatever container it is placed in,
+ * which is what lets the eyebrow, the title and the section body below share one
+ * left edge with the shell.
  */
 export function SectionHeader({
   sectionId,
@@ -45,7 +63,7 @@ export function SectionHeader({
   const Heading = headingLevel === 1 ? "h1" : "h2";
   const titleClass = headingLevel === 1 ? "text-display text-fg" : "text-h2 text-fg";
 
-  const classes = ["max-w-reading"];
+  const classes: string[] = [];
   if (className !== undefined) classes.push(className);
 
   return (
@@ -59,11 +77,13 @@ export function SectionHeader({
         )}
         {eyebrow}
       </p>
-      <Heading id={sectionTitleId(sectionId)} className={`mt-3 ${titleClass}`}>
+      <Heading id={sectionTitleId(sectionId)} className={`mt-3 max-w-title ${titleClass}`}>
         {title}
       </Heading>
       {lead === undefined ? null : (
-        <p className="mt-(--section-header-gap) text-lead text-fg-secondary">{lead}</p>
+        <p className="mt-(--section-header-gap) max-w-reading text-lead text-fg-secondary">
+          {lead}
+        </p>
       )}
     </div>
   );

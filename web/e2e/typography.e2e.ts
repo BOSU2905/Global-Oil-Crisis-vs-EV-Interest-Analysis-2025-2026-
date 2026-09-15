@@ -59,7 +59,7 @@ const DESKTOP: readonly RoleExpectation[] = [
     size: "12px",
     line: "16.2px",
     tracking: "0.9px",
-    weight: "500",
+    weight: "600",
   },
   { role: "lead", selector: "p.text-lead", size: "19px", line: "30.78px", tracking: "normal" },
   {
@@ -75,7 +75,7 @@ const DESKTOP: readonly RoleExpectation[] = [
     size: "17px",
     line: "23.8px",
     tracking: "-0.425px",
-    weight: "500",
+    weight: "600",
   },
   {
     role: "meta (footer)",
@@ -104,7 +104,7 @@ const MOBILE: readonly RoleExpectation[] = [
     size: "12px",
     line: "16.2px",
     tracking: "0.9px",
-    weight: "500",
+    weight: "600",
   },
   { role: "lead", selector: "p.text-lead", size: "19px", line: "30.78px", tracking: "normal" },
 ];
@@ -294,5 +294,27 @@ test.describe("weight availability in the OS-supplied face", () => {
     );
 
     expect(rendered.w400).not.toBe(rendered.w600);
+  });
+
+  /**
+   * The rendered half of the rule `tests/typography-contract.test.ts` enforces at
+   * source level. That test reads the declarations; this one reads what the browser
+   * actually computed, so a weight arriving through a utility, an inherited value or
+   * a future component is caught too.
+   *
+   * The rule: nothing requests 500. It is pixel-identical to 600 on Segoe UI and
+   * collapses to 400 on a face shipping only 400/700, so any hierarchy resting on it
+   * is decided by the operating system rather than by the design system.
+   */
+  test("no element requests font-weight 500", async ({ page }) => {
+    await page.goto("/");
+
+    const offenders = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((el) => getComputedStyle(el).fontWeight === "500")
+        .map((el) => `${el.tagName.toLowerCase()}.${el.className}`),
+    );
+
+    expect(offenders).toEqual([]);
   });
 });

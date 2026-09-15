@@ -227,6 +227,12 @@
   --container-chart: var(--width-chart);
   --container-reading: var(--width-reading);
   --container-narrow: var(--width-narrow);
+  /* Display-type measure. Not a `Container` variant — the five variants in
+     `layout/contract.ts` are the widths a *container* may take, and this one is a
+     property of a heading. `--width-title` is in `ch`, which resolves against the
+     heading's own font size, so `max-w-title` must sit on the heading element
+     itself and never on a wrapper. */
+  --container-title: var(--width-title);
 
   --radius-2xl: initial;
   --radius-3xl: initial;
@@ -269,5 +275,26 @@
   :focus-visible {
     outline: var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
+  }
+
+  /*
+   * Headings wrap into balanced lines rather than filling each line greedily.
+   *
+   * This is a portability measure as much as a typographic one. The typeface is
+   * OS-supplied (design-system §3), so the same heading occupies a different number
+   * of pixels per machine and a greedy break lands in a different place — the h1
+   * broke after "EV" on Segoe UI, leaving a two-word second line. `balance` makes
+   * the break a function of the line count rather than of the face's advance
+   * widths, so the wrapping is deliberate on every machine instead of only on the
+   * author's.
+   *
+   * It is safe to apply unconditionally: browsers without support ignore it, and
+   * Chromium limits balancing to short blocks, so it cannot affect prose.
+   */
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
   }
 }

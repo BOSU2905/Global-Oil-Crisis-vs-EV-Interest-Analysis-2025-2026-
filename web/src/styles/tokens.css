@@ -273,7 +273,23 @@
     monospace;
   --font-numeric: var(--font-mono);
 
-  /* Only two weights. More weights is the fastest route to looking generic. */
+  /*
+   * Few weights. More weights is the fastest route to looking generic.
+   *
+   * NO TYPE ROLE MAY DEPEND ON `--weight-medium`, and that is a portability rule
+   * rather than a taste one. 500 is not a distinct face in the system stacks this
+   * product uses: measured by drawing one string to a canvas at each weight and
+   * hashing the pixels, Segoe UI on Windows renders 500 and 600 IDENTICALLY (same
+   * digest, same 707.06px advance), while a Linux face shipping only 400/700
+   * renders 500 as 400. So a role set to 500 reads as emphasised on one machine and
+   * as body text on another — a hierarchy that changes with the operating system.
+   *
+   * Emphasis therefore uses `--weight-semibold`, which is a real face on Segoe UI
+   * and maps to 700 where only 400/700 exist: emphasised on both, differing only in
+   * degree. `--weight-medium` is retained as a scale value because the scale is
+   * documented in three steps, but `tests/typography-contract.test.ts` asserts no
+   * `--text-*-weight` role resolves to it.
+   */
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -324,14 +340,20 @@
   --text-label-size: 0.75rem;
   --text-label-line: 1.35;
   --text-label-tracking: 0.075em;
-  --text-label-weight: var(--weight-medium);
+  /* Semibold, not medium: see the weight block above. On Segoe UI this renders
+     exactly as 500 did; on a face without a 500 it no longer collapses to body
+     weight, which is what made eyebrow emphasis differ between machines. */
+  --text-label-weight: var(--weight-semibold);
   --text-label-transform: uppercase;
 
   /* Numeric display, for statistics in cards and tables. */
   --text-stat-size: clamp(1.5rem, 1.2rem + 1vw, 2.125rem);
   --text-stat-line: 1.1;
   --text-stat-tracking: -0.02em;
-  --text-stat-weight: var(--weight-medium);
+  /* Semibold for the same portability reason as the label role above: a statistic
+     that reads as emphasised on Windows and as body text on Linux is a hierarchy
+     the operating system decides. */
+  --text-stat-weight: var(--weight-semibold);
 
   --text-stat-small-size: 1.0625rem;
   --text-stat-small-line: 1.3;
@@ -371,13 +393,52 @@
   --space-32: 8rem; /*  128px */
 
   /* --- widths --- */
-  /* Shell maximum. Beyond this the page stops growing and gains side margin. */
-  --width-page: 1440px;
-  /* Standard section content: cards, grids, tables. */
+  /*
+   * THE FRAME. `--width-page` is the ONE measure the shell and the page body
+   * share, and sharing it is the point: while the header used 1440px and the body
+   * used `--width-content` (1120px), both centred on the same axis, so the body's
+   * left edge sat 80px inside the header's at 1280px and 160px inside it at 1440px
+   * and above. Measured, not guessed — at 1920px the header identity started at
+   * x=264 and the h1 at x=424. Two centred frames of different widths have no
+   * shared alignment spine, and that inset is what made a 1920px canvas read as a
+   * narrow column floating inside a wider one.
+   *
+   * It is BANDED rather than fluid, following the same principle the charts use
+   * (design-system §5: adapt by band, not by scaling): 1120px up to the `2xl`
+   * breakpoint, then 1280px, so a large desktop gains real width for analytical
+   * visuals while 1280px and 1440px keep the composition they already had. The
+   * band boundary is the documented 1536px `2xl`, not a new breakpoint.
+   */
+  --width-page: 1120px;
+  /* Standard section content: cards, grids, tables. Equal to the frame below
+     `2xl`; narrower than it above, which is where a block can choose to stay at
+     section measure while a chart takes the full frame. */
   --width-content: 1120px;
-  /* Prose. Capped in ch so measure stays right regardless of font size. */
+  /*
+   * Prose measure, in `ch` so it stays correct in CHARACTERS regardless of font
+   * size — a lead paragraph at 19px and body copy at 16px both get 68 characters.
+   *
+   * A `min(68ch, <rem>)` ceiling was tried here to bound the fact that `1ch` is a
+   * different number of pixels per OS face, and REJECTED after measuring it: `ch`
+   * scales with the element's font size while `rem` does not, so one ceiling binds
+   * on the 19px lead (clamping it to 65 characters) and is inert on 16px body copy.
+   * A measure token that means different things per role is a worse problem than
+   * the wrapping drift it was meant to fix, and that drift is the documented and
+   * accepted consequence of a character-based measure (design-system §4).
+   */
   --width-reading: 68ch;
-  /* Charts may exceed content width; prose never may. */
+  /*
+   * Display-type measure, and it is deliberately NOT the prose measure. `ch`
+   * resolves against the element's OWN font size, so 22ch on a 60px heading is
+   * ~712px while the same token on a 36px heading is ~427px — the measure tracks
+   * the fluid heading scale automatically, with no breakpoint logic. Capping a
+   * 60px heading at the 68ch body measure (586px) confined the largest element on
+   * the page to a third of a 1920px canvas and broke the title after "EV"; a
+   * heading wants roughly 20-30 characters of its own size, not 68 of the body's.
+   */
+  --width-title: 22ch;
+  /* Charts may exceed content width; prose never may. Equal to the frame at `2xl`
+     and above, which is what "analytical visuals can breathe" resolves to. */
   --width-chart: 1280px;
   /* Narrow column for pull quotes and key-insight callouts. */
   --width-narrow: 52ch;
@@ -628,5 +689,18 @@
 @media (max-width: 1023px) {
   :root {
     --header-height: var(--header-height-narrow);
+  }
+}
+
+/* Large desktop: the shared frame grows once, at the documented `2xl` boundary.
+   This is the only place `--width-page` changes, and it is deliberately a step
+   rather than a fluid `clamp()` — a frame that grows continuously makes every
+   chart a different width at every viewport, which is the opposite of the banded
+   adaptation design-system §5 requires. Above this width the frame equals
+   `--width-chart`, so an analytical visual can take the full frame while prose
+   stays at `--width-reading`. */
+@media (min-width: 1536px) {
+  :root {
+    --width-page: 1280px;
   }
 }

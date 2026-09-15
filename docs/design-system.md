@@ -126,8 +126,9 @@ network dependency.
 - `--font-sans` — `ui-sans-serif, system-ui, -apple-system, …`
 - `--font-mono` / `--font-numeric` — `ui-monospace, SFMono-Regular, …`
 
-**Three weights maximum** (400/500/600). More weights is the fastest route to
-looking generic.
+**Two weights in practice, three in the scale** (400/500/600). More weights is the
+fastest route to looking generic — and 500 turns out not to be usable at all, for
+the portability reason below.
 
 | Role | Token prefix | Notes |
 | --- | --- | --- |
@@ -141,6 +142,13 @@ looking generic.
 | Statistic | `--text-stat-*`, `--text-stat-small-*` | Numeric display |
 | Data | `--text-data-*` | Axis ticks, inline figures |
 
+**No type role may request weight 500.** This is a portability rule, not a taste
+one, and it is enforced by `web/tests/typography-contract.test.ts` (declarations
+and `font-medium` utilities) plus an E2E test asserting no element on the page
+computes to 500. Emphasis uses `--weight-semibold`; `--weight-medium` is retained
+as a scale value that no role consumes. The measurement behind it is in the next
+subsection.
+
 **Tabular figures are non-negotiable.** Any element rendering a number carries
 `.numeric` or `[data-numeric]`, which applies `--font-numeric` with
 `font-variant-numeric: tabular-nums`. Statistics in a column that do not align
@@ -148,6 +156,15 @@ look careless in a data product.
 
 Uppercase is confined to section eyebrows at one size. Uppercase elsewhere is
 what makes a dashboard look shouty.
+
+**Headings wrap by `text-wrap: balance`.** With an OS-supplied typeface the same
+heading occupies a different number of pixels on each machine, so a greedy break
+lands somewhere different per OS — the h1 broke after "EV" on Segoe UI, leaving a
+two-word second line. `balance` makes the break a function of line count rather
+than of the face's advance widths, so wrapping is deliberate everywhere instead of
+only on the author's machine. Applied to `h1`–`h4` in `globals.css`; browsers
+without support ignore it, and Chromium limits balancing to short blocks so it
+cannot reach prose.
 
 ### What is deterministic, and what the operating system decides
 
@@ -177,17 +194,41 @@ glyphs.
 
 Two knock-on effects follow from that, and both are real rather than cosmetic:
 
-- **Weights are as available as the OS face makes them.** Measured by drawing the
-  same string to a canvas at each weight and hashing the pixels: on Segoe UI, 400
-  and 600 are distinct faces, but **500 and 600 render identically**. The three
-  documented weights therefore collapse to two on Windows, and collapse
-  differently on a Linux face that ships only 400 and 700. Anything that must read
-  as emphasised should differ from body text by more than 400 → 500 alone.
+- **Weights are as available as the OS face makes them — so no role may use 500.**
+  Measured by drawing the same string to a canvas at each weight and hashing the
+  pixels: on Segoe UI, **500 and 600 produce an identical digest and an identical
+  707.06px advance**, while 400 (696.41px) and 700 (741.38px) are distinct faces. A
+  Linux face shipping only 400/700 renders 500 as 400. So a role set to 500 reads as
+  emphasised on Windows and as body text on Linux — the *hierarchy*, not just the
+  glyphs, would be chosen by the operating system.
+
+  **Resolved:** emphasis uses `--weight-semibold`, which is a real face on Segoe UI
+  and maps to 700 where only 400/700 exist — emphasised on both, differing only in
+  degree. `--text-label-weight`, `--text-stat-weight`, the header identity and
+  `StatHighlight` were moved off 500. On Windows this renders *identically* to
+  before, because 500 already resolved to the 600 face there; the change is what
+  Linux gains. Two tests hold the line: a unit test rejects any
+  `--text-*-weight: var(--weight-medium)` declaration or `font-medium` utility, and
+  an E2E test asserts no element on the page computes to weight 500.
 - **`ch`-based measures change width with the face.** Under Segoe UI at 16px,
-  `1ch` is 8.63px, so `--width-reading: 68ch` is 586.5px. A wider default face
-  yields a wider column, which changes paragraph line counts and section heights.
-  The `ch` unit is still right — it keeps the measure correct in characters — but
-  it means identical CSS legitimately produces different wrapping per machine.
+  `1ch` is 8.63px, so `--width-reading: 68ch` is 586.5px on body copy. A wider
+  default face yields a wider column, which changes paragraph line counts and
+  section heights. The `ch` unit is still right — it keeps the measure correct in
+  characters — but it means identical CSS legitimately produces different wrapping
+  per machine.
+
+  A `min(68ch, 42rem)` ceiling was tried here to bound that drift and **rejected
+  after measuring it**: `ch` scales with the element's own font size while `rem`
+  does not, so a single ceiling binds on the 19px lead (clamping it to 65
+  characters) and is inert on 16px body copy. A measure token that means different
+  things per role is a worse defect than the wrapping drift it was meant to fix.
+  The drift stays, documented and accepted.
+
+**The typeface itself cannot be made consistent without shipping one.** Everything
+the project controls — stacks, sizes, line-heights, tracking, weights, tabular
+figures, measures, wrapping strategy — is now deterministic and asserted. The face
+is not, and making it so is a product decision (choose and bundle a typeface) that
+has not been taken.
 
 `document.fonts.check()` must not be used to test any of this: it returned `true`
 for `"Inter"`, `"DejaVu Sans"` and `"Cantarell"` on a machine with none of them
@@ -215,13 +256,64 @@ retuned once.
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--width-page` | 1440px | Shell maximum |
-| `--width-chart` | 1280px | Charts may exceed content width |
-| `--width-content` | 1120px | Cards, grids, tables |
+| `--width-page` | **1120px, → 1280px at ≥1536px** | **The frame.** Shared by the shell and the page body |
+| `--width-chart` | 1280px | Widest a chart may be. Equals the frame at `2xl` |
+| `--width-content` | 1120px | Section content inside the frame: cards, grids, tables |
 | `--width-reading` | 68ch | Prose. **Prose never exceeds this** |
+| `--width-title` | 22ch | Display-type measure. Goes on the heading, not a wrapper |
 | `--width-narrow` | 52ch | Pull quotes, key-insight callouts |
 
 Measure is capped in `ch`, not px, so it stays correct regardless of font size.
+
+#### One frame, shared — and why that is the rule
+
+`--width-page` used to be 1440px while the page body used `--width-content`
+(1120px). Both were centred on the same axis, so the body's content sat **80px
+inside the header's left edge at 1280px and 160px inside it at 1440px and 1920px** —
+measured, not estimated: at 1920px the header identity started at x=264 and the h1
+at x=424.
+
+Two centred containers of different widths have no alignment spine. Nothing failed
+and no gate noticed, but the composition read as a narrow column floating inside a
+wider frame, which is precisely the impression §1 says the product must not give.
+
+**The rule: the shell and the page body use the same `Container width="page"`.** A
+`Container` nested inside the frame may narrow (`content`, `reading`, `narrow`), but
+the frame itself is one decision. Enforced by a unit test asserting `Header`,
+`Footer` and `page.tsx` all request `page` and none requests `content`, and by an
+E2E test asserting the header identity, the body eyebrow, the `h1` and the footer
+share one left edge at 375/1280/1440/1920.
+
+#### The frame is banded, not fluid
+
+1120px up to `2xl`, then 1280px. A step rather than a `clamp()`, for the same reason
+charts adapt by band (§5): a frame that grows continuously makes every chart a
+different width at every viewport. The boundary is the documented 1536px `2xl`, not
+a new breakpoint, and above it the frame equals `--width-chart` — which is what
+"prose stays readable, analytical visuals can breathe" resolves to concretely.
+
+Frame coverage, measured: 100% at 375px, 87.5% at 1280px, 77.8% at 1440px, **66.7%
+at 1920px** (58.3% before). The frame never exceeds `--width-chart`, because a frame
+wider than the widest permitted chart is space no content variant could fill.
+
+#### Display type does not borrow the prose measure
+
+`--width-title` is 22ch and belongs on the heading element itself, because `ch`
+resolves against the **element's own font size**: 22ch is ~733px on a 60px display
+heading and ~343px on a 36px one, so the measure tracks the fluid heading scale with
+no breakpoint logic.
+
+`SectionHeader` previously capped eyebrow, title and lead together at
+`--width-reading` on a wrapper. That is right for the lead and wrong for the title —
+a 68-character measure for 16px prose confined a 60px heading to 586px, a third of a
+1920px viewport, and broke the h1 mid-phrase. Each role now carries its own measure
+and the wrapper carries none, which is also what lets the eyebrow, the title and the
+section body share the frame's left edge.
+
+A consequence worth knowing: moving `max-w-reading` onto the lead paragraph itself
+made the token resolve against the lead's 19px font, so the lead's measure is ~696px
+rather than the ~586px it got from a 16px wrapper. That is the 68-character rule
+applied correctly; the old value was an artifact of where the cap sat.
 
 ### Rhythm
 
@@ -413,17 +505,29 @@ Section rhythm is applied as `margin-top` rather than padding, because
 `scroll-margin-top` positions the border box — a margin keeps the visual rhythm
 while letting a deep link land on the heading instead of the space above it.
 
+### Delivered in the Phase 3C visual refinement pass
+
+A focused typography and composition pass between steps 4 and 5, driven by a
+1920×1080 Windows preview. No component was added and no colour, radius, motion or
+spacing token changed.
+
+| Change | Why |
+| --- | --- |
+| `--width-page` 1440px → **1120px, banded to 1280px at ≥1536px**, and the page body moved from `content` to `page` | The shell and body were two centred frames of different widths, insetting body content 80–160px from the header's left edge. One frame gives the composition a spine and lifts 1920px coverage from 58.3% to 66.7% |
+| `--width-title: 22ch`, applied to the heading; `SectionHeader`'s wrapper measure removed | A 60px display heading was capped at the 16px prose measure |
+| `text-wrap: balance` on `h1`–`h4` | With an OS-supplied face, a greedy break lands differently per machine |
+| `--text-label-weight` and `--text-stat-weight` → `--weight-semibold`; `font-medium` → `font-semibold` in `Header` and `StatHighlight` | Weight 500 is not a distinct face: pixel-identical to 600 on Segoe UI, collapses to 400 on a 400/700-only face |
+
+Verified by measurement at 375/1280/1440/1920: zero horizontal overflow at all four,
+one shared left edge at all four, prose within the measure, mobile unchanged. Nine
+E2E tests and ten unit tests were added to hold it.
+
 ### Still deferred
 
 Requires the component and chart layers, or a wider browser matrix:
 
-- Content component implementations (`Card`, `MetricCard`, `Badge`, `SourceNote`,
-  `StatHighlight`, `Callout`, `ReadMore`) — step 4. The shell and layout
-  components are done; these are not
 - The ECharts adapter that turns a `ChartTheme` into a library option object
 - Rendered contrast measurement and visual QA
-- Real responsive verification at each breakpoint. Step 3 verified the shell at
-  1280px and 375px only, and only in chromium
 - Colourblind verification of the cyan/blue pair (chromium is the only installed
   engine)
 - The header's condense-on-scroll and a theme toggle. Both are listed in
@@ -432,3 +536,6 @@ Requires the component and chart layers, or a wider browser matrix:
   depends on, and the second needs persistence plus an inline script to avoid a
   wrong-theme first paint. Neither blocks the product — both themes already ship
   through `prefers-color-scheme`
+- Multi-column evidence layouts inside a section (§7's `≥1280` row). The frame now
+  has the width for them, but nothing in the scaffold needs one yet; a grid added
+  before there is content to justify it is the dense-card-grid outcome §1 rejects

@@ -96,7 +96,7 @@ export default function Home() {
   ];
 
   return (
-    <Container width="content" className="pb-(--section-spacing)">
+    <Container width="page" className="pb-(--section-spacing)">
       {/*
         The page's single h1. A plain block rather than a Section: section 01
         (Overview) and the hero contract in §2 are step 6, and claiming that id

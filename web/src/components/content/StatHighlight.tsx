@@ -21,13 +21,14 @@ interface StatHighlightProps {
  * visible text stays exactly the value; the accessible name adds what it measures.
  *
  * Emphasis is weight and colour against `--color-fg-secondary` body text, not a
- * larger size: a figure that grows mid-sentence breaks the line rhythm. Note that
- * `--weight-medium` is not a distinct face on every platform (design-system.md
- * §3), which is why `text-fg` does the visual work and the weight only reinforces
- * it.
+ * larger size: a figure that grows mid-sentence breaks the line rhythm. The weight
+ * is `font-semibold` rather than `font-medium` because 500 is not a distinct face
+ * in these system stacks — it is pixel-identical to 600 on Segoe UI and collapses
+ * to 400 on a face shipping only 400/700, so the figure's emphasis would have been
+ * decided by the operating system. `text-fg` still does most of the visual work.
  */
 export function StatHighlight({ value, unit, label, className }: StatHighlightProps) {
-  const classes = ["numeric font-medium text-fg"];
+  const classes = ["numeric font-semibold text-fg"];
   if (className !== undefined) classes.push(className);
 
   const accessibleName = unit === undefined ? `${value} ${label}` : `${value} ${unit} ${label}`;

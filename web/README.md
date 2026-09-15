@@ -26,8 +26,8 @@ web/
 │   └── globals.css            Tailwind entry + token→theme mapping
 ├── e2e/
 │   ├── foundation.e2e.ts      8 browser smoke tests
-│   ├── shell.e2e.ts           15 shell tests: nav, anchors, responsive, a11y
-│   ├── typography.e2e.ts      9 type-contract tests (stacks, roles, zero fonts)
+│   ├── shell.e2e.ts           23 shell tests: nav, anchors, frame/spine, responsive, a11y
+│   ├── typography.e2e.ts      10 type-contract tests (stacks, roles, no 500, zero fonts)
 │   └── content.e2e.ts         15 content tests: cards, badges, callout, disclosure
 ├── src/
 │   ├── components/layout/     AppShell Header Navigation Footer
@@ -46,8 +46,18 @@ web/
 │   └── styles/
 │       ├── tokens.css         design tokens: colour, type, space, motion, chart
 │       └── chart-language.ts  typed chart contract + DOM-free theme resolver
-└── tests/                     140 tests
+└── tests/                     150 tests
 ```
+
+**One frame, shared by the shell and the page body.** `Header`, `Footer` and
+`app/page.tsx` all use `Container width="page"`. They used not to — the shell was
+1440px and the body 1120px, both centred, which inset the body's content 80px from
+the header's left edge at 1280px and 160px at 1440px and above. Two centred frames of
+different widths have no alignment spine, and that inset is what made a 1920px canvas
+read as a narrow column floating in it. The frame is banded rather than fluid: 1120px
+up to `2xl`, 1280px from 1536px, so a chart can take the full frame on a large display
+while prose stays at `--width-reading`. A unit test asserts all three components
+request `page`; an E2E test asserts they share one left edge at 375/1280/1440/1920.
 
 **A statistic cannot be rendered without its caveat.** `MetricContent` in
 `src/components/content/contract.ts` is a discriminated union: an `inferential`
@@ -82,12 +92,12 @@ npm run start         # next start  (after a build)
 
 npm run typecheck     # tsc --noEmit, strict
 npm run lint          # eslint
-npm run test          # node --test      (120 tests)
+npm run test          # node --test      (150 tests)
 npm run format        # prettier --write
 npm run format:check  # prettier --check
 npm run verify        # typecheck + lint + test + format:check
 
-npm run test:e2e      # playwright test  (32 tests, chromium)
+npm run test:e2e      # playwright test  (56 tests, chromium)
 ```
 
 `verify` is the fast gate. `test:e2e` is separate because it builds the app and
@@ -113,10 +123,22 @@ The consequence is that **the typeface differs between machines**: `system-ui`
 resolves to Segoe UI on Windows (with Consolas for `.numeric`) and to whatever
 fontconfig supplies on Linux. Sizes, line-heights, tracking, weights and tabular
 figures are identical everywhere and are asserted by `e2e/typography.e2e.ts`; the
-face is not, so that suite records it as an annotation instead. Two knock-on
-effects are documented in design-system §3: `font-weight: 500` is not a distinct
-face on Segoe UI, and `--width-reading: 68ch` is a different physical width per
-face, so paragraph wrapping legitimately differs per machine.
+face is not, so that suite records it as an annotation instead.
+
+**No role may request weight 500**, and that is a portability rule rather than a
+taste one. Measured on Segoe UI, 500 and 600 produce an identical pixel digest and
+an identical 707.06px advance, while a Linux face shipping only 400/700 renders 500
+as 400 — so a role at 500 reads as emphasised on one machine and as body text on
+another. Emphasis uses `font-semibold` / `--weight-semibold`;
+`tests/typography-contract.test.ts` rejects the declaration and the `font-medium`
+utility, and an E2E test rejects the computed value.
+
+One consequence stays open by design: `--width-reading: 68ch` is a different
+physical width per face, so paragraph wrapping legitimately differs per machine. A
+`min(68ch, <rem>)` ceiling was tried and reverted — `ch` scales with the element's
+font size and `rem` does not, so one ceiling binds on the 19px lead and is inert on
+16px body copy. Headings carry `text-wrap: balance` so their wrapping is deliberate
+on whatever face the OS supplies.
 
 Do not "fix" this by installing a font locally. Making it fully deterministic
 means the project shipping a typeface, which is a product decision.

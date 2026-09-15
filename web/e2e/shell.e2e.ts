@@ -257,23 +257,116 @@ test.describe("responsive shell", () => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/");
 
-    // --width-reading is 68ch. The lead paragraph is the widest prose on the page;
-    // if a container variant regressed to `page`, this would catch it.
+    // --width-reading is 68ch, and `ch` resolves against the ELEMENT's own font
+    // size rather than the root's. The probe therefore has to be measured in the
+    // lead's own font: at 19px the measure is ~696px, while the same token on 16px
+    // body copy is ~586px. An earlier version of this test probed a bare div on
+    // document.body and compared that against the lead, which asserted the wrong
+    // number — it passed only because the measure used to be applied to a 16px
+    // wrapper, and it started failing the moment the measure moved onto the lead
+    // itself. The rule being checked is "prose stays within 68 characters", and
+    // this is what that means.
     const lead = page.getByText("An interactive analysis of Brent crude prices", {
       exact: false,
     });
     const box = await lead.boundingBox();
-    const readingPx = await page.evaluate(() => {
+    const readingPx = await lead.evaluate((element) => {
       const probe = document.createElement("div");
+      probe.style.font = getComputedStyle(element).font;
       probe.style.width = "var(--width-reading)";
       probe.style.position = "absolute";
-      document.body.append(probe);
+      element.parentElement?.append(probe);
       const width = probe.getBoundingClientRect().width;
       probe.remove();
       return width;
     });
     expect(box?.width ?? 0).toBeLessThanOrEqual(Math.ceil(readingPx) + 1);
   });
+
+  /**
+   * THE ALIGNMENT SPINE.
+   *
+   * The shell and the page body must share one frame. Before this was fixed the
+   * header used `--width-page` (1440px) while the body used `--width-content`
+   * (1120px); both were centred, so the body's content sat 80px inside the header's
+   * left edge at 1280px and 160px inside it at 1440px and 1920px. Nothing failed —
+   * it simply read as a narrow column floating inside a wider frame, which is the
+   * kind of defect only a measurement or a screenshot finds.
+   *
+   * Asserting the shared left edge is what makes that unrepeatable. It runs at four
+   * widths because the frame is banded: `--width-content` up to `2xl`,
+   * `--width-chart` above it, and full-width minus gutters on mobile.
+   */
+  for (const width of [375, 1280, 1440, 1920] as const) {
+    test(`header, body and footer share one left edge at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+
+      const identity = await page.locator("header span.text-h4").boundingBox();
+      const eyebrow = await page.locator("main p.text-label").first().boundingBox();
+      const heading = await page.locator("h1").boundingBox();
+      // The footer's "Sources" eyebrow is an h2 carrying `text-label`, not a p.
+      const sources = await page.locator("footer .text-label").first().boundingBox();
+
+      for (const box of [identity, eyebrow, heading, sources]) expect(box).not.toBeNull();
+
+      const spine = Math.round(identity?.x ?? -1);
+      expect(Math.round(eyebrow?.x ?? -1), "body eyebrow is inset from the header").toBe(spine);
+      expect(Math.round(heading?.x ?? -1), "h1 is inset from the header").toBe(spine);
+      expect(Math.round(sources?.x ?? -1), "footer is inset from the header").toBe(spine);
+    });
+  }
+
+  /**
+   * The frame is banded, and that band is why a 1920px viewport no longer reads as a
+   * narrow column: it grows from `--width-content` to `--width-chart` at `2xl`, so
+   * an analytical visual can take the full frame while prose stays at the measure.
+   *
+   * Asserted as a relationship between viewports rather than as pixel values, so
+   * retuning the tokens does not require editing the test.
+   */
+  test("the frame grows once on large desktop and never exceeds the chart width", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const frameAt = async (width: number): Promise<{ frame: number; chart: number }> => {
+      await page.setViewportSize({ width, height: 900 });
+      return page.evaluate(() => {
+        const probe = document.createElement("div");
+        probe.style.position = "absolute";
+        document.body.append(probe);
+        probe.style.width = "var(--width-page)";
+        const frame = probe.getBoundingClientRect().width;
+        probe.style.width = "var(--width-chart)";
+        const chart = probe.getBoundingClientRect().width;
+        probe.remove();
+        return { frame, chart };
+      });
+    };
+
+    const desktop = await frameAt(1280);
+    const large = await frameAt(1920);
+
+    expect(large.frame).toBeGreaterThan(desktop.frame);
+    // A frame wider than the widest permitted chart would be space that no content
+    // variant can ever fill.
+    expect(large.frame).toBeLessThanOrEqual(large.chart);
+    expect(desktop.frame).toBeLessThanOrEqual(desktop.chart);
+  });
+
+  /** Overflow is checked at every audited width, not only at 375px. */
+  for (const width of [1280, 1440, 1920] as const) {
+    test(`no horizontal page overflow at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+    });
+  }
 });
 
 test.describe("landmark naming", () => {

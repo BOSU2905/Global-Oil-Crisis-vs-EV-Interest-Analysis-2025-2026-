@@ -20,9 +20,14 @@ interface ContainerProps {
 /**
  * Horizontal width constraint, centred.
  *
- * This is the only component permitted to set a max width. Prose must never
- * exceed the measure (`--width-reading`, 68ch), and giving that width a name
- * makes the rule visible at the call site instead of buried in a class list.
+ * This is the only component permitted to set a CONTAINER width, and `page` is the
+ * frame the shell and the page body share — see `--width-page` in `tokens.css` for
+ * why sharing one frame matters rather than nesting two centred ones.
+ *
+ * Role measures are a different thing and live on the element that carries the
+ * role: `--width-title` on a heading and `--width-reading` on prose, both because
+ * they are expressed in `ch` and `ch` resolves against the element's own font size.
+ * A container cannot hold a `ch` measure for content it does not share a font with.
  */
 export function Container({ width, gutters = true, className, children }: ContainerProps) {
   const classes = ["mx-auto w-full", CONTAINER_MAX_WIDTH[width]];

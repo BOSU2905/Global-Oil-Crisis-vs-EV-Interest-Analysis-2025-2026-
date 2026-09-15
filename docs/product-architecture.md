@@ -286,13 +286,22 @@ per-country nuance — never the finding itself.
 
 | Breakpoint | Layout |
 | --- | --- |
-| **≥1280 (xl)** | Full editorial composition. 12-col within `--width-page`. Charts get `--width-chart`. Hero chart 420px. Multi-column evidence where justified. Scrollspy rail may appear |
+| **≥1536 (2xl)** | The shared frame (`--width-page`) grows from 1120px to 1280px, so a chart can take `--width-chart` while prose stays at `--width-reading`. Prose measure does not change |
+| **≥1280 (xl)** | Full editorial composition within the shared frame. Charts get the frame width. Hero chart 420px. Multi-column evidence where justified. Scrollspy rail may appear |
 | **1024–1279 (lg)** | Rail drops. Two-column evidence tightens. Chart heights −10% |
 | **768–1023 (md)** | Single column. Small multiples 2-across. Table gets a sticky date column with horizontal scroll. Nav → drawer |
 | **<768 (sm)** | Single-column narrative. **Dual-axis charts split into stacked panels.** Ticks thinned to ~4. Legends move below the plot. Country selector → chips or native select. Table → card-per-week below 480px |
 
 Adaptation is by **layout decision**, not by scaling desktop CSS down. The
 dual-axis split and the table→cards change are the two places that matters most.
+
+**The shell and the page body share one frame at every width.** `Header`, `Footer`
+and the page all use `Container width="page"`; a block inside may narrow, but the
+frame is a single decision. Two centred frames of different widths inset the body
+from the header's left edge — 160px at 1440px and above before this was fixed — and
+that inset is what makes a large canvas read as a narrow floating column.
+`design-system.md` §4 carries the measurements; an E2E test asserts the shared left
+edge at 375/1280/1440/1920.
 
 ---
 
