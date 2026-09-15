@@ -718,22 +718,21 @@ themes, plus a mapped country token resolving through the primitive chain to
 No test was deleted, skipped or weakened; no TypeScript strictness flag was
 relaxed; no analytical file was modified to make a frontend gate pass.
 
-### Baseline commit
+### Commits
 
-**`f950e2b` — "chore: restore frontend foundation and bootstrap dependencies"**
-(parent `97d1a5c`). 12 files changed, +7,840 / −112. `node_modules/` is not
-tracked; `web/package-lock.json` is.
+| Phase | Commit | Subject |
+| --- | --- | --- |
+| 3B baseline | **`f950e2b`** | chore: restore frontend foundation and bootstrap dependencies |
+| 3C step 1 | **`94bf7cf`** | feat: scaffold the Next.js App Router and wire design tokens into Tailwind |
 
-```text
-.gitignore  KIRO.md  README.md  docs/phase-2-validation.md  pipeline/README.md
-web/README.md  web/eslint.config.mjs  web/package-lock.json  web/package.json
-web/postcss.config.mjs  web/tsconfig.json  web/types/node-minimal.d.ts (deleted)
-```
+`94bf7cf` changed 14 files (9 modified, 5 added trees). `node_modules/`, `.next/`,
+`next-env.d.ts`, `*.tsbuildinfo` and Playwright output are all ignored and untracked;
+`web/package-lock.json` is tracked.
 
 `main` is **ahead of `origin/main` and has not been pushed** — `origin/main` is
-still at `d19a7c7` (the Phase 2 merge). Phase 3A (`97d1a5c`) and this baseline
-both exist only locally. Pushing `main` was left to the user's discretion.
-Check with `git status -sb` / `git log --oneline origin/main..main`.
+still at `d19a7c7` (the Phase 2 merge). Phase 3A (`97d1a5c`), the 3B baseline and
+this scaffold all exist only locally. Pushing `main` was left to the user's
+discretion. Check with `git status -sb` / `git log --oneline origin/main..main`.
 
 Artifact hashes verified identical before and after the merge:
 
