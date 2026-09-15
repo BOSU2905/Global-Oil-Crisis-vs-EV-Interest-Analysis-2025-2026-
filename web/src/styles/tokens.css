@@ -260,14 +260,54 @@
 
 /* ========================================================================== */
 /* 4. Typography                                                              */
-/*    System stacks only. `--font-numeric` exists because statistics must      */
-/*    align in columns: tabular figures are non-negotiable for a data product. */
+/*    Locally installed faces requested by name, with a system fallback chain. */
+/*    `--font-numeric` exists because statistics must align in columns:        */
+/*    tabular figures are non-negotiable for a data product.                   */
 /* ========================================================================== */
 
 :root {
+  /*
+   * SF PRO IS REQUESTED BY NAME, AND NOTHING IS DOWNLOADED TO GET IT.
+   *
+   * This is a decided change from the original "generic system stack only" rule.
+   * The product's display typography now names its intended face first instead of
+   * delegating the choice to `system-ui`, because `system-ui` resolves to a
+   * different typeface on every operating system and that made the page's identity
+   * a property of the machine viewing it.
+   *
+   * The mechanism is unchanged in the way that matters: **no font is downloaded and
+   * no font is bundled.** There is no `@font-face`, no `next/font`, no Google Fonts
+   * and no `.woff2` in this repository — a page load still makes ZERO font
+   * requests. SF Pro is used only if it is already installed on the machine, which
+   * is what makes naming it compatible with a local, offline product.
+   *
+   * TWO STACKS, BECAUSE SF HAS TWO OPTICAL SIZES.
+   * Apple ships SF Pro as two cuts: Text for prose and Display for headings, with
+   * tighter spacing and smaller apertures in Display. Naming them per role gets the
+   * correct cut automatically on a machine that has both, and degrades to the other
+   * cut on a machine that has one:
+   *
+   *   --font-display   headings and other display type  (Display cut first)
+   *   --font-sans      prose, labels, UI text           (Text cut first)
+   *
+   * FALLBACK, AND THE CROSS-MACHINE CONSEQUENCE.
+   * Where SF Pro is absent the chain falls through `-apple-system` /
+   * `BlinkMacSystemFont` (the macOS system face), then the `ui-sans-serif` /
+   * `system-ui` keywords, then `"Segoe UI"` on Windows, and finally to explicit
+   * families. So a machine without SF Pro renders exactly what this product
+   * rendered before this change — it is a graceful downgrade, not a broken page,
+   * and it is the documented limitation of a local-font strategy
+   * (docs/design-system.md §3).
+   */
+  --font-display:
+    "SF Pro Display", "SF Pro", -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    "SF Pro Text", "SF Pro Display", "SF Pro", -apple-system, BlinkMacSystemFont,
+    ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+    sans-serif;
+  /* Unchanged, and deliberately so: statistics and identifiers stay monospaced.
+     SF Pro is a proportional face and must never reach a column of figures. */
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New",
     monospace;
@@ -277,18 +317,36 @@
    * Few weights. More weights is the fastest route to looking generic.
    *
    * NO TYPE ROLE MAY DEPEND ON `--weight-medium`, and that is a portability rule
-   * rather than a taste one. 500 is not a distinct face in the system stacks this
-   * product uses: measured by drawing one string to a canvas at each weight and
-   * hashing the pixels, Segoe UI on Windows renders 500 and 600 IDENTICALLY (same
-   * digest, same 707.06px advance), while a Linux face shipping only 400/700
-   * renders 500 as 400. So a role set to 500 reads as emphasised on one machine and
-   * as body text on another — a hierarchy that changes with the operating system.
+   * rather than a taste one. 500 is not a dependable step in the faces this product
+   * requests, and it fails differently on each of them:
    *
-   * Emphasis therefore uses `--weight-semibold`, which is a real face on Segoe UI
-   * and maps to 700 where only 400/700 exist: emphasised on both, differing only in
-   * degree. `--weight-medium` is retained as a scale value because the scale is
-   * documented in three steps, but `tests/typography-contract.test.ts` asserts no
-   * `--text-*-weight` role resolves to it.
+   *   Segoe UI (Windows fallback)  measured by drawing one string to a canvas at
+   *                                each weight and hashing the pixels: it renders
+   *                                500 and 600 IDENTICALLY (same digest, same
+   *                                707.06px advance), so 500 buys nothing
+   *   a 400/700-only Linux face    renders 500 as 400, i.e. as body text
+   *   SF Pro Display, as installed measured on this machine: upright cuts exist for
+   *                                400, 500 and 700, so 500 IS distinct here — but
+   *                                relying on it would make emphasis appear on this
+   *                                machine and vanish on the two cases above
+   *
+   * So a role set to 500 reads as emphasised on one machine and as body text on
+   * another — a hierarchy decided by the operating system rather than by the design
+   * system. Emphasis therefore uses `--weight-semibold`, which is Semibold on Segoe
+   * UI and on a complete SF Pro family, and maps to the Bold cut where no 600 exists
+   * — emphasised everywhere, differing only in degree. `--weight-medium` is retained
+   * as a scale value because the scale is documented in three steps, but
+   * `tests/typography-contract.test.ts` asserts no `--text-*-weight` role resolves
+   * to it.
+   *
+   * KNOWN CONSEQUENCE ON THIS MACHINE, MEASURED NOT ASSUMED: the locally installed
+   * SF Pro Display has no upright Semibold cut (only Regular, Medium and Bold are
+   * upright; Thin/Light/Semibold/Heavy/Black are italic-only files), so a 600 request
+   * resolves to the Bold cut and 600/700 are indistinguishable here. That is the same
+   * class of OS-decided collapse the rule above exists to contain, and 600 remains
+   * the portable choice. Installing the upright SF Pro Display Semibold — or SF Pro
+   * Text, which also carries prose cuts — would restore the intended lighter
+   * emphasis without any change to this repository.
    */
   --weight-regular: 400;
   --weight-medium: 500;
@@ -296,7 +354,13 @@
 
   /* Scale. Display and headings use clamp() so the hero adapts without a
      media query; body sizes stay fixed because readable prose should not
-     grow with the viewport. */
+     grow with the viewport.
+
+     EVERY ROLE DECLARES ITS OWN WEIGHT. Until this pass only display, label and
+     stat did; h1-h4 inherited the body weight, so a section heading rendered at
+     400 by accident rather than by decision. Two steps are used — 400 for prose
+     and 600 for display and emphasis — and the hierarchy is carried by size,
+     tracking and colour rather than by a third weight. */
   --text-display-size: clamp(2.25rem, 1.25rem + 3.6vw, 3.75rem);
   --text-display-line: 1.06;
   --text-display-tracking: -0.028em;
@@ -305,25 +369,36 @@
   --text-h1-size: clamp(1.875rem, 1.25rem + 2vw, 2.75rem);
   --text-h1-line: 1.12;
   --text-h1-tracking: -0.022em;
+  --text-h1-weight: var(--weight-semibold);
 
   --text-h2-size: clamp(1.5rem, 1.15rem + 1.1vw, 2rem);
   --text-h2-line: 1.18;
   --text-h2-tracking: -0.018em;
+  /* Semibold like the hero, and less dominant than it by 28px of size rather than
+     by a lighter weight: a 32px heading at 400 beside a 60px heading at 600 reads
+     as unfinished rather than as restrained. */
+  --text-h2-weight: var(--weight-semibold);
 
   --text-h3-size: 1.25rem;
   --text-h3-line: 1.3;
   --text-h3-tracking: -0.012em;
+  --text-h3-weight: var(--weight-semibold);
 
   --text-h4-size: 1.0625rem;
   --text-h4-line: 1.4;
   --text-h4-tracking: -0.006em;
+  --text-h4-weight: var(--weight-semibold);
 
   /* Lead paragraph: the analytical thesis under a section heading. */
   --text-lead-size: 1.1875rem;
   --text-lead-line: 1.62;
+  /* Regular, stated explicitly. A lead is prose at a larger size, not a heading,
+     and SF Pro Display at 19px semibold reads as a subheading. */
+  --text-lead-weight: var(--weight-regular);
 
   --text-body-size: 1rem;
   --text-body-line: 1.68;
+  --text-body-weight: var(--weight-regular);
 
   --text-small-size: 0.9375rem;
   --text-small-line: 1.6;
@@ -357,6 +432,10 @@
 
   --text-stat-small-size: 1.0625rem;
   --text-stat-small-line: 1.3;
+  /* The metric-card figure. It inherited 400 before this pass, which made the one
+     number on a card no more prominent than its own label. Semibold, in the mono
+     face, with tabular figures — strong but controlled. */
+  --text-stat-small-weight: var(--weight-semibold);
 
   /* Axis ticks and inline data. */
   --text-data-size: 0.8125rem;

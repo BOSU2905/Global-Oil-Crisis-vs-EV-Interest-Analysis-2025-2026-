@@ -37,6 +37,11 @@
  *   --radius-xs … --radius-full → `rounded-xs` … `rounded-full`
  *   --ease-out / --ease-in-out  → `ease-out`, `ease-in-out`
  *
+ * `--font-display` is the exception: Tailwind has no default of that name, so it is
+ * mapped explicitly below to make `font-display` available. It is also applied to
+ * `h1`-`h4` in the base layer, so a heading gets the display cut of SF Pro without
+ * every component having to remember the utility.
+ *
  * And three families coincide with Tailwind's defaults by design:
  *
  *   spacing      Tailwind's `--spacing` base is 0.25rem, so `p-4` is exactly
@@ -156,6 +161,10 @@
    ========================================================================== */
 
 @theme inline {
+  /* The display cut of SF Pro, requested by name. Applied to `h1`-`h4` in the base
+     layer; the utility exists for display type that is not a heading element. */
+  --font-display: var(--font-display);
+
   --text-display: var(--text-display-size);
   --text-display--line-height: var(--text-display-line);
   --text-display--letter-spacing: var(--text-display-tracking);
@@ -164,24 +173,30 @@
   --text-h1: var(--text-h1-size);
   --text-h1--line-height: var(--text-h1-line);
   --text-h1--letter-spacing: var(--text-h1-tracking);
+  --text-h1--font-weight: var(--text-h1-weight);
 
   --text-h2: var(--text-h2-size);
   --text-h2--line-height: var(--text-h2-line);
   --text-h2--letter-spacing: var(--text-h2-tracking);
+  --text-h2--font-weight: var(--text-h2-weight);
 
   --text-h3: var(--text-h3-size);
   --text-h3--line-height: var(--text-h3-line);
   --text-h3--letter-spacing: var(--text-h3-tracking);
+  --text-h3--font-weight: var(--text-h3-weight);
 
   --text-h4: var(--text-h4-size);
   --text-h4--line-height: var(--text-h4-line);
   --text-h4--letter-spacing: var(--text-h4-tracking);
+  --text-h4--font-weight: var(--text-h4-weight);
 
   --text-lead: var(--text-lead-size);
   --text-lead--line-height: var(--text-lead-line);
+  --text-lead--font-weight: var(--text-lead-weight);
 
   --text-body: var(--text-body-size);
   --text-body--line-height: var(--text-body-line);
+  --text-body--font-weight: var(--text-body-weight);
 
   --text-small: var(--text-small-size);
   --text-small--line-height: var(--text-small-line);
@@ -201,6 +216,7 @@
 
   --text-stat-small: var(--text-stat-small-size);
   --text-stat-small--line-height: var(--text-stat-small-line);
+  --text-stat-small--font-weight: var(--text-stat-small-weight);
 
   --text-data: var(--text-data-size);
   --text-data--line-height: var(--text-data-line);
@@ -267,6 +283,8 @@
     font-family: var(--font-sans);
     font-size: var(--text-body-size);
     line-height: var(--text-body-line);
+    /* Stated rather than left to the UA default so prose weight is a decision. */
+    font-weight: var(--text-body-weight);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -278,15 +296,20 @@
   }
 
   /*
-   * Headings wrap into balanced lines rather than filling each line greedily.
+   * Headings take the DISPLAY cut of the type family, and prose takes the text cut.
    *
-   * This is a portability measure as much as a typographic one. The typeface is
-   * OS-supplied (design-system §3), so the same heading occupies a different number
-   * of pixels per machine and a greedy break lands in a different place — the h1
-   * broke after "EV" on Segoe UI, leaving a two-word second line. `balance` makes
-   * the break a function of the line count rather than of the face's advance
-   * widths, so the wrapping is deliberate on every machine instead of only on the
-   * author's.
+   * SF Pro ships two optical sizes and they are not interchangeable: Display is
+   * spaced for large type, Text is spaced for reading. Putting the choice here means
+   * a heading element is correct by default and no component has to remember a
+   * utility. It sits in the base layer, so a component that genuinely needs another
+   * face (`font-mono` on a code heading, say) still wins.
+   *
+   * Headings also wrap into balanced lines rather than filling each line greedily.
+   * The face is still supplied by the machine when SF Pro is absent, so the same
+   * heading occupies a different number of pixels per machine and a greedy break
+   * lands in a different place — the h1 broke after "EV" on Segoe UI, leaving a
+   * two-word second line. `balance` makes the break a function of the line count
+   * rather than of the face's advance widths.
    *
    * It is safe to apply unconditionally: browsers without support ignore it, and
    * Chromium limits balancing to short blocks, so it cannot affect prose.
@@ -295,6 +318,7 @@
   h2,
   h3,
   h4 {
+    font-family: var(--font-display);
     text-wrap: balance;
   }
 }
