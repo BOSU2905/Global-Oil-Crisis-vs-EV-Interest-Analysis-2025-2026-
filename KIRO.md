@@ -909,6 +909,11 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 | Protocol | **`76db6f5`** | docs: record the Universal Kiro Protocol operating rules in KIRO.md |
 | 3C step 1 | **`94bf7cf`** | feat: scaffold the Next.js App Router and wire design tokens into Tailwind |
 | 3C step 1 docs | **`64d904f`** | docs: record the Phase 3C step 1 commit hash in KIRO.md |
+| Reconciliation | `f002259` | docs: correct the KIRO.md push status and phase header after reconciliation |
+| 3C step 2 | **`0131f74`** | feat: replace the hand-rolled validator with a Zod runtime schema boundary |
+
+`0131f74` changed 3 files: `web/src/data/validate.ts` (+643/−990), plus `KIRO.md`
+and `web/README.md`. Nothing else in `web/src/data/` was touched.
 
 `94bf7cf` changed 14 files (9 modified, 5 added trees). `node_modules/`, `.next/`,
 `next-env.d.ts`, `*.tsbuildinfo` and Playwright output are all ignored and untracked;
