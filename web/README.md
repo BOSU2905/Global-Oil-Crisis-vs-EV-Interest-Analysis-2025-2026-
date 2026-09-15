@@ -22,11 +22,16 @@ web/
 ├── next.config.mjs            Next configuration
 ├── playwright.config.ts       chromium-only, runs against a production build
 ├── app/
-│   ├── layout.tsx             root layout: landmarks, skip link, metadata
+│   ├── layout.tsx             the HTML document; delegates to AppShell
 │   ├── page.tsx               foundation page — scope, not findings
 │   └── globals.css            Tailwind entry + token→theme mapping
-├── e2e/foundation.e2e.ts      8 browser smoke tests
+├── e2e/
+│   ├── foundation.e2e.ts      8 browser smoke tests
+│   └── shell.e2e.ts           14 shell tests: nav, anchors, responsive, a11y
 ├── src/
+│   ├── components/layout/     AppShell Header Navigation Footer
+│   │                          Container Section SectionHeader + contract.ts
+│   ├── content/sections.ts    the section registry Navigation reads
 │   ├── data/
 │   │   ├── generated/         ← artifacts from pipeline/. DO NOT EDIT
 │   │   ├── artifact-types.ts  TypeScript contract for all five artifacts
@@ -38,8 +43,15 @@ web/
 │   └── styles/
 │       ├── tokens.css         design tokens: colour, type, space, motion, chart
 │       └── chart-language.ts  typed chart contract + DOM-free theme resolver
-└── tests/                     109 tests
+└── tests/                     120 tests
 ```
+
+**Component tests are browser tests, and that is forced.** Node 22 cannot load
+`.tsx` — importing one under `node --test` fails with `ERR_UNKNOWN_FILE_EXTENSION`,
+because JSX is not TypeScript syntax. So `npm test` covers logic that lives in
+`.ts` modules (including whether every navigation target is a section the page
+actually renders), and `npm run test:e2e` covers anything that only exists once
+rendered.
 
 `src/lib/artifacts.ts` is outside `src/data/` on purpose:
 `tests/analytical-safety.test.ts` asserts the exact set of files in the data layer,
@@ -123,16 +135,19 @@ TypeScript and Next.js rule sets scoped to `.ts`/`.tsx`, and
 `src/data/generated/**` ignored so lint can never rewrite a pipeline-owned
 artifact. `tsc --strict`, ESLint and Prettier now all gate the tree.
 
-## Next step — Phase 3C step 3
+## Next step — Phase 3C step 4
 
-Step 2 is **done**: `src/data/validate.ts` is now Zod 4.6.5. The schemas are the
-contract, `ContractError` still names the exact failing JSON path, `index.ts`'s
-exports did not change, and `tests/validator.test.ts` passed unedited. Error
-paths were compared field by field against the old implementation across 52
-mutations and are identical in all 52.
+Step 3 is **done**: the shell and layout primitives exist in
+`src/components/layout/`. `app/layout.tsx` is back to describing the HTML document
+— the skip link, header and footer it inlined in step 1 now live in `AppShell`,
+`Header` and `Footer`. `Section` offsets every anchor by `--header-height` so the
+sticky header cannot cover a heading, and an E2E test checks that token against the
+rendered header at both breakpoints.
 
-Next: `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation`
-— step 3 of [`../docs/product-architecture.md`](../docs/product-architecture.md)
-§10. Note that `app/layout.tsx` currently inlines a rudimentary header and footer;
-step 3 should extract them into the contracted `Header`/`AppShell` components
-rather than grow them in place.
+Next: `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` —
+step 4 of [`../docs/product-architecture.md`](../docs/product-architecture.md)
+§10, with each component's responsibility in §4 and `ReadMore`'s interface in §6.
+Two starting points already exist: `SourceNote` is an extraction from `Footer`
+rather than a new component, and `Callout` replaces the inline warning surface on
+the comparability block in `app/page.tsx`. Cards must not float — `--shadow-none`,
+per [`../docs/design-system.md`](../docs/design-system.md) §1 and §4.

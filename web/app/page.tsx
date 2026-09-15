@@ -1,8 +1,11 @@
+import { Container } from "../src/components/layout/Container.tsx";
+import { Section } from "../src/components/layout/Section.tsx";
+import { SectionHeader } from "../src/components/layout/SectionHeader.tsx";
 import { COUNTRY_IDS, getComparability, getSeriesLabel } from "../src/data/index.ts";
 import { getArtifacts } from "../src/lib/artifacts.ts";
 
 /**
- * Foundation page — Phase 3C step 1 of docs/product-architecture.md §10.
+ * Foundation page — Phase 3C steps 1 and 3 of docs/product-architecture.md §10.
  *
  * SCOPE, STATED EXPLICITLY
  * This is the application shell standing up, not the product. The narrative
@@ -18,6 +21,15 @@ import { getArtifacts } from "../src/lib/artifacts.ts";
  * can also carry the specification caveat that qualifies them (§16 of KIRO.md).
  * Showing a coefficient on a page that has nowhere to explain it is precisely
  * the failure the decision memo warns against.
+ *
+ * WHAT STEP 3 CHANGED HERE
+ * Composition only. The same three blocks, the same copy, the same artifact
+ * fields — now expressed with `Section`, `SectionHeader` and `Container` instead
+ * of repeated class lists, so the sections are addressable, navigable and
+ * consistently spaced. The section ids below are the ones in
+ * `src/content/sections.ts`, which is what the header navigation links to;
+ * `tests/layout-contract.test.ts` asserts the two agree, so a nav link cannot
+ * point at an anchor that is not here. No analytical content was added.
  */
 export default function Home() {
   const bundle = getArtifacts();
@@ -38,24 +50,30 @@ export default function Home() {
   ];
 
   return (
-    <div className="mx-auto max-w-page px-(--page-padding-inline) py-(--section-spacing)">
-      <header className="max-w-reading">
-        <p className="text-label uppercase text-fg-muted">Analytical foundation</p>
-        <h1 className="mt-3 text-display text-fg">
-          Global Oil Crisis <span className="text-fg-subtle">vs</span> EV Interest Analysis
-        </h1>
-        <p className="mt-6 text-lead text-fg-secondary">
-          An interactive analysis of Brent crude prices and electric-car search interest across
-          five markets, 2025–2026.
-        </p>
-      </header>
+    <Container width="content" className="pb-(--section-spacing)">
+      {/*
+        The page's single h1. A plain block rather than a Section: section 01
+        (Overview) and the hero contract in §2 are step 6, and claiming that id
+        now would put a navigation link on a section that does not exist.
+      */}
+      <div className="pt-(--section-spacing)">
+        <SectionHeader
+          sectionId="page"
+          headingLevel={1}
+          eyebrow="Analytical foundation"
+          title={
+            <>
+              Global Oil Crisis <span className="text-fg-subtle">vs</span> EV Interest Analysis
+            </>
+          }
+          lead="An interactive analysis of Brent crude prices and electric-car search interest across five markets, 2025–2026."
+        />
+      </div>
 
       {/* Scope, read from the artifacts rather than typed as literals. */}
-      <section aria-labelledby="scope-heading" className="mt-16">
-        <h2 id="scope-heading" className="text-label uppercase text-fg-muted">
-          Observation scope
-        </h2>
-        <dl className="mt-4 grid gap-(--grid-gap) sm:grid-cols-3 max-w-content">
+      <Section id="scope">
+        <SectionHeader sectionId="scope" eyebrow="Coverage" title="Observation scope" />
+        <dl className="mt-(--section-header-gap) grid gap-(--grid-gap) sm:grid-cols-3">
           <div className="rounded-lg border border-border bg-surface p-(--card-padding)">
             <dt className="text-meta text-fg-muted">Observation period</dt>
             <dd className="numeric mt-2 text-stat-small text-fg">
@@ -92,37 +110,51 @@ export default function Home() {
             than presenting them as complete weekly averages.
           </p>
         ) : null}
-      </section>
+      </Section>
 
       {/*
         The normalisation constraint is rendered from countries.json, not retyped.
         It is the guardrail most easily lost in a redesign, and the original
         project's worst analytical error was a cross-market comparison this rule
         forbids -- so it is present from the first page that exists.
-      */}
-      <section
-        aria-labelledby="comparability-heading"
-        className="mt-16 max-w-reading rounded-lg border border-border bg-warning-surface p-(--card-padding)"
-      >
-        <h2 id="comparability-heading" className="text-label uppercase text-warning">
-          Comparability constraint
-        </h2>
-        <p className="mt-3 text-small text-fg-secondary">{comparability.explanation}</p>
-        <p className="mt-3 text-small text-fg-secondary">
-          <span className="text-fg">Remedy.</span> {comparability.remedy}
-        </p>
-      </section>
 
-      {/* The information architecture, listed as intent. Not navigation yet. */}
-      <section aria-labelledby="outline-heading" className="mt-16 max-w-reading">
-        <h2 id="outline-heading" className="text-label uppercase text-fg-muted">
-          Narrative structure
-        </h2>
-        <p className="mt-3 text-small text-fg-secondary">
-          The finished product is one long-scroll argument in ten sections, read in order. None
-          of them is implemented yet — this page is the shell they will be built into.
-        </p>
-        <ol className="mt-4 flex flex-col gap-px overflow-hidden rounded-lg border border-border">
+        The warning surface is applied here rather than through a component
+        because `Callout` (§4) is step 4. One inline treatment now is honest; a
+        half-built Callout would be the thing step 4 has to undo.
+      */}
+      <Section id="comparability">
+        <div className="max-w-reading rounded-lg border border-border bg-warning-surface p-(--card-padding)">
+          <SectionHeader
+            sectionId="comparability"
+            eyebrow="Guardrail"
+            title="Comparability constraint"
+          />
+          <p className="mt-(--section-header-gap) text-small text-fg-secondary">
+            {comparability.explanation}
+          </p>
+          <p className="mt-3 text-small text-fg-secondary">
+            <span className="text-fg">Remedy.</span> {comparability.remedy}
+          </p>
+        </div>
+      </Section>
+
+      {/*
+        The information architecture, listed as intent. Not navigation yet.
+
+        None of the three blocks on this page carries an eyebrow ordinal. The
+        numbered sequence `01 — OVERVIEW` … `10 — CONCLUSION` belongs to the
+        narrative sections listed below, which do not exist yet; numbering these
+        scaffold blocks 01–03 would read as though they were the first three.
+        `SectionHeader` supports the ordinal for when those sections arrive.
+      */}
+      <Section id="structure">
+        <SectionHeader
+          sectionId="structure"
+          eyebrow="Information architecture"
+          title="Narrative structure"
+          lead="The finished product is one long-scroll argument in ten sections, read in order. None of them is implemented yet — this page is the shell they will be built into."
+        />
+        <ol className="mt-(--section-header-gap) flex max-w-reading flex-col gap-px overflow-hidden rounded-lg border border-border">
           {narrative.map((label, index) => (
             <li
               key={label}
@@ -135,7 +167,7 @@ export default function Home() {
             </li>
           ))}
         </ol>
-      </section>
-    </div>
+      </Section>
+    </Container>
   );
 }

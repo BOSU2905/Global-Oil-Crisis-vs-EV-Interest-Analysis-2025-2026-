@@ -2,8 +2,8 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-15 — Phase 3C step 2 of 8 COMPLETE (Zod validation
-boundary). Steps 1–2 done; step 3 is next.
+**Last updated:** 2026-09-15 — Phase 3C step 3 of 8 COMPLETE (application shell and
+layout primitives). Steps 1–3 done; step 4 is next.
 
 ---
 
@@ -161,7 +161,7 @@ React/Next.js must never compute a statistic.
 
 ## 3. Current phase
 
-**Phase 3C — Frontend/UI Implementation. Steps 1–2 of 8 COMPLETE.**
+**Phase 3C — Frontend/UI Implementation. Steps 1–3 of 8 COMPLETE.**
 
 Phase 3B (dependency bootstrap) is complete and committed at `f950e2b`.
 
@@ -171,21 +171,149 @@ Phase 3C follows the eight-step order in `docs/product-architecture.md` §10:
 | --- | --- | --- |
 | 1 | Next.js + TypeScript + Tailwind scaffold; wire tokens into the Tailwind theme | **COMPLETE** |
 | 2 | Swap the hand-rolled validator for Zod behind the same accessors | **COMPLETE** |
-| 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | **NEXT** |
-| 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` | pending |
+| 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | **COMPLETE** |
+| 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` | **NEXT** |
 | 5 | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter | pending |
 | 6 | Hero (§2) and the Robustness section (05) | pending |
 | 7 | Remaining narrative sections in order | pending |
 | 8 | Responsive, accessibility and performance passes | pending |
 
-**What steps 1–2 did not do, deliberately:** no narrative sections, no hero, no
-charts, no navigation, no country deep dives, no interpretation panels. The
-application renders a shell and its own scope, and nothing more. Statistics are
-absent from the UI on purpose — see §4.
+**What steps 1–3 did not do, deliberately:** no narrative sections, no hero, no
+charts, no country deep dives, no interpretation panels. The application renders a
+shell, its own scope and the three blocks that describe that scope — nothing more.
+Statistics are absent from the UI on purpose — see §4.
 
 ---
 
 ## 4. Completed work
+
+### Phase 3C step 3 — application shell and layout primitives — COMPLETE
+
+Ten files created, three modified. `app/layout.tsx` shrank from 89 lines to 37: it
+now describes the HTML document and delegates everything else, which was the
+explicit purpose of this step.
+
+**Created**
+
+```text
+web/src/components/layout/AppShell.tsx       skip link + the three landmarks
+web/src/components/layout/Header.tsx         sticky identity + period + nav
+web/src/components/layout/Navigation.tsx     client: section rail + scrollspy
+web/src/components/layout/Footer.tsx         attribution from manifest.sources[]
+web/src/components/layout/Container.tsx      width variant
+web/src/components/layout/Section.tsx        landmark + rhythm + anchor offset
+web/src/components/layout/SectionHeader.tsx  eyebrow + title + lead
+web/src/components/layout/contract.ts        shared width map and id helpers
+web/src/content/sections.ts                  the section registry nav reads
+web/tests/layout-contract.test.ts            11 tests
+web/e2e/shell.e2e.ts                         14 browser tests
+```
+
+**Modified:** `web/app/layout.tsx` (reduced to the document),
+`web/app/page.tsx` (recomposed with the primitives — no content added),
+`web/src/styles/tokens.css` (one new token, below).
+
+#### Component boundaries
+
+| Component | Owns | Does not own |
+| --- | --- | --- |
+| `AppShell` | skip link, `header`/`main`/`footer` landmarks, reading the artifacts the chrome needs | any copy, the `h1`, any width decision |
+| `Header` | product identity, observation period, the nav slot, stickiness | which sections exist |
+| `Navigation` | the rail, scrollspy, active state | the section list — it is passed in |
+| `Footer` | attribution, pipeline version, content hash | hard-coded URLs; every source is read from `manifest.sources[]` |
+| `Container` | the ONLY max-width in the product | vertical rhythm |
+| `Section` | landmark, `aria-labelledby`, rhythm, anchor offset | width, headings |
+| `SectionHeader` | eyebrow, title, optional lead, the heading id | its own width beyond the reading measure |
+
+The `h1` stays with the page, not the shell: a shell-owned `h1` makes every future
+page's heading structure the shell's decision.
+
+`AppShell` reads the artifacts because the footer's sources and the header's period
+are artifact values. It is a server component, so `getArtifacts()` runs at build
+time and neither the JSON nor the validator reaches the client. The header period
+is sliced from `panel.coverage` rather than typed as `2025–2026`, so the chrome
+cannot claim a window the data does not cover — display formatting, not
+computation.
+
+#### The section registry, and why navigation links cannot rot
+
+`src/content/sections.ts` lists the sections that **exist** — `scope`,
+`comparability`, `structure`. Not the ten narrative sections from
+`docs/product-architecture.md` §1: those are steps 6–7, and registering them now
+would ship navigation links that scroll nowhere.
+
+`tests/layout-contract.test.ts` asserts the registry and `app/page.tsx` agree in
+both directions — every nav target is rendered as a `<Section id=…>`, and every
+rendered section is reachable from the nav. A broken anchor is invisible to `tsc`
+and to `next build`, so it needed its own check.
+
+#### One new token: `--header-height`
+
+`Section` offsets each anchor by `scroll-mt-(--header-height)` so the sticky header
+cannot cover a heading a reader just navigated to. Two components depend on the
+same number, so it is a token rather than a literal, and it has two values because
+the header is one row at `lg` and two rows below it.
+
+Both values are **measured, not estimated**: 69px desktop, 98px narrow. The first
+draft said 68px and 100px; the E2E test that compares the token against the
+rendered box failed with `--header-height (68px) must be >= the rendered header
+(69px)` — the 1px bottom border. That test is the reason the token is right, and it
+runs at both widths on every E2E run.
+
+#### Responsive behaviour
+
+| Width | Header | Navigation |
+| --- | --- | --- |
+| ≥1024 (`lg`) | one row: identity left, rail right | inline row |
+| <1024 | two rows: identity, then the rail | horizontally scrollable rail |
+
+Adaptation is a layout decision, not scaled-down desktop CSS: the header changes
+row count and the token that anchors follow changes with it. Rhythm needs no
+breakpoint logic in any component — `--page-padding-inline`, `--section-spacing`,
+`--card-padding` and `--grid-gap` already swap below 768px inside `tokens.css`.
+
+An E2E test asserts zero horizontal overflow at 375px, and another asserts prose
+never exceeds `--width-reading` at 1280px.
+
+#### Accessibility decisions
+
+- **Anchors, not buttons**, for section links: real ids, shareable URLs, native
+  keyboard behaviour, and they work with JavaScript disabled.
+- **`aria-current="true"`** marks the active section, so the scrollspy state is
+  announced rather than only coloured — §5 forbids colour-only information.
+- **44px minimum tap target** on every nav link (`min-h-11`), asserted at 375px.
+- **Landmark naming**: each `<section>` points `aria-labelledby` at its own
+  heading, derived by `sectionTitleId()` so the two cannot drift.
+- **Heading levels** are restricted by `SectionHeader`'s API to `h1` or `h2`, and
+  an E2E test walks every heading on the page asserting no level is skipped.
+- **Eyebrows are uppercased by CSS**, not in the string, so a screen reader reads
+  "Observation scope" rather than spelling out capitals.
+- Focus rings are untouched — `:focus-visible` in `globals.css` still applies
+  `--focus-ring` globally.
+
+#### Deliberately deferred, with reasons
+
+| Contract item | Why not now |
+| --- | --- |
+| Header "condenses on scroll" (§4) | It makes the header height dynamic, and that height is what every section anchor depends on. Doing it correctly means driving the offset from a measured height instead of a token — that belongs with step 8 |
+| Theme toggle (§4) | Needs client state, persistence and an inline script to avoid a wrong-theme first paint. `tokens.css` already ships both themes via `prefers-color-scheme`, so nothing is missing functionally |
+| Mobile drawer / sheet (§4, §7) | Three links. A drawer means a focus trap, which is a real accessibility liability to get wrong for no gain. The horizontally scrollable rail is the baseline; revisit when the ten narrative sections exist |
+| `Card`, `Callout`, `SourceNote` (§4) | Step 4. The comparability block keeps its inline warning surface rather than a half-built `Callout` that step 4 would have to undo |
+
+#### Component tests are browser tests, and that is forced
+
+Node 22.23.2 cannot load `.tsx`: importing one under `node --test` fails with
+`ERR_UNKNOWN_FILE_EXTENSION`, because JSX is not TypeScript syntax and the runtime
+has no transform for it. Verified directly rather than assumed.
+
+So the split is: logic that can live in a `.ts` module is unit-tested
+(`tests/layout-contract.test.ts`, 11 tests — width variants, id derivation,
+registry/page agreement, the token's existence, that the shell has not grown back
+into `layout.tsx`, and that no layout component computes a statistic), and
+everything that only exists once rendered is tested in Chromium
+(`e2e/shell.e2e.ts`, 14 tests). Adding a JSX transform to the unit-test toolchain
+to render six presentational components would be dependency weight without a
+payoff, and Playwright tests the production build rather than a simulated one.
 
 ### Phase 3C step 2 — Zod validation boundary — COMPLETE
 
@@ -547,7 +675,7 @@ Phase 1 (audit), Phase 2 (analytical remediation and reproducibility), Phase 3
 | Next.js App Router scaffold | **COMPLETE** — builds clean, 3 static routes |
 | Tailwind ↔ design-token integration | **COMPLETE** — verified in-browser, light and dark |
 | Browser / E2E harness | **COMPLETE** — Playwright chromium, 8 smoke tests passing |
-| React component library (`AppShell`, `Card`, …) | **NOT STARTED** — steps 3–4 |
+| React component library (`AppShell`, `Card`, …) | **SHELL + LAYOUT COMPLETE** — `AppShell`, `Header`, `Navigation`, `Footer`, `Container`, `Section`, `SectionHeader`. Content components are step 4 |
 | Charts / ECharts adapter | **NOT STARTED** — step 5 |
 | Narrative sections + hero | **NOT STARTED** — steps 6–7 |
 | Responsive / a11y / performance passes | **NOT STARTED** — step 8 |
@@ -754,6 +882,15 @@ Version notes:
 | Deleted the eight exported combinators instead of keeping them as a shim | Nothing imported them (verified by grep), they have no Zod analogue, and keeping them would keep the library this step deletes |
 | Verified path parity against the old implementation over 52 mutations before deleting it | The acceptance tests assert `path.includes(fragment)`, which a less precise path can still satisfy. Substring matching is not proof of parity; a field-by-field comparison is |
 | Kept range checks exactly where the old validator had them | `pearson_r`/`pearson_p` are range-checked on `CorrelationBundle` only. Zod makes it trivial to add the same bounds to lag points, specifications and variants, which would be a new analytical rule invented by the tool rather than by the contract |
+| **Phase 3C step 3** — `--header-height` as a token, measured in a browser rather than estimated | Two components depend on the number (`Header` renders it, `Section` offsets anchors by it). The E2E check caught a 1px error from the header's bottom border in the first draft |
+| Section rhythm is `margin-top`, not `padding-top` | `scroll-margin-top` positions the border box and a margin sits outside it, so a deep link lands on the heading rather than `--section-spacing` above it. Same visual rhythm, correct anchor |
+| A section registry (`src/content/sections.ts`) holding only the sections that exist | Registering the ten narrative sections now would ship navigation links that scroll nowhere. A test asserts registry and page agree both ways, because a dead anchor is invisible to `tsc` and to `next build` |
+| Navigation is anchors with `aria-current`, not buttons with JS routing | Real ids are shareable and keyboard-native, and `aria-current` makes the scrollspy state audible rather than colour-only |
+| Horizontally scrollable nav rail instead of a mobile drawer | Three links do not justify a focus trap, which is the part of a drawer most easily got wrong. Revisit at ten sections |
+| Deferred the header's condense-on-scroll and the theme toggle | Condensing makes the header height dynamic, and that height is the anchor offset every section depends on; the toggle needs persistence plus an inline script to avoid a wrong-theme flash. Both are step 8 work, and `prefers-color-scheme` already themes the product |
+| Component tests live in Playwright, not `node --test` | Node 22.23.2 cannot load `.tsx` (`ERR_UNKNOWN_FILE_EXTENSION`, verified). A JSX transform in the unit-test toolchain to render six presentational components is dependency weight for no gain; Playwright tests the real production build |
+| Page body uses the `content` width, not `page` | At 1280px a `page`-width body left the composition against the left edge with a void beside it. `content` centres the column, which is what the width variant is for. Caught by looking at a screenshot, not by a test |
+| No eyebrow ordinals on the three scaffold blocks | Numbering them `01`–`03` read as though they were narrative sections 01–03, while the real ten are listed inside one of them. `SectionHeader` keeps the ordinal API for when those sections arrive |
 
 ---
 
@@ -767,6 +904,18 @@ Open items, none blocking:
   absent, so cross-engine behaviour is unverified. The cyan/blue colourblind check
   and the screen-reader pass in `docs/product-architecture.md` §5 also remain
   outstanding — they belong to step 8.
+- **Three shell features are deliberately deferred** with reasons recorded in §4
+  and §7: the header's condense-on-scroll, the theme toggle, and a mobile
+  drawer/sheet for navigation. None is missing functionality — the product is
+  fully themed via `prefers-color-scheme` and fully navigable via the rail.
+- **`--header-height` is a measured constant, not a computed one.** It matches the
+  rendered header at both breakpoints and an E2E test proves it, but a future
+  change to the header's padding or type size needs the token updated with it. The
+  test will fail loudly if that is forgotten, which is the intended safety net.
+- **Component behaviour is only testable in a browser.** Node cannot load `.tsx`,
+  so `npm test` covers layout logic and `npm run test:e2e` covers rendering. A
+  change that breaks a component visually but not structurally is caught by the
+  E2E suite or not at all.
 - **No axe-core accessibility scan yet.** §5 requires it in CI. The E2E harness now
   exists to host it, but the check is not written.
 - **`next dev` is unverified in a browser.** Only the production build is
@@ -833,6 +982,52 @@ SciPy is deliberately not installed — the `validate` extra was not requested.
 
 The 109-test Phase 3A suite is **unchanged** — no test was added to it, deleted,
 skipped or rewritten, and the count is identical before and after Phase 3C.
+
+### Step 3 re-validation (application shell)
+
+Every gate below was run on the committed tree. No existing test was edited,
+skipped or weakened; the 109-test Phase 3A suite is intact inside the new total.
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| New layout tests | `node --test tests/layout-contract.test.ts` | **11 / 11 pass** |
+| Full frontend suite | `npm test` | **120 / 120 pass**, 0 fail, 0 skipped (109 + 11) |
+| Types | `npm run typecheck` | **clean**, exit 0 |
+| Lint | `npm run lint` | **clean**, exit 0 |
+| Format | `npm run format:check` | **clean** |
+| Combined | `npm run verify` | **exit 0** |
+| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
+| Browser E2E | `npm run test:e2e` | **22 / 22 pass** (chromium; 8 foundation + 14 shell) |
+| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
+| Python lint / types | `ruff check .` / `mypy src` | **clean** / **no issues in 11 files** |
+
+The 14 shell tests cover: the named `nav` landmark and one link per registered
+section; every `href` resolving to an element that exists; nav links as the tab
+stops after the skip link; 44px tap targets at 375px; the `--header-height` token
+against the rendered header at **both** 1280px and 375px; a deep-linked heading
+sitting below the header's bottom edge; the header staying at `y = 0` while
+scrolling; `aria-current` moving between sections; the one-row/two-row switch;
+zero horizontal overflow at 375px; prose within `--width-reading`; every section
+named by its own heading id; and no skipped heading level anywhere on the page.
+
+Two problems were found by looking at rendered screenshots rather than by any
+gate, and both were fixed: the page body was left-aligned in a `page`-width
+container leaving a large void at 1280px, and the scaffold blocks carried eyebrow
+ordinals `01`–`03` that read as the narrative sections. Neither is expressible as
+an assertion, which is the argument for looking.
+
+Analytical integrity after step 3 — tree hashes identical to the baseline:
+
+| Path | Tree hash | vs baseline |
+| --- | --- | --- |
+| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
+| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+
+`git diff` over `pipeline/ data/ reports/ web/src/data/generated/ METHODOLOGY.md`
+is empty, and `git diff -- web/src/data/` is empty: the whole data layer, not just
+the artifacts, is untouched by this step.
 
 ### Step 2 re-validation (Zod boundary)
 
@@ -945,29 +1140,42 @@ Every number in §15–§17 was reconciled against `metrics.json` and
 
 ## 10. Next step
 
-**Phase 3C step 3 — `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`,
-`Navigation`.**
+**Phase 3C step 4 — `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`,
+`ReadMore`.**
 
-`docs/product-architecture.md` §10 step 3, with the component contracts in §4 of
-the same document and the token rules in `docs/design-system.md`.
+`docs/product-architecture.md` §10 step 4, with each component's responsibility in
+§4 of the same document, the `ReadMore` interface and behaviour table in §6, and
+the surface/radius/elevation rules in `docs/design-system.md` §4.
 
-`app/layout.tsx` currently inlines a rudimentary header and footer. Step 3 should
-**extract** them into the contracted components rather than grow them in place,
-and must not introduce a second token system: utilities resolve tokens at the
-element (see §4 on `@theme inline`), so no `dark:` variant is needed anywhere.
+Where step 4 starts from what step 3 built:
+
+1. **`SourceNote` is an extraction, not a new component.** `Footer` already renders
+   `manifest.sources[]` in the right shape; move it and keep the footer composing.
+2. **`Card` must not float.** `--shadow-none` for cards; only the two overlay
+   tokens exist as utilities, deliberately (design-system §1, §4).
+3. **`Callout` will replace the inline warning surface** on the comparability block
+   in `app/page.tsx`. That block is where its treatment already lives.
+4. **`MetricCard` and `StatHighlight` are the first components that render a
+   statistic**, so §16 binds them: a level correlation may not appear without the
+   specification comparison beside it. The components must make the caveat slot
+   structural rather than optional.
+5. **No critical conclusion may live only inside a `ReadMore`** — §6's hard rule
+   lists the five statements that must be visible without interaction.
 
 Still binding for every remaining step:
 
-1. The frontend **must not compute a statistic**. `analytical-safety.test.ts`
-   enforces it statically over `src/data/`; the same rule applies to components.
-2. `web/src/data/generated/` is pipeline-owned. Never edit or reformat it from the
-   frontend; it is in `.prettierignore` for that reason.
-3. Any level correlation must appear beside the specification comparison (§16).
-4. The Singapore rules in §19 bind all narrative copy: `level_only_association` is
-   authoritative, "Maturity Gap" is editorial only, and nothing may imply
-   Singapore lacks a level association.
-5. New modules must not be added to `src/data/` — the file list is asserted. App
-   code belongs in `src/lib/` or `src/components/`.
+- The frontend **must not compute a statistic**. `analytical-safety.test.ts`
+  enforces it over `src/data/`; `layout-contract.test.ts` now enforces the same
+  over the layout components, and step 4's components should join that check.
+- `web/src/data/generated/` is pipeline-owned. Never edit or reformat it from the
+  frontend.
+- New modules must not be added to `src/data/` — its file list is asserted.
+  Components belong in `src/components/`, content in `src/content/`.
+- The Singapore rules in §19 bind all narrative copy: `level_only_association` is
+  authoritative, "Maturity Gap" is editorial only, and nothing may imply Singapore
+  lacks a level association.
+- Register new sections in `src/content/sections.ts` as they are built, so
+  navigation and anchors cannot drift.
 
 Reminder for every remaining step: the frontend **must not compute a statistic**,
 `web/src/data/generated/` is pipeline-owned and must never be edited or
@@ -985,7 +1193,7 @@ copy.
 | Phase 3 | Product transformation direction | **COMPLETE** — direction locked |
 | Phase 3A | Frontend/data/design foundations | **COMPLETE** — authored on `phase-3a-frontend-foundation`, restored to `main` as `97d1a5c` |
 | Phase 3B | Dependency bootstrap (environment baseline) | **COMPLETE** — all 10 steps; validated baseline committed |
-| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — steps 1–2 of 8 complete |
+| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — steps 1–3 of 8 complete |
 
 ### Phase 2 validation record
 

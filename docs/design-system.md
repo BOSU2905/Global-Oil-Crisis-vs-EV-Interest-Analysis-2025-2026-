@@ -305,13 +305,46 @@ Verified in-browser by `web/e2e/foundation.e2e.ts`: computed `background-color` 
 both light and dark themes, and a country token resolving through the primitive
 chain.
 
+### Delivered in Phase 3C step 3
+
+**Shell and layout components.** `AppShell`, `Header`, `Navigation`, `Footer`,
+`Container`, `Section` and `SectionHeader` in `web/src/components/layout/`.
+`Container` is the only component permitted to set a max width, and it exposes
+exactly the five variants in §4 — a unit test asserts the set matches and that each
+resolves to a `--width-*` token defined in this document's stylesheet.
+
+**One token added: `--header-height`** (69px at `lg` and above, 98px below, where
+the header stacks into two rows). It exists because the sticky header's height is
+also the anchor offset every section needs: `Section` applies
+`scroll-mt-(--header-height)` so a deep-linked heading is never covered. Both
+values are measured against the rendered header by an E2E test at 1280px and
+375px, so a change to the header's padding cannot silently break deep links.
+
+Rhythm still needs no breakpoint logic in any component: `--page-padding-inline`,
+`--section-spacing`, `--card-padding` and `--grid-gap` swap below 768px inside
+`tokens.css`, and `--header-height` swaps at 1024px because it follows the
+header's own layout change rather than the page gutters.
+
+Section rhythm is applied as `margin-top` rather than padding, because
+`scroll-margin-top` positions the border box — a margin keeps the visual rhythm
+while letting a deep link land on the heading instead of the space above it.
+
 ### Still deferred
 
 Requires the component and chart layers, or a wider browser matrix:
 
-- React component implementations (`Card`, `MetricCard`, `ReadMore`, …)
+- Content component implementations (`Card`, `MetricCard`, `Badge`, `SourceNote`,
+  `StatHighlight`, `Callout`, `ReadMore`) — step 4. The shell and layout
+  components are done; these are not
 - The ECharts adapter that turns a `ChartTheme` into a library option object
 - Rendered contrast measurement and visual QA
-- Real responsive verification at each breakpoint
+- Real responsive verification at each breakpoint. Step 3 verified the shell at
+  1280px and 375px only, and only in chromium
 - Colourblind verification of the cyan/blue pair (chromium is the only installed
   engine)
+- The header's condense-on-scroll and a theme toggle. Both are listed in
+  `product-architecture.md` §4 and both were deliberately deferred in step 3: the
+  first makes the header height dynamic, which is the value every section anchor
+  depends on, and the second needs persistence plus an inline script to avoid a
+  wrong-theme first paint. Neither blocks the product — both themes already ship
+  through `prefers-color-scheme`

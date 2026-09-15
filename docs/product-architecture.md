@@ -5,8 +5,13 @@ direction, component contracts, accessibility requirements, and the disclosure
 pattern. Visual tokens are in [`design-system.md`](design-system.md); the data
 contract is in [`frontend-data-contract.md`](frontend-data-contract.md).
 
-Everything here is a **contract to implement**, not implemented code. No React
-component exists yet.
+Everything here is a **contract to implement**. As of Phase 3C step 3 the shell
+and layout rows of §4 are implemented in `web/src/components/layout/`
+(`AppShell`, `Header`, `Navigation`, `Footer`, `Container`, `Section`,
+`SectionHeader`); the content, chart and disclosure contracts are still contracts.
+Two rows are implemented only in part, deliberately, with reasons recorded in
+`KIRO.md` §4: `Header` does not condense on scroll and carries no theme toggle, and
+`Navigation` uses a horizontally scrollable rail rather than a mobile drawer.
 
 ---
 

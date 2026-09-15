@@ -394,6 +394,24 @@
   --grid-gap-sm: var(--space-4);
   --stack-gap: var(--space-4);
 
+  /* --- shell --- */
+  /* Height of the sticky header, and therefore the anchor offset every section
+     needs so the header does not cover a heading a reader navigated to. It is a
+     token because two components depend on the same number: `Header` renders it
+     and `Section` offsets by it via `scroll-mt-(--header-height)`.
+
+     Two values, because the header is one row at `lg` and above and two rows
+     below it (identity, then the navigation rail). The narrow value swaps in at
+     the same 1024px boundary the layout uses.
+
+     Both values are MEASURED, not estimated: 69px = 44px nav row + 24px vertical
+     padding + the 1px bottom border; 98px adds the stacked identity row and its
+     gap. An E2E test compares the token against the rendered box at both widths,
+     so a padding change cannot silently break the anchor offset — that test
+     caught the missing border pixel in the first draft of this token. */
+  --header-height: 69px;
+  --header-height-narrow: 98px;
+
   /* --- radius --- */
   /* Deliberately tight. Large radii read as consumer app, not analytical tool. */
   --radius-xs: 3px;
@@ -600,5 +618,15 @@
     --section-spacing: var(--section-spacing-sm);
     --card-padding: var(--card-padding-sm);
     --grid-gap: var(--grid-gap-sm);
+  }
+}
+
+/* Below `lg` the header stacks into two rows — identity, then the navigation
+   rail — so it is taller and every section anchor must clear more. This boundary
+   is 1024px rather than the 768px used for rhythm above, because it follows the
+   header's own layout change, not the page gutters. */
+@media (max-width: 1023px) {
+  :root {
+    --header-height: var(--header-height-narrow);
   }
 }
