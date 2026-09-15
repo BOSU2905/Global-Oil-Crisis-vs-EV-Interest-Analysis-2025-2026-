@@ -1,13 +1,14 @@
 # web/
 
-Presentation layer for the Oil vs EV analysis. **Phase 3B bootstrap: dependencies
-installed and validated; no Next.js app, React components or charts yet.**
+Presentation layer for the Oil vs EV analysis. **Phase 3C step 1: the App Router
+scaffold runs and the design tokens are wired into Tailwind. No components,
+charts or narrative sections yet.**
 
-The framework-independent foundation — typed data contract, boundary validation,
-accessors, design tokens, chart-language contract — is complete and green. The
-dependency baseline (Next.js, React, ECharts, Zod, TypeScript, ESLint, Prettier,
-Tailwind, Playwright) is installed and locked, but no UI has been written against
-it. There is no `app/`, no `components/` and no `content/` yet.
+`npm run build` succeeds, `npm run test:e2e` passes in a browser, and the page
+renders its own analytical scope read from the generated artifacts. What is _not_
+here: `components/`, `content/`, the hero, the ten narrative sections, and every
+chart. Those are steps 3–8 of
+[`../docs/product-architecture.md`](../docs/product-architecture.md) §10.
 
 ## Layout
 
@@ -15,22 +16,34 @@ it. There is no `app/`, no `components/` and no `content/` yet.
 web/
 ├── package.json               dependency baseline; scripts below
 ├── package-lock.json          committed — `npm ci` reproduces the validated tree
-├── tsconfig.json              strict, nodenext, verbatimModuleSyntax
+├── tsconfig.json              strict; React-capable since Phase 3C
 ├── eslint.config.mjs          flat config; TS/Next rules scoped to .ts/.tsx
 ├── postcss.config.mjs         Tailwind v4 plugin registration
+├── next.config.mjs            Next configuration
+├── playwright.config.ts       chromium-only, runs against a production build
+├── app/
+│   ├── layout.tsx             root layout: landmarks, skip link, metadata
+│   ├── page.tsx               foundation page — scope, not findings
+│   └── globals.css            Tailwind entry + token→theme mapping
+├── e2e/foundation.e2e.ts      8 browser smoke tests
 ├── src/
 │   ├── data/
 │   │   ├── generated/         ← artifacts from pipeline/. DO NOT EDIT
 │   │   ├── artifact-types.ts  TypeScript contract for all five artifacts
 │   │   ├── validate.ts        boundary validator (Zod replacement path documented)
 │   │   ├── artifacts.ts       typed accessors + cross-artifact integrity
-│   │   ├── load-node.ts       Node fs loader (tests and build scripts only)
+│   │   ├── load-node.ts       Node fs loader (tests only — keeps node:fs out of the app)
 │   │   └── index.ts           public surface — import from here
+│   ├── lib/artifacts.ts       app-side loader: JSON → createArtifactBundle
 │   └── styles/
 │       ├── tokens.css         design tokens: colour, type, space, motion, chart
 │       └── chart-language.ts  typed chart contract + DOM-free theme resolver
 └── tests/                     109 tests
 ```
+
+`src/lib/artifacts.ts` is outside `src/data/` on purpose:
+`tests/analytical-safety.test.ts` asserts the exact set of files in the data layer,
+and that guardrail is worth more than the tidier import path.
 
 ## Commands
 
@@ -39,22 +52,28 @@ Node's native type stripping). Install with `npm ci` to reproduce the exact tree
 the gates below were validated against.
 
 ```bash
+npm run dev           # next dev
+npm run build         # next build
+npm run start         # next start  (after a build)
+
 npm run typecheck     # tsc --noEmit, strict
 npm run lint          # eslint
-npm run test          # node --test  (109 tests)
+npm run test          # node --test      (109 tests)
 npm run format        # prettier --write
 npm run format:check  # prettier --check
 npm run verify        # typecheck + lint + test + format:check
 
-npm run dev           # next dev    ── needs app/, added in the UI phase
-npm run build         # next build  ── needs app/, added in the UI phase
-npm run start         # next start  ── needs a completed build
+npm run test:e2e      # playwright test  (8 tests, chromium)
 ```
 
-`dev`, `build` and `start` are wired but cannot succeed yet: `next build` fails
-with "Couldn't find any `pages` or `app` directory" until the UI phase creates the
-App Router entrypoint. That failure is expected at this stage and confirms the
-Next.js toolchain itself resolves and runs.
+`verify` is the fast gate. `test:e2e` is separate because it builds the app and
+starts a server; it runs against the **production** build, since the CSS pipeline
+and server-component rendering both differ in development. It needs the browser
+binary once:
+
+```bash
+npx playwright install chromium
+```
 
 If `node` fails with `MODULE_NOT_FOUND` for `proxy-bootstrap.js`, the environment
 has a stale `NODE_OPTIONS`. Prefix commands with `NODE_OPTIONS= ` to clear it.
@@ -83,9 +102,9 @@ formatting is owned by `pipeline/src/pipeline/emit.py`, which guarantees
 byte-stable output.
 
 ```bash
-cd ../pipeline/src
-python -m pipeline.build          # regenerate
-python -m pipeline.build --check  # fail if stale
+cd ../pipeline
+PYTHONPATH=src python -m pipeline.build          # regenerate
+PYTHONPATH=src python -m pipeline.build --check  # fail if stale
 ```
 
 ## Resolved Phase 3A workarounds
@@ -95,18 +114,24 @@ Both stopgaps that Phase 3A carried because the registry was unreachable are gon
 **`types/node-minimal.d.ts` — deleted.** Real `@types/node` (22.20.2, tracking the
 Node 22 runtime rather than the registry `latest`) now supplies `node:test`,
 `node:assert/strict`, `node:fs`, `node:path`, `node:url` and `structuredClone`.
-`tsconfig.json` declares `"types": ["node"]` explicitly, because TypeScript 6 no
-longer auto-includes every package under `node_modules/@types`.
+`tsconfig.json` declares `"types": ["node", "react", "react-dom"]` explicitly,
+because TypeScript 6 no longer auto-includes every package under
+`node_modules/@types`.
 
 **ESLint — installed.** `eslint.config.mjs` is a flat config with the
 TypeScript and Next.js rule sets scoped to `.ts`/`.tsx`, and
 `src/data/generated/**` ignored so lint can never rewrite a pipeline-owned
 artifact. `tsc --strict`, ESLint and Prettier now all gate the tree.
 
-## Next phase — UI implementation
+## Next step — Phase 3C step 2
 
-Follows `../docs/product-architecture.md` §10, starting at step 1: the Next.js
-App Router scaffold plus the Tailwind `@theme` mapping of
-`src/styles/tokens.css`. `tsconfig.json` will need `jsx`, the DOM lib, `@types/react`
-and `**/*.tsx` added at that point; it is deliberately left Node-only while no
-React source exists.
+Replace the hand-rolled `src/data/validate.ts` with Zod (already installed,
+currently unused) **behind the same accessors**: `src/data/index.ts`'s exports must
+not change, `ContractError` must keep naming the exact failing JSON path, and
+`tests/validator.test.ts` is the acceptance criterion — do not edit it to fit the
+new implementation.
+
+Then steps 3–8 of [`../docs/product-architecture.md`](../docs/product-architecture.md)
+§10. Note that `app/layout.tsx` currently inlines a rudimentary header and footer;
+step 3 should extract them into the contracted `Header`/`AppShell` components
+rather than grow them in place.

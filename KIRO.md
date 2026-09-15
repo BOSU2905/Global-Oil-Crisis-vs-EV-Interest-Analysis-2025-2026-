@@ -160,34 +160,127 @@ React/Next.js must never compute a statistic.
 
 ## 3. Current phase
 
-**Phase 3B — Dependency Bootstrap: COMPLETE. Frontend implementation: NOT
-STARTED.**
+**Phase 3C — Frontend/UI Implementation. Step 1 of 8 COMPLETE.**
 
-The bootstrap/recovery task is finished: Phase 3A is on `main`, the Node runtime
-is fixed, dependencies are installed and locked, the Phase 3A green baseline is
-re-established on real tooling, the Python dev gates are restored, and the
-analytical layer is verified unchanged. **No UI was built in this task** — that
-was an explicit boundary, not an omission.
+Phase 3B (dependency bootstrap) is complete and committed at `f950e2b`.
+
+Phase 3C follows the eight-step order in `docs/product-architecture.md` §10:
 
 | # | Step | Status |
 | --- | --- | --- |
-| 1 | Restore Phase 3A onto `main` | **COMPLETE** |
-| 2 | Update `KIRO.md` | **COMPLETE** |
-| 3 | Install Node ≥ 22.6 in user space | **COMPLETE** |
-| 4 | Install frontend dependencies + lockfile | **COMPLETE** |
-| 5 | Establish `package.json` scripts | **COMPLETE** |
-| 6 | Re-establish Phase 3A green baseline | **COMPLETE** — 109/109, tsc/eslint/prettier clean |
-| 7 | Restore Python dev environment | **COMPLETE** — pytest/ruff/mypy via the declared `dev` extra |
-| 8 | Validate analytical layer unchanged | **COMPLETE** — legacy MATCH, `--check` PASS, diff empty |
-| 9 | Update `KIRO.md` again | **COMPLETE** (this rewrite) |
-| 10 | Commit the clean baseline | **COMPLETE** — see §9 |
+| 1 | Next.js + TypeScript + Tailwind scaffold; wire tokens into the Tailwind theme | **COMPLETE** |
+| 2 | Swap the hand-rolled validator for Zod behind the same accessors | **NEXT** |
+| 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | pending |
+| 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` | pending |
+| 5 | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter | pending |
+| 6 | Hero (§2) and the Robustness section (05) | pending |
+| 7 | Remaining narrative sections in order | pending |
+| 8 | Responsive, accessibility and performance passes | pending |
 
-The next session starts the **UI implementation phase**: `docs/product-architecture.md`
-§10 step 1. See §10.
+**What step 1 did not do, deliberately:** no narrative sections, no hero, no
+charts, no navigation, no country deep dives, no interpretation panels. The
+application renders a shell and its own scope, and nothing more. Statistics are
+absent from the UI on purpose — see §4.
 
 ---
 
 ## 4. Completed work
+
+### Phase 3C step 1 — App Router scaffold + Tailwind token wiring — COMPLETE
+
+Seven files created, four modified. The application now builds, renders and is
+browser-tested.
+
+**Created**
+
+```text
+web/app/layout.tsx          root layout / AppShell foundation
+web/app/page.tsx            foundation page
+web/app/globals.css         Tailwind entry + token→theme mapping
+web/next.config.mjs         Next configuration
+web/src/lib/artifacts.ts    app-side artifact loader
+web/playwright.config.ts    E2E configuration
+web/e2e/foundation.e2e.ts   8 smoke tests
+```
+
+**Modified:** `web/tsconfig.json`, `web/package.json` (added `test:e2e`),
+`web/.prettierignore`, `.gitignore`.
+
+#### Token integration — how it works, and why this way
+
+The requirement was to map the existing tokens into Tailwind v4 **without
+creating a second token system**. The obstacle: `tokens.css` already occupies
+Tailwind's own namespaces (`--color-*`, `--radius-*`, `--font-*`, `--ease-*`), so
+a naive `@theme` block would collide with it.
+
+The resolution is `@theme inline` with same-name self-reference:
+
+```css
+@theme inline {
+  --color-surface: var(--color-surface);
+}
+```
+
+This emits `.bg-surface { background-color: var(--color-surface) }`. The utility
+resolves the variable **at the element**, so dark mode works with no `dark:`
+variants anywhere in the markup — `tokens.css` re-declares the same variable
+under `prefers-color-scheme: dark` and `[data-theme="dark"]`, and every utility
+follows.
+
+Tailwind additionally emits its own `--color-surface: var(--color-surface)` inside
+`@layer theme`, which would be circular if it won the cascade. It does not:
+`tokens.css` is imported **unlayered**, and unlayered declarations outrank every
+layer. **The import order in `globals.css` is therefore load-bearing.** This was
+not assumed — it was verified by compiling the pattern through
+`@tailwindcss/postcss` 4.3.3 and inspecting the output, and it is now asserted in
+a browser by two E2E tests that read computed colours in both themes.
+
+Three token families needed **no** mapping, because `tokens.css` already overrides
+the identically-named Tailwind default: `--font-sans`/`--font-mono`,
+`--radius-xs…full`, and `--ease-out`/`--ease-in-out`. Three more coincide with
+Tailwind's defaults by design: the 4px spacing base (`p-4` *is* `--space-4`), the
+400/500/600 weights, and all five breakpoints.
+
+#### Two design-system rules now enforced by the build
+
+- **Tailwind's default colour palette is removed** (`--color-*: initial`, with
+  `transparent`/`current`/`inherit` restored). It was a third token system that
+  made `bg-red-500` available and let any component bypass the design system by
+  accident — precisely the "rainbow palette" outcome `docs/design-system.md` §1
+  rejects. Verified absent from the built CSS.
+- **Radius above `xl` is removed** (`--radius-2xl/3xl/4xl: initial`). §4 caps
+  radius at 12px, so `rounded-2xl` would have contradicted a stated decision.
+
+Shadows are additive rather than reset — only the two overlay tokens are exposed,
+since cards must not float.
+
+#### Why the app loader is not in `src/data/`
+
+`tests/analytical-safety.test.ts` asserts the **exact** set of `.ts` files in
+`src/data/`. That is a real guardrail: it makes any new module in the data layer a
+reviewed act. Rather than weaken the assertion, the app-side loader lives at
+`web/src/lib/artifacts.ts`. It imports the five generated JSON files and hands
+them to the existing `createArtifactBundle`, which is the transport
+`src/data/load-node.ts` always documented for the frontend — the same validation
+boundary, a different transport. `load-node.ts` itself is untouched and stays
+test-only, so `node:fs` never enters the React module graph.
+
+#### Statistics are deliberately absent from the UI
+
+The page renders scope, not findings: observation period, weekly observation
+count, market labels, the partial-week warning and the cross-market comparability
+constraint — all read from artifacts. No coefficient, p-value, interval or
+classification appears, and an E2E test asserts that (`renders no correlation
+coefficient or p-value on the foundation page`).
+
+This is a correctness decision, not timidity. `KIRO.md` §16 requires the
+specification comparison to sit immediately beside any level correlation; a
+coefficient on a page with nowhere to state that caveat would repeat the original
+project's error. Statistics arrive in step 6 together with the Robustness section.
+
+### Phase 3B — dependency bootstrap — COMPLETE
+
+Committed as `f950e2b`. See §6 for the resulting environment and §9 for gates.
 
 ### Phase 3A restoration — COMPLETE
 
@@ -328,16 +421,20 @@ Phase 1 (audit), Phase 2 (analytical remediation and reproducibility), Phase 3
 | Frontend dependencies installed | **COMPLETE** — locked, `npm ci`-reproducible |
 | Frontend toolchain gates (tsc / eslint / prettier / node --test) | **COMPLETE** — all green |
 | Python dev gates (pytest / ruff / mypy) | **COMPLETE** — restored via the declared `dev` extra |
-| Real Next.js frontend | **NOT STARTED** — next phase |
-| Browser / visual QA | **NOT STARTED** |
+| Next.js App Router scaffold | **COMPLETE** — builds clean, 3 static routes |
+| Tailwind ↔ design-token integration | **COMPLETE** — verified in-browser, light and dark |
+| Browser / E2E harness | **COMPLETE** — Playwright chromium, 8 smoke tests passing |
+| React component library (`AppShell`, `Card`, …) | **NOT STARTED** — steps 3–4 |
+| Charts / ECharts adapter | **NOT STARTED** — step 5 |
+| Narrative sections + hero | **NOT STARTED** — steps 6–7 |
+| Responsive / a11y / performance passes | **NOT STARTED** — step 8 |
 | Production-ready frontend | **NOT STARTED** |
 
-What exists in `web/` today is a **framework-independent foundation plus a
-validated dependency baseline** — not an application. There is no `app/`, no
-`components/`, no `content/`, and no `next.config.mjs`. `npm run build` fails with
-"Couldn't find any `pages` or `app` directory", which is the **expected** state at
-this boundary and confirms the Next.js toolchain itself resolves and executes.
-Phase 3A was never the finished frontend, and neither is this.
+`web/` now contains a **running application shell** with the data and design
+foundations wired into it. It is not the product: there is no `components/`, no
+`content/`, and the narrative is a static list of ten section names. `npm run
+build` succeeds and `npm run test:e2e` passes, which was not true before this
+phase.
 
 ---
 
@@ -435,27 +532,35 @@ Two benign observations, recorded so they are not re-investigated:
 - Next.js anonymous telemetry was **opted out** (`npx next telemetry disable`) to
   avoid unnecessary outbound requests from the build.
 
-Playwright's *package* is installed; its **browser binaries are not downloaded**.
-That is intentional — no browser test exists yet. The UI phase will need
-`npx playwright install` before any end-to-end run.
+Playwright's **chromium binary is installed** as of Phase 3C:
+`npx playwright install chromium` fetched Chrome Headless Shell 153.0.8010.12
+(playwright build v1243) plus ffmpeg v1011 into `~/.cache/ms-playwright`. The
+installer warns that this OS is not officially supported and falls back to the
+`ubuntu24.04-x64` build; it works. Firefox and WebKit are **not** installed, and
+`playwright.config.ts` therefore declares a chromium-only project — configuring
+engines whose binaries are absent would produce failures that look like
+application bugs.
 
 ### npm scripts (`web/package.json`)
 
 | Script | Command | Works now? |
 | --- | --- | --- |
-| `dev` | `next dev` | needs `app/` — UI phase |
-| `build` | `next build` | needs `app/` — UI phase |
-| `start` | `next start` | needs a completed build |
+| `dev` | `next dev` | **yes** |
+| `build` | `next build` | **yes, clean** — 3 static routes, no warnings |
+| `start` | `next start` | **yes** (after a build) |
 | `typecheck` | `tsc -p tsconfig.json` | **yes, clean** |
 | `lint` | `eslint .` | **yes, clean** |
 | `lint:fix` | `eslint . --fix` | yes |
 | `test` | `node --test` | **yes, 109/109** |
+| `test:e2e` | `playwright test` | **yes, 8/8** (added in Phase 3C) |
 | `format` | `prettier --write .` | yes |
 | `format:check` | `prettier --check .` | **yes, clean** |
 | `verify` | `typecheck && lint && test && format:check` | **yes, all green** |
 
-`verify` is the single command for the whole frontend gate. `node --test` needs no
-loader flag: the tests import `.ts` directly and Node ≥22.6 strips types natively.
+`verify` is the fast gate and does **not** include `test:e2e`, which builds the app
+and starts a server. Run `npm run test:e2e` explicitly, or after `npm run verify`.
+`node --test` needs no loader flag: the tests import `.ts` directly and Node ≥22.6
+strips types natively.
 
 ### Python — dev environment restored
 
@@ -509,6 +614,17 @@ Version notes:
 | ESLint TS/Next rules scoped to `.ts`/`.tsx` | Not stylistic — unscoped, ESLint 10 + `@typescript-eslint/scope-manager@8` throw a `TypeError` on `.mjs` config files. See §4 |
 | Restored Python tooling via the repo's own `dev` extra into `.venv` | The mechanism was already declared in `pipeline/pyproject.toml`; no new dependency-management architecture was invented |
 | Opted out of Next.js telemetry | Avoids unnecessary outbound requests from the build |
+| **Phase 3C** — map tokens with `@theme inline` same-name self-reference | The only form that yields ergonomic utilities (`bg-surface`) while keeping `tokens.css` the single source of truth. Verified by compiling the pattern and by two in-browser computed-colour assertions |
+| Import `tokens.css` unlayered, after `tailwindcss` | Unlayered declarations outrank `@layer theme`, so the real token values beat Tailwind's circular copy. Load-bearing, and documented as such in `globals.css` |
+| Removed Tailwind's default colour palette and radius above `xl` | Both were competing token systems able to bypass documented design-system rules by accident. Enforcing the rules in the build is stronger than enforcing them by review |
+| Consume semantic rhythm tokens as `p-(--card-padding)` rather than naming them in `@theme` | They change value under 768px inside `tokens.css`; giving them utility names would split one responsive decision across two files |
+| App loader at `src/lib/artifacts.ts`, not `src/data/` | `analytical-safety.test.ts` asserts the exact file list of `src/data/`. Adding a file there would have required weakening a guardrail; adding it elsewhere costs nothing |
+| `tsconfig` moved to `esnext` / `bundler` | Turbopack is a bundler, and `nodenext` would require `with { type: "json" }` attributes to import the artifacts. No source file changed — imports already carry explicit `.ts` extensions |
+| Wrote Next's four mandatory `tsconfig` options explicitly | `next build` silently rewrites `tsconfig.json` when `jsx`, `esModuleInterop`, `allowJs` or `incremental` are missing, leaving a dirty tree after every build. Stating them keeps the file stable |
+| Still **no** `paths` aliases | `node --test` resolves imports itself and ignores tsconfig `paths`. An alias would type-check and then fail at runtime in the test suite |
+| No statistics rendered on the scaffold page | §16 requires the specification caveat beside any level correlation. A coefficient with nowhere to qualify it is the original project's error. Asserted by an E2E test |
+| Playwright specs named `*.e2e.ts` | `node --test`'s default patterns include `**/*.test.ts`; a Playwright spec collected by the Node runner fails confusingly |
+| E2E runs against `next build` output, not `next dev` | The CSS pipeline and RSC rendering both differ in development, and production output is what ships |
 
 ---
 
@@ -518,21 +634,17 @@ Version notes:
 
 Open items, none blocking:
 
-- **Playwright browser binaries are not installed** (package only). The UI phase
-  must run `npx playwright install` before the first end-to-end test.
-- **`tsconfig.json` is not yet React-capable.** Needs `jsx`, the DOM lib,
-  `@types/react` in `types`, and `**/*.tsx` in `include` — added in the UI phase
-  alongside the first component. Deliberate; see §7.
-- **No `next.config.mjs`**, and `npm run build` / `dev` / `start` therefore cannot
-  succeed yet. Expected at this boundary; see §5.
-- **Editorial reconciliation needed before narrative copy is written:** §19's
-  executive-summary framework groups "Maturity Gap = Norway + Singapore", while
-  the machine grouping in `metrics.json` `global.evidence_groups` places
-  Singapore with the US (`level_only_association`) and Norway with Indonesia
-  (`no_detectable_association`). `docs/analytical-decision-memo.md` records the
-  editorial grouping as deliberate and supported, but the site must not imply
-  Singapore lacks a level association. **Still open — this is the one carried item
-  with analytical consequences.**
+- **`src/data/validate.ts` is still the hand-rolled validator.** Replacing it with
+  Zod behind the same accessors is step 2 and is the immediate next task. Zod
+  4.6.5 is already installed and currently unused.
+- **Only chromium is installed for Playwright.** Firefox/WebKit binaries are
+  absent, so cross-engine behaviour is unverified. The cyan/blue colourblind check
+  and the screen-reader pass in `docs/product-architecture.md` §5 also remain
+  outstanding — they belong to step 8.
+- **No axe-core accessibility scan yet.** §5 requires it in CI. The E2E harness now
+  exists to host it, but the check is not written.
+- **`next dev` is unverified in a browser.** Only the production build is
+  E2E-tested, which is the deliberate choice recorded in §7.
 
 Resolved this session:
 
@@ -545,6 +657,10 @@ Resolved this session:
 | `.gitignore` missing `node_modules/` | **RESOLVED** — frontend ignore block added |
 | Python test count: 191 vs README's 190 | **RESOLVED** — measured **191 collected, 191 passed, 1 module-level skip**. READMEs corrected; `docs/phase-2-validation.md` given a dated reconciliation note |
 | Stale `uv` cache lock from the interrupted session | **RESOLVED** — no holding process; single stale lock file removed |
+| **Singapore: editorial grouping vs statistical classification** | **RESOLVED in Phase 3C.** The two are different kinds of object and both stand, with `level_only_association` authoritative. Five binding rules recorded in §19 and mirrored as hard rule 5 in `docs/product-architecture.md` §3. The product may never imply Singapore lacks a level association |
+| `tsconfig.json` not React-capable | **RESOLVED** — `jsx`, DOM libs, React types and `**/*.tsx` added; every Phase 3A strictness flag preserved |
+| No `next.config.mjs`; `build`/`dev`/`start` unusable | **RESOLVED** — config added, build clean |
+| Playwright browser binaries absent | **RESOLVED** — chromium installed; 8 E2E tests pass |
 
 ---
 
@@ -582,9 +698,22 @@ SciPy is deliberately not installed — the `validate` extra was not requested.
 | Tests | `npm test` (`node --test`) | **109 / 109 pass**, 0 fail, 0 skipped |
 | Types | `npm run typecheck` (`tsc`, strict) | **clean**, exit 0 |
 | Lint | `npm run lint` (`eslint .`) | **clean**, exit 0, no warnings |
-| Format | `npm run format:check` (`prettier`) | **clean** — "All matched files use Prettier code style!" |
+| Format | `npm run format:check` (`prettier`) | **clean** |
+| Combined | `npm run verify` | **exit 0** |
 | Lockfile sync | `npm ci --dry-run` | **exit 0** — lockfile in sync with `package.json` |
-| `next build` | `npm run build` | **fails as expected** — no `pages`/`app` dir; confirms the toolchain resolves and runs |
+| Production build | `npm run build` | **PASS** — compiled in 717 ms, 3 static routes (`/`, `/_not-found`), **no warnings** |
+| Browser E2E | `npm run test:e2e` | **8 / 8 pass** (chromium, against the production build) |
+
+The 109-test Phase 3A suite is **unchanged** — no test was added to it, deleted,
+skipped or rewritten, and the count is identical before and after Phase 3C.
+
+The eight E2E tests cover: one `h1` plus all three landmarks; the skip link as
+first tab stop, becoming visible on focus and targeting `#main-content`; the
+observation period and five market labels read from artifacts; the comparability
+constraint; the absence of any coefficient or p-value; and — the checks that could
+not exist before a browser — computed `background-color` in **light** and **dark**
+themes, plus a mapped country token resolving through the primitive chain to
+`rgb(8, 145, 178)`.
 
 No test was deleted, skipped or weakened; no TypeScript strictness flag was
 relaxed; no analytical file was modified to make a frontend gate pass.
@@ -622,41 +751,38 @@ Every number in §15–§17 was reconciled against `metrics.json` and
 
 ## 10. Next step
 
-**The bootstrap is done. The next session begins the UI implementation phase at
-`docs/product-architecture.md` §10 step 1.**
+**Phase 3C step 2 — replace the hand-rolled validator with Zod, behind the same
+accessors.**
 
-Exact next step:
+`docs/product-architecture.md` §10 step 2. Zod 4.6.5 is installed and currently
+unused.
 
-> **Scaffold the Next.js App Router and wire the design tokens into the Tailwind
-> theme.**
+The seam already exists and is the reason this step is cheap: `src/data/index.ts`
+is the only module application code imports, and `createArtifactBundle` is the
+single boundary between untyped JSON and the typed application. The work is to
+reimplement `src/data/validate.ts` with Zod schemas while keeping:
 
-Concretely, that first unit of work is:
+1. **The same public surface.** `src/data/index.ts` exports must not change, so
+   neither `web/src/lib/artifacts.ts` nor any test needs editing.
+2. **`ContractError` with a precise failing path.** The current validator names
+   the exact JSON path that failed; Zod's `issues` must be mapped onto that, not
+   replaced by a raw `ZodError`.
+3. **All 109 tests passing untouched.** `tests/validator.test.ts` is the
+   specification for this step — it already asserts the error behaviour, so it is
+   the acceptance criterion. Do not edit it to fit the new implementation.
+4. **The `src/data/` file list unchanged**, or `analytical-safety.test.ts` fails.
+   Replace the contents of `validate.ts`; do not add a module beside it.
+5. **No statistical computation introduced** — the same test forbids it statically.
 
-1. Create `web/app/layout.tsx` and `web/app/page.tsx` (App Router entrypoint), plus
-   `web/app/globals.css` importing `@import "tailwindcss"` and the existing
-   `web/src/styles/tokens.css`.
-2. Add `web/next.config.mjs`.
-3. Map `tokens.css` custom properties onto Tailwind utilities with `@theme`
-   (Tailwind v4 CSS-first syntax) — closing `docs/design-system.md` §8's first
-   deferred item.
-4. Extend `web/tsconfig.json` for React: `"jsx": "preserve"`,
-   `"lib": ["ES2023", "DOM", "DOM.Iterable"]`, `"types": ["node", "react"]`,
-   and `"**/*.tsx"` in `include`. **Do not relax any strictness flag** —
-   `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
-   `verbatimModuleSyntax` and the rest stay exactly as they are.
-5. Re-run `npm run verify`. `npm run build` must now succeed. The 109 existing
-   tests must still pass untouched.
+After that, step 3: `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`,
+`Navigation`. Note that `layout.tsx` currently inlines a rudimentary header and
+footer; step 3 should extract them into the contracted components rather than
+grow them in place.
 
-Then continue in §10 order: Zod swap behind the same accessors (step 2), layout
-primitives (3), content primitives (4), the `EChart`/`ChartFrame`/
-`ChartTableFallback` adapter (5), then Hero + Robustness (6) — the two sections
-that set the honest tone.
-
-Before writing any narrative copy, settle the Singapore grouping question in §8.
-
-Reminder for that phase: the frontend **must not compute a statistic**, and
+Reminder for every remaining step: the frontend **must not compute a statistic**,
 `web/src/data/generated/` is pipeline-owned and must never be edited or
-reformatted from the frontend.
+reformatted from the frontend, and the Singapore rules in §19 bind all narrative
+copy.
 
 ---
 
@@ -669,7 +795,7 @@ reformatted from the frontend.
 | Phase 3 | Product transformation direction | **COMPLETE** — direction locked |
 | Phase 3A | Frontend/data/design foundations | **COMPLETE** — authored on `phase-3a-frontend-foundation`, restored to `main` as `97d1a5c` |
 | Phase 3B | Dependency bootstrap (environment baseline) | **COMPLETE** — all 10 steps; validated baseline committed |
-| Phase 3C | Frontend/UI implementation | **NOT STARTED** — begins at `docs/product-architecture.md` §10 step 1 |
+| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — step 1 of 8 complete |
 
 ### Phase 2 validation record
 
@@ -845,15 +971,44 @@ permitted.
 
 ### Executive summary framework
 
+These four panels are an **editorial framework**, not a statistical result. They
+are interpretive groupings layered on top of the machine classifications, and all
+three named panels carry `requires_external_evidence: true`.
+
 - **Subsidized Buffer** — Indonesia
-- **Maturity Gap** — Norway + Singapore
+- **Maturity Gap** — Norway + Singapore *(editorial grouping — see below)*
 - **Co-Movement Case** — United States + Worldwide
 - **Separate Inconclusive Case** — Malaysia
 
 The previous concept named **"Proactive Shift"** was invalidated. Do NOT restore
 or reuse it as an analytical conclusion.
 
-See the reconciliation note in §8 regarding Singapore's placement.
+#### Singapore: editorial grouping vs statistical classification — RESOLVED
+
+The editorial and statistical groupings genuinely disagree about Singapore, and
+that is permitted **only** because they are different kinds of object:
+
+| | Grouping | Status |
+| --- | --- | --- |
+| **Statistical** | `level_only_association` — Singapore with the **United States** | **Authoritative.** From `metrics.json` → `classification.evidence_group` |
+| **Editorial** | **Maturity Gap** — Singapore with **Norway** | Interpretive. From `docs/analytical-decision-memo.md` §6 |
+
+Rules, now binding (mirrored as hard rule 5 in `docs/product-architecture.md` §3):
+
+1. `level_only_association` is the authoritative statistical classification for
+   Singapore. Nothing in the product may contradict it.
+2. "Maturity Gap" may be retained, but must be presented as an **editorial /
+   interpretive grouping**, never as a discovered cluster.
+3. Wherever Singapore appears inside Maturity Gap, its evidence group must be
+   visible **in the same view**.
+4. The product must **never state or imply that Singapore shows no level
+   association.** Singapore is r = 0.580, p = 0.0008 — a real level association.
+   Norway, its editorial co-member, is `no_detectable_association`. They are not
+   statistical peers.
+5. The honest form of the Singapore claim is the decision memo's: it responds, but
+   the association is carried by the elevated-price episode and does not survive
+   its removal — `loses_significance_without_elevated_regime`, baseline-only
+   r = 0.304, p = 0.132.
 
 ## 20. Interactive chart requirements
 

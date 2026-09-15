@@ -116,6 +116,27 @@ calculation, and **not** hard-coded as one.
    them as an editorial framework, never as discovered clusters.
 4. Panel membership and verdicts come from `metrics.category_review` and
    `metrics.global.evidence_groups`, never from literals in components.
+5. **Singapore's statistical classification is `level_only_association`, and the
+   editorial panel must never obscure it.** The two groupings are different kinds
+   of object and must not be conflated:
+
+   | | Grouping | Authority |
+   | --- | --- | --- |
+   | Statistical | `level_only_association` — Singapore with the **United States** | `metrics.json` → `classification.evidence_group`. Authoritative. |
+   | Editorial | **The Maturity Gap** — Singapore with **Norway** | This document and the decision memo. Interpretive. |
+
+   Singapore appears beside Norway for an *interpretive* reason (market maturity),
+   not because the measurements group them together — they do not. Norway is
+   `no_detectable_association`; Singapore is `level_only_association` with
+   r = 0.580, p = 0.0008.
+
+   Therefore, wherever Singapore is rendered inside The Maturity Gap, its
+   evidence group must be visible in the same view, and the panel must be marked
+   as an editorial grouping. The product must never state or imply that Singapore
+   shows no level association. The honest form of the claim is the decision
+   memo's: Singapore responds, but the association is carried by the price spike
+   and does not survive its removal (`loses_significance_without_elevated_regime`,
+   baseline-only r = 0.304, p = 0.132).
 
 ---
 

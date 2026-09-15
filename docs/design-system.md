@@ -276,13 +276,42 @@ is never the sole carrier of meaning.
 
 ---
 
-## 8. Deferred to Phase 3B
+## 8. Implementation status
 
-Requires npm dependencies and a browser, so none of it is implemented or
-verified yet:
+### Delivered in Phase 3C step 1
 
-- Tailwind theme wiring (`@theme` mapping these tokens to utilities)
-- React component implementations
+**Tailwind theme wiring.** `web/app/globals.css` maps these tokens onto Tailwind
+utilities with `@theme inline`, using same-name self-reference so there is still
+exactly one token system — this file remains the only place a value is defined.
+Because the utilities resolve `var(--token)` at the element, the dark theme works
+with **no `dark:` variants anywhere in the markup**.
+
+The mapping is deliberately partial, and what it leaves out matters:
+
+| Family | Handling |
+| --- | --- |
+| Colours, type roles, widths, overlay shadows | Mapped in `@theme inline` → `bg-surface`, `text-lead`, `max-w-reading`, `shadow-overlay` |
+| `--font-*`, `--radius-*`, `--ease-*` | **Not mapped.** `tokens.css` already overrides the identically-named Tailwind defaults, so `font-sans`, `rounded-lg` and `ease-out` resolve to these values already |
+| Spacing, weights, breakpoints | **Not mapped.** They coincide with Tailwind's defaults by design — `p-4` *is* `--space-4` |
+| `--card-padding`, `--section-spacing`, `--grid-gap`, `--page-padding-inline` | **Not mapped on purpose.** They change value under 768px in this file; consumed as `p-(--card-padding)` so the responsive decision stays in one place |
+
+Two rules from this document are now enforced by the build rather than by review:
+Tailwind's **default colour palette is removed** (`--color-*: initial`), so
+`bg-red-500` does not exist and §1's rejection of rainbow palettes cannot be
+violated by accident; and **radius above `xl` is removed**, so `rounded-2xl`
+cannot contradict §4's 12px cap.
+
+Verified in-browser by `web/e2e/foundation.e2e.ts`: computed `background-color` in
+both light and dark themes, and a country token resolving through the primitive
+chain.
+
+### Still deferred
+
+Requires the component and chart layers, or a wider browser matrix:
+
+- React component implementations (`Card`, `MetricCard`, `ReadMore`, …)
 - The ECharts adapter that turns a `ChartTheme` into a library option object
 - Rendered contrast measurement and visual QA
 - Real responsive verification at each breakpoint
+- Colourblind verification of the cyan/blue pair (chromium is the only installed
+  engine)

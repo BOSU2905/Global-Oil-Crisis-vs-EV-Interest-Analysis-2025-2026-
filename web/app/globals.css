@@ -1,0 +1,273 @@
+/**
+ * Application stylesheet.
+ *
+ * ==========================================================================
+ * HOW THE DESIGN TOKENS AND TAILWIND RELATE
+ * ==========================================================================
+ * There is exactly ONE token system: `src/styles/tokens.css`. Nothing here
+ * redefines a colour, size, radius or duration. This file only makes the tokens
+ * that already exist reachable as Tailwind utilities.
+ *
+ * The mechanism is `@theme inline`. A theme entry such as
+ *
+ *     --color-surface: var(--color-surface);
+ *
+ * looks circular but is not, and the distinction matters:
+ *
+ *   - `inline` tells Tailwind to put the *value* into the utility, so it emits
+ *     `.bg-surface { background-color: var(--color-surface) }`. The utility
+ *     therefore resolves the variable at the element, which is what makes dark
+ *     mode work for free -- tokens.css re-declares the same variable under
+ *     `prefers-color-scheme: dark` and `[data-theme="dark"]`, and every utility
+ *     follows without a single `dark:` variant.
+ *   - Tailwind additionally emits its theme variables inside `@layer theme`.
+ *     `tokens.css` is imported UNLAYERED below, and unlayered declarations
+ *     outrank every layer in the CSS cascade, so the real token values always
+ *     win over Tailwind's copy. Verified against tailwindcss 4.3.3 by compiling
+ *     this exact pattern and inspecting the output.
+ *
+ * The import order below is therefore load-bearing, not cosmetic.
+ *
+ * WHAT IS NOT MAPPED, AND WHY
+ * Several token families need no mapping because tokens.css already overrides
+ * the identically-named Tailwind default, so the stock utility resolves to the
+ * design-system value:
+ *
+ *   --font-sans / --font-mono   → `font-sans`, `font-mono`
+ *   --radius-xs … --radius-full → `rounded-xs` … `rounded-full`
+ *   --ease-out / --ease-in-out  → `ease-out`, `ease-in-out`
+ *
+ * And three families coincide with Tailwind's defaults by design:
+ *
+ *   spacing      Tailwind's `--spacing` base is 0.25rem, so `p-4` is exactly
+ *                `--space-4` (1rem). The 4px scale is shared, not duplicated.
+ *   weights      `font-normal|medium|semibold` are 400/500/600, matching
+ *                `--weight-regular|medium|semibold`.
+ *   breakpoints  sm/md/lg/xl/2xl are 640/768/1024/1280/1536 in both. Breakpoints
+ *                MUST come from `@theme`, not `:root`, because media queries
+ *                cannot read a custom property -- they agree already, so nothing
+ *                is redeclared.
+ *
+ * Semantic rhythm tokens (`--card-padding`, `--section-spacing`, `--grid-gap`,
+ * `--page-padding-inline`) are intentionally NOT given utility names. They change
+ * value under 768px inside tokens.css, and they are consumed directly as
+ * `p-(--card-padding)`, which keeps the responsive behaviour in one place instead
+ * of splitting it between CSS and utility classes.
+ */
+
+@import "tailwindcss";
+@import "../src/styles/tokens.css";
+
+/* The generated artifacts are pipeline-owned data, not source. Scanning 92 KB of
+   metrics JSON for class names wastes work and risks a string in the data being
+   mistaken for a utility. */
+@source not "../src/data/generated";
+
+/* ==========================================================================
+   Colour
+   --------------------------------------------------------------------------
+   Tailwind's default palette is removed. This is deliberate design-system
+   enforcement, not minimalism: design-system.md §1 rejects "rainbow chart
+   palettes" and requires components to reference semantic tokens only, and
+   §2 states that saturated hue appears ONLY in the data palette. Leaving
+   `bg-red-500`, `text-sky-300` and 250 other stock colours available would be a
+   second, competing token system sitting alongside the first, and the easiest
+   possible way to bypass the design system by accident.
+
+   `transparent`, `current` and `inherit` are restored because they are CSS
+   keywords rather than palette choices.
+   ========================================================================== */
+
+@theme {
+  --color-*: initial;
+}
+
+@theme inline {
+  --color-transparent: transparent;
+  --color-current: currentcolor;
+  --color-inherit: inherit;
+
+  /* surfaces */
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-sunken: var(--color-surface-sunken);
+
+  /* borders */
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-border-interactive: var(--color-border-interactive);
+
+  /* text */
+  --color-fg: var(--color-fg);
+  --color-fg-secondary: var(--color-fg-secondary);
+  --color-fg-muted: var(--color-fg-muted);
+  /* Decorative only -- fails AA at body size. Never the sole carrier of meaning. */
+  --color-fg-subtle: var(--color-fg-subtle);
+
+  /* accent: contrast, not hue */
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-fg: var(--color-accent-fg);
+
+  /* status */
+  --color-positive: var(--color-positive);
+  --color-positive-surface: var(--color-positive-surface);
+  --color-warning: var(--color-warning);
+  --color-warning-surface: var(--color-warning-surface);
+  --color-negative: var(--color-negative);
+  --color-negative-surface: var(--color-negative-surface);
+  --color-info: var(--color-info);
+  --color-info-surface: var(--color-info-surface);
+
+  --color-focus-ring: var(--color-focus-ring);
+
+  /* data series. `oil` is reserved and never assigned to a country. */
+  --color-oil: var(--color-oil);
+  --color-oil-fill: var(--color-oil-fill);
+  --color-series-worldwide: var(--color-series-worldwide);
+
+  /* Country colours are IDENTIFIERS ONLY -- no ranking, quality or magnitude. */
+  --color-country-indonesia: var(--color-country-indonesia);
+  --color-country-malaysia: var(--color-country-malaysia);
+  --color-country-norway: var(--color-country-norway);
+  --color-country-singapore: var(--color-country-singapore);
+  --color-country-us: var(--color-country-us);
+
+  /* annotation */
+  --color-regime-elevated: var(--color-regime-elevated);
+  --color-regime-elevated-edge: var(--color-regime-elevated-edge);
+  --color-uncertainty: var(--color-uncertainty);
+  --color-reference-line: var(--color-reference-line);
+  --color-zero-line: var(--color-zero-line);
+  --color-provisional: var(--color-provisional);
+}
+
+/* ==========================================================================
+   Typography roles
+   --------------------------------------------------------------------------
+   The type scale is a set of named ROLES, not t-shirt sizes, so a heading
+   cannot be chosen by eye. `text-lead` carries the size, line-height and
+   tracking of a lead paragraph in one utility.
+
+   `--text-label-transform: uppercase` is not representable in Tailwind's
+   font-size shorthand, so the eyebrow component pairs `text-label` with
+   `uppercase`. Uppercase appears nowhere else in the product (design-system §3).
+   ========================================================================== */
+
+@theme inline {
+  --text-display: var(--text-display-size);
+  --text-display--line-height: var(--text-display-line);
+  --text-display--letter-spacing: var(--text-display-tracking);
+  --text-display--font-weight: var(--text-display-weight);
+
+  --text-h1: var(--text-h1-size);
+  --text-h1--line-height: var(--text-h1-line);
+  --text-h1--letter-spacing: var(--text-h1-tracking);
+
+  --text-h2: var(--text-h2-size);
+  --text-h2--line-height: var(--text-h2-line);
+  --text-h2--letter-spacing: var(--text-h2-tracking);
+
+  --text-h3: var(--text-h3-size);
+  --text-h3--line-height: var(--text-h3-line);
+  --text-h3--letter-spacing: var(--text-h3-tracking);
+
+  --text-h4: var(--text-h4-size);
+  --text-h4--line-height: var(--text-h4-line);
+  --text-h4--letter-spacing: var(--text-h4-tracking);
+
+  --text-lead: var(--text-lead-size);
+  --text-lead--line-height: var(--text-lead-line);
+
+  --text-body: var(--text-body-size);
+  --text-body--line-height: var(--text-body-line);
+
+  --text-small: var(--text-small-size);
+  --text-small--line-height: var(--text-small-line);
+
+  --text-meta: var(--text-meta-size);
+  --text-meta--line-height: var(--text-meta-line);
+
+  --text-label: var(--text-label-size);
+  --text-label--line-height: var(--text-label-line);
+  --text-label--letter-spacing: var(--text-label-tracking);
+  --text-label--font-weight: var(--text-label-weight);
+
+  --text-stat: var(--text-stat-size);
+  --text-stat--line-height: var(--text-stat-line);
+  --text-stat--letter-spacing: var(--text-stat-tracking);
+  --text-stat--font-weight: var(--text-stat-weight);
+
+  --text-stat-small: var(--text-stat-small-size);
+  --text-stat-small--line-height: var(--text-stat-small-line);
+
+  --text-data: var(--text-data-size);
+  --text-data--line-height: var(--text-data-line);
+}
+
+/* ==========================================================================
+   Widths and elevation
+   --------------------------------------------------------------------------
+   `max-w-reading` is the one that matters most: prose must never exceed the
+   measure, and naming it after its purpose makes that hard to get wrong.
+
+   Radius above `xl` is removed. design-system.md §4 caps radius at 12px and
+   reserves that for the hero and executive-summary panels; `rounded-2xl` and up
+   would contradict a stated decision, so those utilities are not generated.
+
+   Shadow is additive rather than reset: only the two overlay tokens are added,
+   because cards must not float (design-system §1) and shadow belongs to genuinely
+   overlaid surfaces.
+   ========================================================================== */
+
+@theme inline {
+  --container-page: var(--width-page);
+  --container-content: var(--width-content);
+  --container-chart: var(--width-chart);
+  --container-reading: var(--width-reading);
+  --container-narrow: var(--width-narrow);
+
+  --radius-2xl: initial;
+  --radius-3xl: initial;
+  --radius-4xl: initial;
+
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-overlay-strong: var(--shadow-overlay-strong);
+}
+
+/* ==========================================================================
+   Base
+   --------------------------------------------------------------------------
+   Kept to the minimum a document needs. Component styling belongs in
+   components, not here.
+   ========================================================================== */
+
+@layer base {
+  html {
+    /* Tells the UA to theme scrollbars and form controls, so native chrome
+       follows the same light/dark decision the tokens make. */
+    color-scheme: light dark;
+    /* The IA is one long-scroll page navigated by anchor
+       (product-architecture.md §1). tokens.css forces `scroll-behavior: auto`
+       under `prefers-reduced-motion`, so this is already accessible. */
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-line);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* The focus ring is never removed (design-system §7, accessibility contract). */
+  :focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+}

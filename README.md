@@ -8,8 +8,9 @@ zero-dependency Python pipeline that turns two public datasets into validated
 JSON artifacts, plus a written record of what the data supports and what it does
 not.
 
-**Status:** analytical layer complete and tested. The web frontend is not built
-yet.
+**Status:** analytical layer complete and tested. The web frontend is in progress —
+the Next.js shell builds and is browser-tested, but no charts or narrative
+sections exist yet.
 
 ---
 

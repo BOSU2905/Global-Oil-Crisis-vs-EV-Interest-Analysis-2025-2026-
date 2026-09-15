@@ -1,10 +1,33 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    // DOM/DOM.Iterable added in Phase 3C: the app renders in a browser. The Node
+    // test suite is unaffected -- `node --test` strips types and never reads this file.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
 
+    // Phase 3C moved module resolution from "nodenext" to "esnext"/"bundler".
+    // Two concrete reasons, both forced rather than stylistic:
+    //   1. Next.js compiles through Turbopack, a bundler, and "bundler" is the
+    //      resolution mode that actually describes how imports are resolved.
+    //   2. Under "nodenext", importing a .json file requires a `with { type: "json" }`
+    //      import attribute. The app reads the generated artifacts as JSON, and the
+    //      attribute form is a Node-ESM requirement that a bundler does not share.
+    // Existing imports already carry explicit .ts extensions, which "bundler"
+    // resolves via allowImportingTsExtensions below, so no source file changed.
+    "module": "esnext",
+    "moduleResolution": "bundler",
+
+    // The four options below are REQUIRED by Next 16 and are written here
+    // explicitly. `next build` rewrites tsconfig.json when they are missing, which
+    // would leave the working tree dirty after every build; stating them keeps the
+    // file stable. `jsx: react-jsx` is the React automatic runtime, and
+    // `esModuleInterop` is a hard requirement of Next's SWC pipeline.
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowJs": true,
+    "incremental": true,
+
+    // ---- strictness: unchanged from Phase 3A, nothing relaxed ----
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -27,7 +50,28 @@
     // the old implicit behaviour, not looser. Phase 3A's hand-written
     // web/types/node-minimal.d.ts stopgap was deleted once real @types/node was
     // installed, exactly as that file's own header instructed.
-    "types": ["node"]
+    "types": ["node", "react", "react-dom"],
+
+    // Editor-only Next language-service plugin.
+    "plugins": [{ "name": "next" }]
+
+    // NOTE: no `paths` aliases on purpose. The Phase 3A test suite runs under
+    // `node --test`, which resolves imports itself and has no knowledge of
+    // tsconfig `paths`. An alias would type-check under tsc and fail at runtime in
+    // the tests. Relative imports with explicit .ts extensions keep one single
+    // resolution model across tsc, Turbopack and Node.
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": [
+    "next-env.d.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "e2e/**/*.ts",
+    "playwright.config.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".next", "out"]
 }
