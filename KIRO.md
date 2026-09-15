@@ -542,6 +542,22 @@ SciPy is deliberately not installed — the `validate` extra was not requested.
 No test was deleted, skipped or weakened; no TypeScript strictness flag was
 relaxed; no analytical file was modified to make a frontend gate pass.
 
+### Baseline commit
+
+**`f950e2b` — "chore: restore frontend foundation and bootstrap dependencies"**
+(parent `97d1a5c`). 12 files changed, +7,840 / −112. `node_modules/` is not
+tracked; `web/package-lock.json` is.
+
+```text
+.gitignore  KIRO.md  README.md  docs/phase-2-validation.md  pipeline/README.md
+web/README.md  web/eslint.config.mjs  web/package-lock.json  web/package.json
+web/postcss.config.mjs  web/tsconfig.json  web/types/node-minimal.d.ts (deleted)
+```
+
+`main` is **5 commits ahead of `origin/main`** and has not been pushed. Phase 3A
+(`97d1a5c`) and this baseline both exist only locally. Pushing `main` was left to
+the user's discretion.
+
 Artifact hashes verified identical before and after the merge:
 
 ```text
