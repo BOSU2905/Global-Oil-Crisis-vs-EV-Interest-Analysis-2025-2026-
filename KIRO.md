@@ -2,8 +2,8 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-15 — Phase 3C step 1 of 8 COMPLETE (App Router scaffold
-and Tailwind token wiring). Phase 3B bootstrap COMPLETE (steps 1–10 of 10).
+**Last updated:** 2026-09-15 — Phase 3C step 2 of 8 COMPLETE (Zod validation
+boundary). Steps 1–2 done; step 3 is next.
 
 ---
 
@@ -161,7 +161,7 @@ React/Next.js must never compute a statistic.
 
 ## 3. Current phase
 
-**Phase 3C — Frontend/UI Implementation. Step 1 of 8 COMPLETE.**
+**Phase 3C — Frontend/UI Implementation. Steps 1–2 of 8 COMPLETE.**
 
 Phase 3B (dependency bootstrap) is complete and committed at `f950e2b`.
 
@@ -170,15 +170,15 @@ Phase 3C follows the eight-step order in `docs/product-architecture.md` §10:
 | # | Step | Status |
 | --- | --- | --- |
 | 1 | Next.js + TypeScript + Tailwind scaffold; wire tokens into the Tailwind theme | **COMPLETE** |
-| 2 | Swap the hand-rolled validator for Zod behind the same accessors | **NEXT** |
-| 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | pending |
+| 2 | Swap the hand-rolled validator for Zod behind the same accessors | **COMPLETE** |
+| 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | **NEXT** |
 | 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` | pending |
 | 5 | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter | pending |
 | 6 | Hero (§2) and the Robustness section (05) | pending |
 | 7 | Remaining narrative sections in order | pending |
 | 8 | Responsive, accessibility and performance passes | pending |
 
-**What step 1 did not do, deliberately:** no narrative sections, no hero, no
+**What steps 1–2 did not do, deliberately:** no narrative sections, no hero, no
 charts, no navigation, no country deep dives, no interpretation panels. The
 application renders a shell and its own scope, and nothing more. Statistics are
 absent from the UI on purpose — see §4.
@@ -186,6 +186,128 @@ absent from the UI on purpose — see §4.
 ---
 
 ## 4. Completed work
+
+### Phase 3C step 2 — Zod validation boundary — COMPLETE
+
+`web/src/data/validate.ts` replaced in place: 1,115 hand-rolled lines →
+**768 lines** of Zod 4.6.5 schemas (+643/−990). One source file changed. No other
+file in the data layer was touched, and `docs/` needed no architectural revision
+because the architecture did not change — the boundary, the accessors and the
+module layout are identical; only the implementation behind them is different.
+
+#### Public surface: unchanged where it matters, narrowed where it did not
+
+`src/data/index.ts` is **byte-identical**. `artifacts.ts`, `artifact-types.ts`,
+`load-node.ts`, all four test files and `package.json` are byte-identical.
+
+`validate.ts` still exports `ContractError` plus the same five functions
+(`validatePanel`, `validateCountries`, `validateMetrics`, `validateClaims`,
+`validateManifest`) with the same signatures. It **no longer** exports the eight
+hand-rolled combinators `obj`, `str`, `num`, `int`, `bool`, `arr`, `isoDate`,
+`oneOf`. Nothing imported them — verified by grep across `src/`, `tests/`, `app/`
+and `e2e/` before deletion — and `index.ts` only ever re-exported
+`ContractError`, so no consumer sees a difference. They were the deleted
+library's internals; keeping them would have meant keeping the library.
+
+#### `ContractError` path mapping
+
+`ContractError` itself is unchanged. Zod issues are converted in exactly one
+place: `parseArtifact` takes `error.issues[0]`, renders `issue.path` through
+`formatPath` (array indices as `[0]`, object keys as `.key`, artifact name as the
+root segment) and throws. A `ZodError` never escapes the module.
+
+**Path parity was measured, not assumed.** The old implementation was checked out
+to a scratch file and both validators were run over 52 identical mutations — the
+41 the acceptance tests perform, plus 11 the tests do not cover (empty rows,
+registry missing a series, series key/id disagreement, malformed `content_hash`,
+flipped `scale_free` flag, unknown `evidence_groups` key, extra keys at two
+depths, and all five root-type failures). **All 52 produced the identical
+`ContractError.path`**, including deep cases such as
+`panel.rows[0].oil.brent_usd_per_barrel_exact`,
+`metrics.series.us.trend_diagnostics.specifications[0].id` and
+`manifest.artifacts.panel.json`. The scratch file was deleted; it is not in the
+tree.
+
+This mattered because the obvious Zod translation silently breaks it: modelling a
+nullable field as `z.union([schema, z.null()])` collapses every inner failure into
+one `invalid_union` issue at the union's own path, so
+`panel.rows[3].oil.brent_usd_per_barrel_exact` would have been reported as
+`panel.rows[3].oil`. `.nullable()` preserves inner paths; every nullable field
+uses it, and no union appears in the file.
+
+#### Schema architecture
+
+Four layers, all inside `validate.ts` (the `src/data/` file list is asserted by
+`analytical-safety.test.ts`, so a `schemas.ts` beside it would fail the suite):
+
+1. **Primitives** — `finite`, `integer`, `text`, `flag`, `isoDate`, `sha256`,
+   `interestScore`, `correlation`, `probability`, plus the id and vocabulary
+   enums built from `SERIES_IDS`/`COUNTRY_IDS`.
+2. **Shared shapes** — `coverageSchema`, `intervalSchema`, `claimsSummarySchema`,
+   each declared once and reused by the artifacts that embed them.
+3. **Per-artifact schemas** — one per JSON file, composed from the above.
+4. **Five exported functions**, each one line: `parseArtifact(schema, raw, root)`.
+
+Each function declares the existing interface as its return type, so `tsc` proves
+the schema output matches the hand-written contract in `artifact-types.ts`. The
+types stay the source of truth for consumers and the schemas stay the source of
+truth for runtime shape, with the compiler checking they agree — rather than
+inferring public types from schemas, which would have made `index.ts`'s exported
+types depend on Zod.
+
+Three Zod behaviours are load-bearing and were each verified against 4.6.5
+before use, because the error contract fails quietly if any is wrong:
+
+| Behaviour | Why it is relied on |
+| --- | --- |
+| `.nullable()` preserves inner issue paths; a union does not | the 8 nullable fields keep precise paths |
+| `z.record(z.enum(IDS), value)` is exhaustive **and** rejects unknown keys at the record's own path | exactly replaces the old `exactRecord`, derived from `SERIES_IDS`/`COUNTRY_IDS` rather than restating them |
+| refinements do not run when the base parse of the same schema failed | preserves fail-fast ordering, so a cross-field check never fires on a wrong-typed value |
+
+`z.iso.date()` also replaced the old regex-plus-`Date`-round-trip calendar check:
+verified to reject `2026-02-30`, `2025-02-29`, `2026-13-01`, `31/08/2025` and
+`2026-03-01T00:00:00Z` while accepting `2024-02-29`. `z.number()` already rejects
+`NaN` and `±Infinity` and names which it received, which is why the "NaN is
+reported as NaN" test passes with no custom check.
+
+#### Validation semantics: same contract, deliberately
+
+Every domain rule the old validator enforced is enforced now, at the same path:
+interest scores in 0–100, `pearson_r` in [−1, 1] and `pearson_p` in [0, 1] **on
+`CorrelationBundle` only** (the old file did not range-check `spearman_rho`, lag
+points, specifications or variants, and neither does this one), non-inverted
+intervals, `is_partial_week` agreeing with `trading_days`, `regime` null exactly
+when `oil` is null, sensitivity variants carrying statistics only when
+`computable`, both `_comparable_across_series` guard flags, the claims
+publishability gate, `summary.total` agreeing with the claim list,
+`coverage.trends_weeks` agreeing with the row count, registry completeness,
+series key/id agreement, SHA-256 digest format and the RFC 3339 UTC timestamp
+form. Unknown keys are still tolerated everywhere except the three exact records
+— `z.object` strips them, which is what the old field-by-field reader did.
+
+**Schema coverage was proved, not assumed:** a scratch copy with every `z.object`
+rewritten to `z.strictObject` validates all five real artifacts cleanly, so no
+field present in the artifacts is left unvalidated. That scratch copy was also
+deleted.
+
+Two differences are deliberate and immaterial:
+
+- **`z.int()` also requires a safe integer** (|n| ≤ 2^53−1). Every integer in
+  these artifacts is a count, index or week offset over 31 observations.
+- **Message wording follows Zod** where the old text carried no extra meaning.
+  Where it did, the old message is preserved verbatim — the interval-inversion,
+  variant-computability, comparability-flag, claims-gate, coverage-mismatch,
+  registry-completeness and key/id messages are unchanged, and the messages that
+  quoted the offending value still quote it (`Google Trends interest must lie in
+  0-100, got 140`).
+
+#### Analytical safety
+
+`zod` enters the app bundle, not the analytical layer. No statistic is computed:
+`analytical-safety.test.ts`'s static scan, identity checks and value-injection
+tests all pass unchanged, and the cross-field checks compare two values the
+pipeline already emitted rather than deriving either. `src/data/` still holds
+exactly five `.ts` files.
 
 ### Phase 3C step 1 — App Router scaffold + Tailwind token wiring — COMPLETE
 
@@ -416,7 +538,7 @@ Phase 1 (audit), Phase 2 (analytical remediation and reproducibility), Phase 3
 | Generated artifacts (`web/src/data/generated/`) | **COMPLETE**, fresh, hash-verified |
 | Reproducibility / validation | **COMPLETE** |
 | Product direction | **LOCKED** |
-| Frontend data contract + validators | **COMPLETE** (Phase 3A, now on `main`) |
+| Frontend data contract + validators | **COMPLETE** — Zod 4.6.5 boundary as of Phase 3C step 2 |
 | Design foundation (tokens, chart language) | **COMPLETE** (Phase 3A, now on `main`) |
 | Node runtime | **COMPLETE** — Node 22.23.2 in user space |
 | Frontend dependencies installed | **COMPLETE** — locked, `npm ci`-reproducible |
@@ -626,6 +748,12 @@ Version notes:
 | No statistics rendered on the scaffold page | §16 requires the specification caveat beside any level correlation. A coefficient with nowhere to qualify it is the original project's error. Asserted by an E2E test |
 | Playwright specs named `*.e2e.ts` | `node --test`'s default patterns include `**/*.test.ts`; a Playwright spec collected by the Node runner fails confusingly |
 | E2E runs against `next build` output, not `next dev` | The CSS pipeline and RSC rendering both differ in development, and production output is what ships |
+| **Phase 3C step 2** — `.nullable()` for every nullable field, never `z.union([schema, z.null()])` | A union collapses inner failures into one `invalid_union` issue at the union's own path, which would report `panel.rows[3].oil` instead of the field inside it. Verified against 4.6.5 |
+| `z.record(z.enum(IDS), value)` instead of hand-listing the six series keys | Exhaustive keys plus unknown-key rejection at the record's own path — the old `exactRecord` contract — derived from `SERIES_IDS`/`COUNTRY_IDS`, so adding a market cannot leave the validator behind |
+| Return the existing interfaces from the `validate*` functions rather than exporting `z.infer` types | `tsc` then proves schema and contract agree, while `index.ts`'s exported types stay independent of Zod. Inferring the public types would make every consumer's type depend on a schema library |
+| Deleted the eight exported combinators instead of keeping them as a shim | Nothing imported them (verified by grep), they have no Zod analogue, and keeping them would keep the library this step deletes |
+| Verified path parity against the old implementation over 52 mutations before deleting it | The acceptance tests assert `path.includes(fragment)`, which a less precise path can still satisfy. Substring matching is not proof of parity; a field-by-field comparison is |
+| Kept range checks exactly where the old validator had them | `pearson_r`/`pearson_p` are range-checked on `CorrelationBundle` only. Zod makes it trivial to add the same bounds to lag points, specifications and variants, which would be a new analytical rule invented by the tool rather than by the contract |
 
 ---
 
@@ -635,9 +763,6 @@ Version notes:
 
 Open items, none blocking:
 
-- **`src/data/validate.ts` is still the hand-rolled validator.** Replacing it with
-  Zod behind the same accessors is step 2 and is the immediate next task. Zod
-  4.6.5 is already installed and currently unused.
 - **Only chromium is installed for Playwright.** Firefox/WebKit binaries are
   absent, so cross-engine behaviour is unverified. The cyan/blue colourblind check
   and the screen-reader pass in `docs/product-architecture.md` §5 also remain
@@ -662,6 +787,7 @@ Resolved this session:
 | `tsconfig.json` not React-capable | **RESOLVED** — `jsx`, DOM libs, React types and `**/*.tsx` added; every Phase 3A strictness flag preserved |
 | No `next.config.mjs`; `build`/`dev`/`start` unusable | **RESOLVED** — config added, build clean |
 | Playwright browser binaries absent | **RESOLVED** — chromium installed; 8 E2E tests pass |
+| `src/data/validate.ts` was the hand-rolled validator; Zod installed but unused | **RESOLVED in Phase 3C step 2.** Replaced in place with Zod 4.6.5 schemas. `index.ts` unchanged, 109/109 tests pass unedited, error paths identical across 52 mutations |
 
 ---
 
@@ -707,6 +833,61 @@ SciPy is deliberately not installed — the `validate` extra was not requested.
 
 The 109-test Phase 3A suite is **unchanged** — no test was added to it, deleted,
 skipped or rewritten, and the count is identical before and after Phase 3C.
+
+### Step 2 re-validation (Zod boundary)
+
+Every gate below was re-run on the committed tree after `validate.ts` was
+replaced. `tests/validator.test.ts` and `tests/analytical-safety.test.ts` were
+**not edited**.
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Acceptance: validator | `node --test tests/validator.test.ts` | **46 / 46 pass** |
+| Acceptance: analytical safety | `node --test tests/analytical-safety.test.ts` | **13 / 13 pass** |
+| Full frontend suite | `npm test` | **109 / 109 pass**, 0 fail, 0 skipped |
+| Types | `npm run typecheck` | **clean**, exit 0 |
+| Lint | `npm run lint` | **clean**, exit 0 |
+| Format | `npm run format:check` | **clean** |
+| Combined | `npm run verify` | **exit 0** |
+| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
+| Browser E2E | `npm run test:e2e` | **8 / 8 pass** (chromium) |
+| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
+| Python lint / types | `ruff check .` / `mypy src` | **clean** / **no issues in 11 files** |
+
+The build and E2E runs matter more than usual here: they are what proves the new
+validator works inside the Next/Turbopack module graph. `app/page.tsx` renders
+artifact-driven content through `src/lib/artifacts.ts` → `createArtifactBundle` →
+these schemas, so a Zod boundary that only worked under `node --test` would fail
+`npm run build`.
+
+Two additional checks were run beyond the gate set, both with scratch files that
+were deleted afterwards:
+
+| Check | Method | Result |
+| --- | --- | --- |
+| Error-path parity | old implementation restored from git to a scratch file; both validators run over 52 identical mutations | **52 / 52 identical `ContractError.path`**, 0 different |
+| Schema coverage | scratch copy with every `z.object` → `z.strictObject`, run against all five real artifacts | **complete** — no artifact field is left unvalidated |
+
+Analytical integrity after step 2 — tree hashes identical to the baseline in §4:
+
+| Path | Tree hash | vs baseline |
+| --- | --- | --- |
+| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
+| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+
+`git diff` over `pipeline/ data/ reports/ web/src/data/generated/ METHODOLOGY.md`
+is empty, and the four artifact digests still match the values recorded below.
+
+**Note for future sessions:** `python -m pipeline.build --legacy` is **not**
+read-only — it writes the artifacts, which rewrites `manifest.json`'s
+`generated_at` and dirties the tree. Only `--check` is read-only. Use
+`--out $(mktemp -d)` when a replay is wanted without touching the committed
+artifacts.
+
+No test was deleted, skipped or weakened; no TypeScript strictness flag was
+relaxed; no analytical file was modified to make a frontend gate pass.
 
 The eight E2E tests cover: one `h1` plus all three landmarks; the skip link as
 first tab stop, becoming visible on focus and targeting `#main-content`; the
@@ -759,33 +940,29 @@ Every number in §15–§17 was reconciled against `metrics.json` and
 
 ## 10. Next step
 
-**Phase 3C step 2 — replace the hand-rolled validator with Zod, behind the same
-accessors.**
+**Phase 3C step 3 — `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`,
+`Navigation`.**
 
-`docs/product-architecture.md` §10 step 2. Zod 4.6.5 is installed and currently
-unused.
+`docs/product-architecture.md` §10 step 3, with the component contracts in §4 of
+the same document and the token rules in `docs/design-system.md`.
 
-The seam already exists and is the reason this step is cheap: `src/data/index.ts`
-is the only module application code imports, and `createArtifactBundle` is the
-single boundary between untyped JSON and the typed application. The work is to
-reimplement `src/data/validate.ts` with Zod schemas while keeping:
+`app/layout.tsx` currently inlines a rudimentary header and footer. Step 3 should
+**extract** them into the contracted components rather than grow them in place,
+and must not introduce a second token system: utilities resolve tokens at the
+element (see §4 on `@theme inline`), so no `dark:` variant is needed anywhere.
 
-1. **The same public surface.** `src/data/index.ts` exports must not change, so
-   neither `web/src/lib/artifacts.ts` nor any test needs editing.
-2. **`ContractError` with a precise failing path.** The current validator names
-   the exact JSON path that failed; Zod's `issues` must be mapped onto that, not
-   replaced by a raw `ZodError`.
-3. **All 109 tests passing untouched.** `tests/validator.test.ts` is the
-   specification for this step — it already asserts the error behaviour, so it is
-   the acceptance criterion. Do not edit it to fit the new implementation.
-4. **The `src/data/` file list unchanged**, or `analytical-safety.test.ts` fails.
-   Replace the contents of `validate.ts`; do not add a module beside it.
-5. **No statistical computation introduced** — the same test forbids it statically.
+Still binding for every remaining step:
 
-After that, step 3: `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`,
-`Navigation`. Note that `layout.tsx` currently inlines a rudimentary header and
-footer; step 3 should extract them into the contracted components rather than
-grow them in place.
+1. The frontend **must not compute a statistic**. `analytical-safety.test.ts`
+   enforces it statically over `src/data/`; the same rule applies to components.
+2. `web/src/data/generated/` is pipeline-owned. Never edit or reformat it from the
+   frontend; it is in `.prettierignore` for that reason.
+3. Any level correlation must appear beside the specification comparison (§16).
+4. The Singapore rules in §19 bind all narrative copy: `level_only_association` is
+   authoritative, "Maturity Gap" is editorial only, and nothing may imply
+   Singapore lacks a level association.
+5. New modules must not be added to `src/data/` — the file list is asserted. App
+   code belongs in `src/lib/` or `src/components/`.
 
 Reminder for every remaining step: the frontend **must not compute a statistic**,
 `web/src/data/generated/` is pipeline-owned and must never be edited or
@@ -803,7 +980,7 @@ copy.
 | Phase 3 | Product transformation direction | **COMPLETE** — direction locked |
 | Phase 3A | Frontend/data/design foundations | **COMPLETE** — authored on `phase-3a-frontend-foundation`, restored to `main` as `97d1a5c` |
 | Phase 3B | Dependency bootstrap (environment baseline) | **COMPLETE** — all 10 steps; validated baseline committed |
-| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — step 1 of 8 complete |
+| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — steps 1–2 of 8 complete |
 
 ### Phase 2 validation record
 

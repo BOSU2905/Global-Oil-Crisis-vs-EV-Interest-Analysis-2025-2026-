@@ -30,7 +30,7 @@ web/
 │   ├── data/
 │   │   ├── generated/         ← artifacts from pipeline/. DO NOT EDIT
 │   │   ├── artifact-types.ts  TypeScript contract for all five artifacts
-│   │   ├── validate.ts        boundary validator (Zod replacement path documented)
+│   │   ├── validate.ts        Zod schemas + ContractError (exact failing path)
 │   │   ├── artifacts.ts       typed accessors + cross-artifact integrity
 │   │   ├── load-node.ts       Node fs loader (tests only — keeps node:fs out of the app)
 │   │   └── index.ts           public surface — import from here
@@ -123,15 +123,16 @@ TypeScript and Next.js rule sets scoped to `.ts`/`.tsx`, and
 `src/data/generated/**` ignored so lint can never rewrite a pipeline-owned
 artifact. `tsc --strict`, ESLint and Prettier now all gate the tree.
 
-## Next step — Phase 3C step 2
+## Next step — Phase 3C step 3
 
-Replace the hand-rolled `src/data/validate.ts` with Zod (already installed,
-currently unused) **behind the same accessors**: `src/data/index.ts`'s exports must
-not change, `ContractError` must keep naming the exact failing JSON path, and
-`tests/validator.test.ts` is the acceptance criterion — do not edit it to fit the
-new implementation.
+Step 2 is **done**: `src/data/validate.ts` is now Zod 4.6.5. The schemas are the
+contract, `ContractError` still names the exact failing JSON path, `index.ts`'s
+exports did not change, and `tests/validator.test.ts` passed unedited. Error
+paths were compared field by field against the old implementation across 52
+mutations and are identical in all 52.
 
-Then steps 3–8 of [`../docs/product-architecture.md`](../docs/product-architecture.md)
+Next: `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation`
+— step 3 of [`../docs/product-architecture.md`](../docs/product-architecture.md)
 §10. Note that `app/layout.tsx` currently inlines a rudimentary header and footer;
 step 3 should extract them into the contracted `Header`/`AppShell` components
 rather than grow them in place.
