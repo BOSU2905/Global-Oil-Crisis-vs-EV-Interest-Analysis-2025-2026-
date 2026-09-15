@@ -213,6 +213,41 @@ web/e2e/shell.e2e.ts                         14 browser tests
 `web/app/page.tsx` (recomposed with the primitives — no content added),
 `web/src/styles/tokens.css` (one new token, below).
 
+#### The scrollspy bug the test suite found after the first commit
+
+The first implementation decided the active section from the `IntersectionObserver`
+callback's own entries: filter to the intersecting ones, sort by top edge, take the
+first. That is wrong in two ways, and the E2E suite failed with it roughly **1 run
+in 10**.
+
+An observer callback carries only the entries that **changed**. So when the active
+section merely scrolled out of the observed band, the callback contained one
+non-intersecting entry and no intersecting ones, nothing was re-evaluated, and the
+previous section stayed highlighted. Separately, sorting by top edge favoured a
+section that had mostly scrolled past over the one the reader was actually in.
+
+The rewrite computes the active section from **live geometry**: the last section
+whose top edge has passed the reading line just below the header, read on every
+update. Three `getBoundingClientRect()` calls, deterministic, no dependence on
+which entries a callback batched. It is triggered by two things, each covering what
+the other cannot:
+
+| Trigger | Covers |
+| --- | --- |
+| `IntersectionObserver` (the mechanism §4 specifies) | entering/leaving the region below the reading line, plus the initial state; free while the page is still |
+| passive, frame-throttled `scroll` listener | a section **already inside** that region crossing the line, which produces no intersection change and therefore no observer callback |
+
+Verified with 15 repeats of the scrollspy tests (30/30) and three consecutive full
+E2E runs (23/23 each). A second test now covers the failing case directly by
+scrolling to each section's top in both directions and asserting `aria-current`
+follows — the original test only clicked links, which is why the defect survived
+the first commit.
+
+Diagnosing it also corrected a false reading of my own instrumentation: an earlier
+probe appeared to show the anchor landing 144px low, which was the probe measuring
+mid-smooth-scroll. Measured after settling, a deep link lands at exactly
+`scrollY = 884`, `top = 69px` — the header height, as intended.
+
 #### Component boundaries
 
 | Component | Owns | Does not own |
@@ -886,6 +921,7 @@ Version notes:
 | Section rhythm is `margin-top`, not `padding-top` | `scroll-margin-top` positions the border box and a margin sits outside it, so a deep link lands on the heading rather than `--section-spacing` above it. Same visual rhythm, correct anchor |
 | A section registry (`src/content/sections.ts`) holding only the sections that exist | Registering the ten narrative sections now would ship navigation links that scroll nowhere. A test asserts registry and page agree both ways, because a dead anchor is invisible to `tsc` and to `next build` |
 | Navigation is anchors with `aria-current`, not buttons with JS routing | Real ids are shareable and keyboard-native, and `aria-current` makes the scrollspy state audible rather than colour-only |
+| Scrollspy decides from live geometry, with the observer as a trigger only | An `IntersectionObserver` callback carries only the entries that changed, so deciding from them left the previous section highlighted when the active one scrolled out of the band — a ~10% E2E flake. A passive frame-throttled scroll listener covers the case the observer structurally cannot: a section already inside the band crossing the reading line |
 | Horizontally scrollable nav rail instead of a mobile drawer | Three links do not justify a focus trap, which is the part of a drawer most easily got wrong. Revisit at ten sections |
 | Deferred the header's condense-on-scroll and the theme toggle | Condensing makes the header height dynamic, and that height is the anchor offset every section depends on; the toggle needs persistence plus an inline script to avoid a wrong-theme flash. Both are step 8 work, and `prefers-color-scheme` already themes the product |
 | Component tests live in Playwright, not `node --test` | Node 22.23.2 cannot load `.tsx` (`ERR_UNKNOWN_FILE_EXTENSION`, verified). A JSX transform in the unit-test toolchain to render six presentational components is dependency weight for no gain; Playwright tests the real production build |
@@ -997,18 +1033,24 @@ skipped or weakened; the 109-test Phase 3A suite is intact inside the new total.
 | Format | `npm run format:check` | **clean** |
 | Combined | `npm run verify` | **exit 0** |
 | Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
-| Browser E2E | `npm run test:e2e` | **22 / 22 pass** (chromium; 8 foundation + 14 shell) |
+| Browser E2E | `npm run test:e2e` | **23 / 23 pass** (chromium; 8 foundation + 15 shell) |
 | Python tests | `python -m pytest` | **191 passed, 1 skipped** |
 | Python lint / types | `ruff check .` / `mypy src` | **clean** / **no issues in 11 files** |
 
-The 14 shell tests cover: the named `nav` landmark and one link per registered
+The 15 shell tests cover: the named `nav` landmark and one link per registered
 section; every `href` resolving to an element that exists; nav links as the tab
 stops after the skip link; 44px tap targets at 375px; the `--header-height` token
 against the rendered header at **both** 1280px and 375px; a deep-linked heading
 sitting below the header's bottom edge; the header staying at `y = 0` while
-scrolling; `aria-current` moving between sections; the one-row/two-row switch;
-zero horizontal overflow at 375px; prose within `--width-reading`; every section
-named by its own heading id; and no skipped heading level anywhere on the page.
+scrolling; `aria-current` moving between sections by click **and** by scroll
+position in both directions; the one-row/two-row switch; zero horizontal overflow
+at 375px; prose within `--width-reading`; every section named by its own heading
+id; and no skipped heading level anywhere on the page.
+
+**One defect reached the first commit and was caught by the suite, not by review.**
+The scrollspy failed about 1 run in 10; the cause and the rewrite are in §4. Its
+stability was then established by 15 repeats of the scrollspy tests (30/30) and
+three consecutive full runs (23/23 each), rather than by one green run.
 
 Two problems were found by looking at rendered screenshots rather than by any
 gate, and both were fixed: the page body was left-aligned in a `page`-width

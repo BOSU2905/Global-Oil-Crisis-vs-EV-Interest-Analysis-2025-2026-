@@ -17,17 +17,30 @@ interface NavigationProps {
  * links are shareable, work without JavaScript, and get browser-native keyboard
  * behaviour instead of a hand-rolled key handler.
  *
- * SCROLLSPY
- * `IntersectionObserver` marks the section currently under the header with
- * `aria-current="true"` — the active state is therefore announced, not just
- * coloured, which §5 requires ("no information conveyed by colour alone"). The
- * observer's top inset is read from `--header-height` rather than hard-coded, so
- * the highlight switches exactly when a section clears the sticky header, at both
- * of the token's breakpoint values.
+ * SCROLLSPY — THE ACTIVE SECTION IS COMPUTED FROM GEOMETRY
+ * The active section is the last one whose top edge has passed the reading line
+ * just below the sticky header. That is read from live layout on every update
+ * rather than inferred from the observer's entries, and the distinction is not
+ * academic: an `IntersectionObserver` callback only carries the entries that
+ * CHANGED. Deciding from those meant that when the active section merely scrolled
+ * out of the observed band, the callback contained one non-intersecting entry, no
+ * intersecting ones, and nothing was re-evaluated — leaving the previous section
+ * highlighted. That produced a genuine ~10% flake in the E2E suite before this was
+ * rewritten. Recomputing all three positions costs three `getBoundingClientRect()`
+ * calls and is deterministic.
  *
- * The bottom inset (-55%) means a section becomes active once its top third is on
- * screen, which keeps the highlight from flickering between two sections while
- * scrolling through a boundary.
+ * TWO TRIGGERS, EACH FOR A REASON
+ * `IntersectionObserver` (the mechanism docs/product-architecture.md §4 specifies)
+ * fires when a section enters or leaves the region below the reading line, which
+ * covers coarse transitions and costs nothing while the page is still. It cannot
+ * cover everything: a section already inside that region crossing the line
+ * produces no intersection change and therefore no callback. A passive,
+ * frame-throttled scroll listener covers exactly that case. Both call the same
+ * `sync()`, so there is one decision and two ways of being asked to make it.
+ *
+ * The reading line is re-read from `--header-height` on every sync, so the
+ * highlight stays correct across the `lg` breakpoint where the header changes from
+ * one row to two.
  *
  * MOBILE, DELIBERATELY UNDER-ENGINEERED
  * The rail scrolls horizontally below `lg`, where the header is two rows. No
@@ -40,28 +53,58 @@ export function Navigation({ items }: NavigationProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
-    const headerHeight =
-      getComputedStyle(document.documentElement).getPropertyValue("--header-height").trim() ||
-      "0px";
+    const ids = items.map((item) => item.id);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const onScreen = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const first = onScreen[0];
-        if (first !== undefined) setActiveId(first.target.id);
-      },
-      { rootMargin: `-${headerHeight} 0px -55% 0px` },
-    );
+    /** Just below the sticky header: where a reader's eye starts. */
+    const readingLine = (): number => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue(
+        "--header-height",
+      );
+      const parsed = Number.parseFloat(raw);
+      return (Number.isFinite(parsed) ? parsed : 0) + 1;
+    };
 
-    for (const item of items) {
-      const element = document.getElementById(item.id);
+    const sync = (): void => {
+      const line = readingLine();
+      let active: string | null = null;
+      for (const id of ids) {
+        const element = document.getElementById(id);
+        if (element === null) continue;
+        // Document order, so the last one past the line wins. Before the reader
+        // reaches the first section, nothing is current.
+        if (element.getBoundingClientRect().top <= line) active = id;
+      }
+      setActiveId(active);
+    };
+
+    let frame = 0;
+    const scheduleSync = (): void => {
+      if (frame !== 0) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        sync();
+      });
+    };
+
+    const observer = new IntersectionObserver(scheduleSync, {
+      rootMargin: `-${String(readingLine())}px 0px 0px 0px`,
+    });
+    for (const id of ids) {
+      const element = document.getElementById(id);
       if (element !== null) observer.observe(element);
     }
 
+    window.addEventListener("scroll", scheduleSync, { passive: true });
+    window.addEventListener("resize", scheduleSync, { passive: true });
+
+    // Deep links land before any scroll or intersection event happens.
+    sync();
+
     return () => {
+      if (frame !== 0) window.cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener("scroll", scheduleSync);
+      window.removeEventListener("resize", scheduleSync);
     };
   }, [items]);
 

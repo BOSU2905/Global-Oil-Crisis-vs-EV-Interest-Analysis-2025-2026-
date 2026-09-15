@@ -148,7 +148,6 @@ test.describe("scrollspy", () => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/");
 
-    // Nothing is current before the reader reaches a section.
     await page.getByRole("link", { name: "Comparability" }).click();
     await expect(page.getByRole("link", { name: "Comparability" })).toHaveAttribute(
       "aria-current",
@@ -164,6 +163,56 @@ test.describe("scrollspy", () => {
       "aria-current",
       "true",
     );
+  });
+
+  test("follows the scroll position, not just clicks", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/");
+
+    // Nothing is current while the reader is still in the hero.
+    for (const label of NAV_LABELS) {
+      await expect(page.getByRole("link", { name: label })).not.toHaveAttribute(
+        "aria-current",
+        "true",
+      );
+    }
+
+    /** Scroll so the given section's top sits exactly on the reading line. */
+    const scrollToSectionTop = async (id: string): Promise<void> => {
+      await page.evaluate((sectionId) => {
+        const element = document.getElementById(sectionId);
+        if (element === null) return;
+        const line = Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue("--header-height"),
+        );
+        const top = element.getBoundingClientRect().top + window.scrollY - line;
+        window.scrollTo({ top, behavior: "instant" });
+      }, id);
+    };
+
+    // Walking forward, then back. The earlier implementation decided from whichever
+    // entries an IntersectionObserver callback happened to carry, which left the
+    // previous section highlighted when the active one merely scrolled out of the
+    // observed band — a ~10% flake. This asserts the decision follows geometry.
+    for (const [id, label] of [
+      ["scope", "Scope"],
+      ["comparability", "Comparability"],
+      ["structure", "Structure"],
+      ["comparability", "Comparability"],
+      ["scope", "Scope"],
+    ] as const) {
+      await scrollToSectionTop(id);
+      await expect(page.getByRole("link", { name: label })).toHaveAttribute(
+        "aria-current",
+        "true",
+      );
+      for (const other of NAV_LABELS.filter((candidate) => candidate !== label)) {
+        await expect(page.getByRole("link", { name: other })).not.toHaveAttribute(
+          "aria-current",
+          "true",
+        );
+      }
+    }
   });
 });
 
