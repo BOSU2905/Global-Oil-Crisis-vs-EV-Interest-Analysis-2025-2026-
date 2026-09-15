@@ -554,9 +554,10 @@ web/README.md  web/eslint.config.mjs  web/package-lock.json  web/package.json
 web/postcss.config.mjs  web/tsconfig.json  web/types/node-minimal.d.ts (deleted)
 ```
 
-`main` is **5 commits ahead of `origin/main`** and has not been pushed. Phase 3A
-(`97d1a5c`) and this baseline both exist only locally. Pushing `main` was left to
-the user's discretion.
+`main` is **ahead of `origin/main` and has not been pushed** — `origin/main` is
+still at `d19a7c7` (the Phase 2 merge). Phase 3A (`97d1a5c`) and this baseline
+both exist only locally. Pushing `main` was left to the user's discretion.
+Check with `git status -sb` / `git log --oneline origin/main..main`.
 
 Artifact hashes verified identical before and after the merge:
 
