@@ -2,7 +2,8 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-15 — Phase 3B bootstrap COMPLETE (steps 1–10 of 10)
+**Last updated:** 2026-09-15 — Phase 3C step 1 of 8 COMPLETE (App Router scaffold
+and Tailwind token wiring). Phase 3B bootstrap COMPLETE (steps 1–10 of 10).
 
 ---
 
@@ -723,16 +724,24 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 | Phase | Commit | Subject |
 | --- | --- | --- |
 | 3B baseline | **`f950e2b`** | chore: restore frontend foundation and bootstrap dependencies |
+| 3B docs | `f1786fe`, `8705377` | record the 3B baseline hash and push status |
+| Protocol | **`76db6f5`** | docs: record the Universal Kiro Protocol operating rules in KIRO.md |
 | 3C step 1 | **`94bf7cf`** | feat: scaffold the Next.js App Router and wire design tokens into Tailwind |
+| 3C step 1 docs | **`64d904f`** | docs: record the Phase 3C step 1 commit hash in KIRO.md |
 
 `94bf7cf` changed 14 files (9 modified, 5 added trees). `node_modules/`, `.next/`,
 `next-env.d.ts`, `*.tsbuildinfo` and Playwright output are all ignored and untracked;
 `web/package-lock.json` is tracked.
 
-`main` is **ahead of `origin/main` and has not been pushed** — `origin/main` is
-still at `d19a7c7` (the Phase 2 merge). Phase 3A (`97d1a5c`), the 3B baseline and
-this scaffold all exist only locally. Pushing `main` was left to the user's
-discretion. Check with `git status -sb` / `git log --oneline origin/main..main`.
+**Push status — corrected 2026-09-15 during post-reset reconciliation.** Kiro
+performed no push; the user subsequently synchronised the branch. `git ls-remote
+origin refs/heads/main` returns `64d904f`, so `main` and `origin/main` are
+**identical** and `git rev-list --left-right --count origin/main...main` is `0 0`.
+Phase 3A (`97d1a5c`), the 3B baseline (`f950e2b`) and the 3C step 1 scaffold
+(`94bf7cf`) are all on the remote. The earlier statement in this section — that
+`origin/main` was still at `d19a7c7` and the work existed only locally — was true
+when written and is now superseded. Re-check with `git status -sb` /
+`git log --oneline origin/main..main`.
 
 Artifact hashes verified identical before and after the merge:
 
