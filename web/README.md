@@ -1,13 +1,12 @@
 # web/
 
-Presentation layer for the Oil vs EV analysis. **Phase 3C step 1: the App Router
-scaffold runs and the design tokens are wired into Tailwind. No components,
-charts or narrative sections yet.**
+Presentation layer for the Oil vs EV analysis. **Phase 3C step 4: the shell, the
+layout primitives and the content components exist. No charts and no narrative
+sections yet.**
 
 `npm run build` succeeds, `npm run test:e2e` passes in a browser, and the page
 renders its own analytical scope read from the generated artifacts. What is _not_
-here: `components/`, `content/`, the hero, the ten narrative sections, and every
-chart. Those are steps 3–8 of
+here: the hero, the ten narrative sections, and every chart. Those are steps 5–8 of
 [`../docs/product-architecture.md`](../docs/product-architecture.md) §10.
 
 ## Layout
@@ -27,10 +26,14 @@ web/
 │   └── globals.css            Tailwind entry + token→theme mapping
 ├── e2e/
 │   ├── foundation.e2e.ts      8 browser smoke tests
-│   └── shell.e2e.ts           14 shell tests: nav, anchors, responsive, a11y
+│   ├── shell.e2e.ts           15 shell tests: nav, anchors, responsive, a11y
+│   ├── typography.e2e.ts      9 type-contract tests (stacks, roles, zero fonts)
+│   └── content.e2e.ts         15 content tests: cards, badges, callout, disclosure
 ├── src/
 │   ├── components/layout/     AppShell Header Navigation Footer
 │   │                          Container Section SectionHeader + contract.ts
+│   ├── components/content/    Card MetricCard Badge StatHighlight
+│   │                          SourceNote Callout ReadMore + contract.ts
 │   ├── content/sections.ts    the section registry Navigation reads
 │   ├── data/
 │   │   ├── generated/         ← artifacts from pipeline/. DO NOT EDIT
@@ -43,8 +46,17 @@ web/
 │   └── styles/
 │       ├── tokens.css         design tokens: colour, type, space, motion, chart
 │       └── chart-language.ts  typed chart contract + DOM-free theme resolver
-└── tests/                     120 tests
+└── tests/                     140 tests
 ```
+
+**A statistic cannot be rendered without its caveat.** `MetricContent` in
+`src/components/content/contract.ts` is a discriminated union: an `inferential`
+metric cannot be constructed without a `specification` string and at least one
+caveat, so KIRO.md §16 — a level correlation never appears without the
+specification comparison — is a compile error rather than a review habit.
+`assertMetricDisplayable()` covers the runtime case a type cannot, and the
+foundation page still renders only `descriptive` metrics because the sections that
+can carry the comparison are steps 6–7.
 
 **Component tests are browser tests, and that is forced.** Node 22 cannot load
 `.tsx` — importing one under `node --test` fails with `ERR_UNKNOWN_FILE_EXTENSION`,
@@ -160,19 +172,19 @@ TypeScript and Next.js rule sets scoped to `.ts`/`.tsx`, and
 `src/data/generated/**` ignored so lint can never rewrite a pipeline-owned
 artifact. `tsc --strict`, ESLint and Prettier now all gate the tree.
 
-## Next step — Phase 3C step 4
+## Next step — Phase 3C step 5
 
-Step 3 is **done**: the shell and layout primitives exist in
-`src/components/layout/`. `app/layout.tsx` is back to describing the HTML document
-— the skip link, header and footer it inlined in step 1 now live in `AppShell`,
-`Header` and `Footer`. `Section` offsets every anchor by `--header-height` so the
-sticky header cannot cover a heading, and an E2E test checks that token against the
-rendered header at both breakpoints.
+Step 4 is **done**: the content components exist in `src/components/content/`.
+`SourceNote` was extracted from `Footer`, which now composes it; `Callout` replaced
+the inline warning surface on the comparability block; and `MetricCard` makes the
+§16 caveat slot structural rather than optional.
 
-Next: `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` —
-step 4 of [`../docs/product-architecture.md`](../docs/product-architecture.md)
-§10, with each component's responsibility in §4 and `ReadMore`'s interface in §6.
-Two starting points already exist: `SourceNote` is an extraction from `Footer`
-rather than a new component, and `Callout` replaces the inline warning surface on
-the comparability block in `app/page.tsx`. Cards must not float — `--shadow-none`,
-per [`../docs/design-system.md`](../docs/design-system.md) §1 and §4.
+Next: `EChart`, `ChartFrame`, `ChartControls`, `ChartTableFallback` and the ECharts
+theme adapter — step 5 of
+[`../docs/product-architecture.md`](../docs/product-architecture.md) §10, with each
+component's responsibility in §4 and the chart accessibility requirements in §5.
+Three things already exist to build on: `echarts` 6.1.0 is installed and unused,
+`src/styles/chart-language.ts` is the typed theme contract (its `CHART_TOKENS` are
+already asserted against `tokens.css`), and `ChartFrame` is a `Card` with slots
+rather than a new surface — so it must not float either. The decided chart visual
+language and interaction/motion direction are recorded in `../KIRO.md` §10.

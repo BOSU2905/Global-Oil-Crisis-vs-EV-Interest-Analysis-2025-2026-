@@ -1,3 +1,9 @@
+import { Badge } from "../src/components/content/Badge.tsx";
+import { Callout } from "../src/components/content/Callout.tsx";
+import type { MetricContent } from "../src/components/content/contract.ts";
+import { MetricCard } from "../src/components/content/MetricCard.tsx";
+import { ReadMore } from "../src/components/content/ReadMore.tsx";
+import { StatHighlight } from "../src/components/content/StatHighlight.tsx";
 import { Container } from "../src/components/layout/Container.tsx";
 import { Section } from "../src/components/layout/Section.tsx";
 import { SectionHeader } from "../src/components/layout/SectionHeader.tsx";
@@ -5,7 +11,7 @@ import { COUNTRY_IDS, getComparability, getSeriesLabel } from "../src/data/index
 import { getArtifacts } from "../src/lib/artifacts.ts";
 
 /**
- * Foundation page — Phase 3C steps 1 and 3 of docs/product-architecture.md §10.
+ * Foundation page — Phase 3C steps 1, 3 and 4 of docs/product-architecture.md §10.
  *
  * SCOPE, STATED EXPLICITLY
  * This is the application shell standing up, not the product. The narrative
@@ -16,25 +22,29 @@ import { getArtifacts } from "../src/lib/artifacts.ts";
  *     Python pipeline → generated JSON → validated bundle → React
  *
  * Everything rendered below is READ from the artifacts through the accessors in
- * `src/data/index.ts`. No statistic is computed here, and none is displayed:
- * coefficients, p-values, intervals and classifications belong to sections that
- * can also carry the specification caveat that qualifies them (§16 of KIRO.md).
- * Showing a coefficient on a page that has nowhere to explain it is precisely
- * the failure the decision memo warns against.
+ * `src/data/index.ts`. No statistic is computed here.
  *
- * WHAT STEP 3 CHANGED HERE
- * Composition only. The same three blocks, the same copy, the same artifact
- * fields — now expressed with `Section`, `SectionHeader` and `Container` instead
- * of repeated class lists, so the sections are addressable, navigable and
- * consistently spaced. The section ids below are the ones in
- * `src/content/sections.ts`, which is what the header navigation links to;
- * `tests/layout-contract.test.ts` asserts the two agree, so a nav link cannot
- * point at an anchor that is not here. No analytical content was added.
+ * WHAT STEP 4 CHANGED, AND WHAT IT DELIBERATELY DID NOT
+ * Composition again, plus the content components. The three scope figures are now
+ * `MetricCard`s, the comparability block is a real `Callout` instead of the inline
+ * warning surface step 1 left as a placeholder, the partial-week note uses
+ * `StatHighlight` and `ReadMore`, and the footer's source list is a `SourceNote`.
+ *
+ * **Still no coefficient, p-value, interval or classification appears.** The
+ * `MetricCard`s here are all `kind: "descriptive"` — coverage dates and counts the
+ * pipeline observed, not statistics it inferred. Rendering an inferential metric
+ * requires the specification comparison beside it (KIRO.md §16), and the sections
+ * that can carry that comparison are steps 6–7. `MetricCard` now makes that a
+ * compile error rather than a matter of discipline, which was the point of
+ * building it before the sections that will use it. An E2E test asserts the page
+ * still shows no coefficient.
  */
 export default function Home() {
   const bundle = getArtifacts();
   const { coverage } = bundle.panel;
   const comparability = getComparability(bundle);
+  const partialWeeks = coverage.partial_weeks.length;
+  const one = partialWeeks === 1;
 
   const narrative = [
     "Overview",
@@ -47,6 +57,42 @@ export default function Home() {
     "Interpretation",
     "Limitations",
     "Conclusion",
+  ];
+
+  /*
+    Descriptive, every one of them: two dates, a row count and a market count,
+    all read from the artifacts. The partial-week caveat is attached to the
+    observation count because that is the figure it qualifies -- a caveat that
+    sits anywhere else is decoration.
+  */
+  const scope: readonly MetricContent[] = [
+    {
+      kind: "descriptive",
+      label: "Observation period",
+      value: `${coverage.first_week} → ${coverage.last_week}`,
+    },
+    {
+      kind: "descriptive",
+      label: "Weekly observations",
+      value: String(coverage.trends_weeks),
+      unit: "weeks",
+      ...(partialWeeks > 0
+        ? {
+            caveats: [
+              {
+                code: "Provisional",
+                detail: `${partialWeeks} week${one ? "" : "s"} flagged as partial in the panel.`,
+              },
+            ],
+          }
+        : {}),
+    },
+    {
+      kind: "descriptive",
+      label: "Markets",
+      value: String(COUNTRY_IDS.length),
+      unit: "countries",
+    },
   ];
 
   return (
@@ -73,42 +119,51 @@ export default function Home() {
       {/* Scope, read from the artifacts rather than typed as literals. */}
       <Section id="scope">
         <SectionHeader sectionId="scope" eyebrow="Coverage" title="Observation scope" />
-        <dl className="mt-(--section-header-gap) grid gap-(--grid-gap) sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-surface p-(--card-padding)">
-            <dt className="text-meta text-fg-muted">Observation period</dt>
-            <dd className="numeric mt-2 text-stat-small text-fg">
-              {coverage.first_week} → {coverage.last_week}
-            </dd>
-          </div>
-          <div className="rounded-lg border border-border bg-surface p-(--card-padding)">
-            <dt className="text-meta text-fg-muted">Weekly observations</dt>
-            <dd className="numeric mt-2 text-stat-small text-fg">{coverage.trends_weeks}</dd>
-          </div>
-          <div className="rounded-lg border border-border bg-surface p-(--card-padding)">
-            <dt className="text-meta text-fg-muted">Markets</dt>
-            <dd className="numeric mt-2 text-stat-small text-fg">{COUNTRY_IDS.length}</dd>
-          </div>
-        </dl>
+
+        <ul className="mt-(--section-header-gap) grid list-none gap-(--grid-gap) sm:grid-cols-3">
+          {scope.map((metric) => (
+            <MetricCard key={metric.label} metric={metric} as="li" />
+          ))}
+        </ul>
 
         <ul className="mt-6 flex flex-wrap gap-2">
           {COUNTRY_IDS.map((id) => (
-            <li
-              key={id}
-              className="rounded-full border border-border bg-surface-raised px-3 py-1 text-meta text-fg-secondary"
-            >
-              {getSeriesLabel(bundle, id)}
+            <li key={id}>
+              <Badge>{getSeriesLabel(bundle, id)}</Badge>
             </li>
           ))}
         </ul>
 
-        {coverage.partial_weeks.length > 0 ? (
-          <p className="mt-6 max-w-reading text-small text-fg-secondary">
-            <span className="text-fg">Provisional data.</span> {coverage.partial_weeks.length}{" "}
-            week
-            {coverage.partial_weeks.length === 1 ? "" : "s"} rest on fewer than five trading
-            days and are flagged in the panel as partial. Charts must mark them visibly rather
-            than presenting them as complete weekly averages.
-          </p>
+        {partialWeeks > 0 ? (
+          /*
+            The finding stays visible; only the charting instruction is behind the
+            disclosure. §6 forbids a critical conclusion living inside a ReadMore,
+            and "one week is provisional" is exactly that kind of statement -- so it
+            is in the summary, with the figure as a StatHighlight.
+          */
+          <ReadMore
+            id="provisional-weeks"
+            className="mt-6"
+            label="What that means for the charts"
+            summary={
+              <p>
+                <span className="text-fg">Provisional data.</span>{" "}
+                <StatHighlight
+                  value={String(partialWeeks)}
+                  unit={one ? "week" : "weeks"}
+                  label="provisional"
+                />{" "}
+                {one ? "rests" : "rest"} on fewer than five trading days.
+              </p>
+            }
+          >
+            <p>
+              Charts must mark those weeks visibly rather than presenting them as complete
+              weekly averages. The tokens for it already exist — a provisional colour and a
+              provisional dash pattern in <span className="numeric">tokens.css</span> §7 — so
+              the treatment stays consistent wherever the series appears.
+            </p>
+          </ReadMore>
         ) : null}
       </Section>
 
@@ -118,24 +173,30 @@ export default function Home() {
         project's worst analytical error was a cross-market comparison this rule
         forbids -- so it is present from the first page that exists.
 
-        The warning surface is applied here rather than through a component
-        because `Callout` (§4) is step 4. One inline treatment now is honest; a
-        half-built Callout would be the thing step 4 has to undo.
+        Step 4 replaced the inline warning surface with `Callout`, which is the
+        component product-architecture.md §4 names for exactly this block. Both the
+        constraint and the remedy stay visible: neither is behind a disclosure.
       */}
       <Section id="comparability">
-        <div className="max-w-reading rounded-lg border border-border bg-warning-surface p-(--card-padding)">
-          <SectionHeader
-            sectionId="comparability"
-            eyebrow="Guardrail"
-            title="Comparability constraint"
-          />
+        <Callout
+          tone="warning"
+          kind="Guardrail"
+          className="max-w-reading"
+          header={
+            <SectionHeader
+              sectionId="comparability"
+              eyebrow="Cross-market comparison"
+              title="Comparability constraint"
+            />
+          }
+        >
           <p className="mt-(--section-header-gap) text-small text-fg-secondary">
             {comparability.explanation}
           </p>
           <p className="mt-3 text-small text-fg-secondary">
             <span className="text-fg">Remedy.</span> {comparability.remedy}
           </p>
-        </div>
+        </Callout>
       </Section>
 
       {/*

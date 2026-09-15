@@ -64,7 +64,7 @@ const DESKTOP: readonly RoleExpectation[] = [
   { role: "lead", selector: "p.text-lead", size: "19px", line: "30.78px", tracking: "normal" },
   {
     role: "stat-small (numeric)",
-    selector: "dd.numeric",
+    selector: "#scope ul li .numeric",
     size: "17px",
     line: "22.1px",
     tracking: "normal",
@@ -134,7 +134,7 @@ test.describe("the type system is declared once, in tokens.css", () => {
 
     await expect(page.locator("body")).toHaveCSS("font-family", SANS_STACK);
 
-    const numeric = page.locator("dd.numeric").first();
+    const numeric = page.locator("#scope ul li .numeric").first();
     await expect(numeric).toHaveCSS("font-family", MONO_STACK);
     // Tabular figures are non-negotiable for a data product (design-system §3).
     await expect(numeric).toHaveCSS("font-variant-numeric", "tabular-nums");

@@ -303,6 +303,35 @@ analytical question, never because the library supports it.
 `assertInteractionsCoherent` enforces two invariants: zoom or pan requires a
 visible reset, and brush requires hover inspection.
 
+### Decided direction for the chart implementation (Phase 3C step 5)
+
+Recorded before the adapter is written so the visual language is settled rather
+than negotiated per chart. Nothing here is implemented yet.
+
+**Appearance.** Dark plotting treatment; restrained green as the primary
+analytical signal; thin, precise data strokes; subtle axes and horizontal-only
+gridlines; generous whitespace; editorial rather than dashboard. No generic
+ECharts blue/orange/rainbow palette and no BI-style grid — `--chart-grid-dash: 0`
+with no vertical lines is already the token expression of that, because vertical
+gridlines add noise to a time series. `--color-oil` stays reserved and country
+colours stay identifiers (§2).
+
+**Interaction.** A contextual tooltip persists while the pointer is inside the
+chart, updates as it moves across observations, and disappears on leaving the
+interaction region. A paired oil/EV chart shows **both** variables for the same
+weekly observation with the week visible. Event annotations — the elevated-price
+window, the oil peak — stay visible without hover, because they are part of the
+argument rather than a hover reward.
+
+**Motion.** A subtle line draw-in on viewport entry, roughly 1–2s, once. Optional
+very slow ambient emphasis only where it stays analytically quiet. The underlying
+data points never move, and there is no continuous frame-by-frame React
+re-rendering: animation belongs to the canvas, not the component tree. Hover and
+analytical reading take priority over ambient motion, and `prefers-reduced-motion`
+is honoured globally by §6 below rather than per component.
+
+The principle, stated once: **the data stays still, the interface breathes.**
+
 ---
 
 ## 6. Motion

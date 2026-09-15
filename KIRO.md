@@ -2,9 +2,9 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-15 — Phase 3C step 3 of 8 COMPLETE, plus a Windows
-device-transition fix (typography diagnosis, Windows path defect, line-ending
-determinism). Steps 1–3 done; step 4 is next.
+**Last updated:** 2026-09-15 — Phase 3C step 4 of 8 COMPLETE (content components),
+plus a Windows device-transition fix (typography diagnosis, Windows path defect,
+line-ending determinism). Steps 1–4 done; step 5 is next.
 
 ---
 
@@ -162,7 +162,7 @@ React/Next.js must never compute a statistic.
 
 ## 3. Current phase
 
-**Phase 3C — Frontend/UI Implementation. Steps 1–3 of 8 COMPLETE.**
+**Phase 3C — Frontend/UI Implementation. Steps 1–4 of 8 COMPLETE.**
 
 Phase 3B (dependency bootstrap) is complete and committed at `f950e2b`.
 
@@ -173,20 +173,139 @@ Phase 3C follows the eight-step order in `docs/product-architecture.md` §10:
 | 1 | Next.js + TypeScript + Tailwind scaffold; wire tokens into the Tailwind theme | **COMPLETE** |
 | 2 | Swap the hand-rolled validator for Zod behind the same accessors | **COMPLETE** |
 | 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | **COMPLETE** |
-| 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` | **NEXT** |
-| 5 | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter | pending |
+| 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` (+ `Callout`) | **COMPLETE** |
+| 5 | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter | **NEXT** |
 | 6 | Hero (§2) and the Robustness section (05) | pending |
 | 7 | Remaining narrative sections in order | pending |
 | 8 | Responsive, accessibility and performance passes | pending |
 
-**What steps 1–3 did not do, deliberately:** no narrative sections, no hero, no
+**What steps 1–4 did not do, deliberately:** no narrative sections, no hero, no
 charts, no country deep dives, no interpretation panels. The application renders a
-shell, its own scope and the three blocks that describe that scope — nothing more.
-Statistics are absent from the UI on purpose — see §4.
+shell, its own scope and the three blocks that describe that scope — now built from
+the real content components. **No coefficient, p-value, interval or classification
+appears anywhere in the UI**, and that is enforced by both a unit test and an E2E
+test — see §4.
 
 ---
 
 ## 4. Completed work
+
+### Phase 3C step 4 — content components — COMPLETE
+
+Nine files created, three modified. Every component named in
+`docs/product-architecture.md` §10 step 4 exists, plus `Callout`, which §4 of the
+same document specifies and which step 3 explicitly deferred to here.
+
+**Created**
+
+```text
+web/src/components/content/contract.ts       tones, the §16 metric gate, ReadMore ids
+web/src/components/content/Card.tsx          the one card surface — must not float
+web/src/components/content/MetricCard.tsx    one statistic + its structural caveat slot
+web/src/components/content/Badge.tsx         caveat codes / evidence groups / verdicts
+web/src/components/content/StatHighlight.tsx inline figure, mono + tabular
+web/src/components/content/SourceNote.tsx    extracted from Footer
+web/src/components/content/Callout.tsx       status-surface caveat block
+web/src/components/content/ReadMore.tsx      the §6 disclosure (the only client component)
+web/tests/content-contract.test.ts           20 tests
+web/e2e/content.e2e.ts                       15 browser tests
+```
+
+**Modified:** `web/app/page.tsx` (recomposed with the content components),
+`web/src/components/layout/Footer.tsx` (now composes `SourceNote`),
+`web/e2e/typography.e2e.ts` (one selector — the numeric role moved from a `<dd>`
+into a `MetricCard`).
+
+#### §16 is now a compile error, not a convention
+
+This is the substantive part of the step. KIRO.md §16 requires that a level
+correlation never appear without the specification comparison beside it, because
+zero of six series survive first differencing. Until now that rule lived in prose.
+
+`MetricContent` in `contract.ts` is a discriminated union:
+
+| Variant | Requires |
+| --- | --- |
+| `kind: "descriptive"` | nothing beyond label + value. Counts, dates, coverage |
+| `kind: "inferential"` | `specification: string` **and** `caveats: readonly [MetricCaveat, ...MetricCaveat[]]` |
+
+The tuple type is what makes "at least one caveat" checkable. **Verified against
+`tsc`, not assumed** — a scratch file attempting both violations produced:
+
+```text
+error TS2322: Property 'specification' is missing in type … but required in type 'InferentialMetric'
+error TS2322: Type '[]' is not assignable to type 'readonly [MetricCaveat, ...MetricCaveat[]]'
+             Source has 0 element(s) but target requires 1
+```
+
+The scratch file was deleted. Three further layers back it up:
+
+- `assertMetricDisplayable()` catches at runtime what a type cannot — a
+  `specification` that is present but blank, or caveats whose codes are all
+  whitespace. Both are unit-tested.
+- `MetricCard` renders the specification line **unconditionally** for an
+  inferential metric. There is no prop that hides it, and a test asserts no
+  `hideSpecification` / `showSpecification` / `withoutCaveats` escape hatch has
+  been added.
+- `value` and `interval` are typed as **strings**, already formatted. A component
+  cannot round a coefficient on its way to the screen, and `toFixed(` /
+  `toPrecision(` are in the forbidden list the content-layer scan enforces.
+
+#### Statistics are still absent from the UI, now for a sharper reason
+
+Every metric the page renders is `kind: "descriptive"`: the coverage dates, the
+weekly observation count and the market count. Those are observations the pipeline
+made, not inferences it drew. Sections that can carry a specification comparison
+are steps 6–7, so an inferential metric here would have nowhere to be qualified —
+the original project's error. Two tests hold the line: a unit test asserts
+`app/page.tsx` contains no `kind: "inferential"`, and an E2E test asserts the
+rendered body still matches no `r =`, no `p =`, no "pearson" and no "other
+specifications".
+
+Building the gate *before* the sections that need it was the point of the ordering.
+
+#### Component decisions worth knowing
+
+| Component | Decision | Why |
+| --- | --- | --- |
+| `Card` | `shadow-none` written explicitly; `as` prop for `li`/`article` | design-system §1/§4: elevation is border + background delta. Stating it at the place someone would add a shadow is stronger than omitting it. `globals.css` does not even generate a card-sized shadow utility |
+| `Badge` | `tone` defaults to `neutral`; children always rendered | §5 forbids colour as the sole cue. Three cues carry meaning and only one is colour; reaching for a colour must be deliberate |
+| `MetricCard` | badge **and** sentence for every caveat | A badge alone puts the qualification in a `title` attribute, i.e. behind a hover. The accessibility contract does not allow that |
+| `StatHighlight` | `label` is required, rendered as `aria-label` | An inline figure is the one place a number appears with no visible label. "31" reads fine and speaks badly |
+| `SourceNote` | a move, not a rewrite | `Footer` already rendered `manifest.sources[]` in the right shape. A test asserts `Footer` no longer references `source.url`, so the list cannot grow back |
+| `Callout` | four tones, each mapped to a badge tone | A callout whose surface and badge disagree is worse than either alone. `CALLOUT_BADGE_TONE` makes the pair a single decision |
+| `ReadMore` | a real `<button>`, not `<details>`/`<summary>` | §6 asks for animated height, a deep-linkable open state and Escape-to-close. `<details>` gives none of the three reliably |
+| `ReadMore` | the panel is **unmounted** when closed, not hidden | A hidden-but-present panel is reachable by find-in-page and by a screen reader in browse mode, which makes "collapsed" a lie |
+
+#### Where the components are used, and the §6 hard rule
+
+`ReadMore` is exercised on the provisional-week note, and the split respects §6:
+the finding — that one week rests on fewer than five trading days — is in the
+always-visible summary with the figure as a `StatHighlight`; only the charting
+instruction is behind the disclosure. §6's list of statements that must never be
+inside a `ReadMore` is unaffected, and the comparability guardrail is deliberately
+*not* in one: a test asserts the `Callout` is not wrapped by a `ReadMore`, and an
+E2E test asserts both the constraint and the remedy are visible without
+interaction.
+
+`Callout` replaced the inline warning surface `app/page.tsx` had carried since step
+1 — the placeholder that step 3 recorded as waiting for exactly this component.
+
+#### Two defects caught by looking rather than by a gate
+
+Both were found in a rendered screenshot after the suite was green:
+
+- `StatHighlight`'s unit rendered in the mono face, so "1 week" put a word in
+  Consolas mid-sentence. The unit now takes the prose face; only the figure needs
+  tabular alignment.
+- The `MetricCard` caveat and the `ReadMore` summary said nearly the same sentence
+  twice. The caveat is now terse ("1 week flagged as partial in the panel") and the
+  summary carries the trading-day detail.
+
+A third was caught by the browser instead: Tailwind v4's `shadow-none` does **not**
+compute to the keyword `none` — it emits the composed shadow chain with every layer
+transparent. The card test asserts no layer has colour rather than asserting the
+keyword, which would have failed for the right reason and the wrong cause.
 
 ### Device transition to Windows — typography diagnosis and portability fixes — COMPLETE
 
@@ -867,7 +986,7 @@ Phase 1 (audit), Phase 2 (analytical remediation and reproducibility), Phase 3
 | Next.js App Router scaffold | **COMPLETE** — builds clean, 3 static routes |
 | Tailwind ↔ design-token integration | **COMPLETE** — verified in-browser, light and dark |
 | Browser / E2E harness | **COMPLETE** — Playwright chromium, 8 smoke tests passing |
-| React component library (`AppShell`, `Card`, …) | **SHELL + LAYOUT COMPLETE** — `AppShell`, `Header`, `Navigation`, `Footer`, `Container`, `Section`, `SectionHeader`. Content components are step 4 |
+| React component library (`AppShell`, `Card`, …) | **SHELL + LAYOUT + CONTENT COMPLETE** — `AppShell`, `Header`, `Navigation`, `Footer`, `Container`, `Section`, `SectionHeader`, `Card`, `MetricCard`, `Badge`, `StatHighlight`, `SourceNote`, `Callout`, `ReadMore`. `InsightCard` and `CountrySelector` belong to the sections that use them (steps 6–7) |
 | Charts / ECharts adapter | **NOT STARTED** — step 5 |
 | Narrative sections + hero | **NOT STARTED** — steps 6–7 |
 | Responsive / a11y / performance passes | **NOT STARTED** — step 8 |
@@ -1128,6 +1247,14 @@ Version notes:
 | `import.meta.dirname` instead of slicing `import.meta.url` | `fileURLToPath` returns backslashes on Windows, so `lastIndexOf("/")` is -1 and the slice silently resolves one directory too deep. It broke all five test files. `import.meta.dirname` is correct on every platform and is inside the declared Node floor |
 | `.gitattributes` with `* text=auto eol=lf`, rather than relaxing Prettier's `endOfLine` | Setting `endOfLine: "auto"` would have silenced the failing gate while leaving the working tree's bytes dependent on each developer's `core.autocrlf` — including the bytes of the pipeline-owned artifacts whose digests the project publishes. Pinning the checkout fixes the cause; loosening the linter hides it |
 | Did not change Node to 22.x to match the previous device | 24.19.0 satisfies `engines >=22.6` and passes every gate once the path defect is fixed. The failure was a portability bug in the repository, not a runtime incompatibility; pinning a runtime to reproduce a bug is not reproducibility |
+| **Phase 3C step 4** — express §16 as a discriminated union rather than a lint rule or a review habit | An `inferential` metric that cannot be constructed without its specification comparison makes the project's most important presentational rule a compile error. Verified against `tsc` with both violations before relying on it |
+| `value` and `interval` typed as `string`, not `number` | Rounding a coefficient is a presentational decision that belongs in the pipeline or an accessor, made once. A string also makes arithmetic on a statistic impossible on the way to the screen, which is the analytical-safety rule restated as a type |
+| Every caveat renders a badge **and** a sentence | A badge alone leaves the qualification in a `title` attribute — behind a hover, invisible to touch and to a screen reader in browse mode. §5 does not allow information to depend on hover |
+| `ReadMore` unmounts its panel instead of hiding it | A hidden-but-present panel is still found by find-in-page and still read in browse mode, so "collapsed" would be a lie. The cost is that height cannot be transitioned from the previous content, which is why the animation is opacity and translate |
+| `ReadMore` is a `<button>` + `aria-expanded`, not `<details>`/`<summary>` | §6 requires animated disclosure, a deep-linkable open state and Escape-to-close. `<details>` delivers none of the three reliably, and a button is what a screen reader announces anyway |
+| `Card` takes an `as` prop, and its optional props are typed `| undefined` | `exactOptionalPropertyTypes` is on, so a wrapper cannot forward a possibly-undefined prop through a plain `?:`. `Card` is the primitive designed to be wrapped, so it absorbs that instead of forcing every caller to invent a default |
+| Metric cards sit in a `<ul>`, not a `<dl>` | `MetricCard` renders `<p>` for label and value, and a `div` inside a `dl` must contain `dt`/`dd`. Making the component emit `dt`/`dd` would force every future use into a definition list |
+| Kept the foundation page free of inferential metrics even though the component now exists | Steps 6–7 build the sections that can carry a specification comparison. A coefficient here would have nowhere to be qualified, which is exactly what §16 forbids. Two tests assert it stays that way |
 
 ---
 
@@ -1191,6 +1318,48 @@ Resolved this session:
 ---
 
 ## 9. Validation status
+
+### Phase 3C step 4 validation (2026-09-15, Windows)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| New content tests | `node --test tests/content-contract.test.ts` | **20 / 20 pass** |
+| Full frontend suite | `npm test` | **140 / 140 pass**, 0 fail, 0 skipped (120 + 20) |
+| Types | `npm run typecheck` | **clean**, exit 0 |
+| Lint | `npm run lint` | **clean**, exit 0 |
+| Format | `npm run format:check` | **clean** |
+| Combined | `npm run verify` | **exit 0** |
+| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
+| Browser E2E | `npm run test:e2e` | **47 / 47 pass** (8 foundation + 15 shell + 9 typography + 15 content) |
+| §16 gate is a compile error | scratch file through `tsc` | **2 / 2 violations rejected** (TS2322 on both) |
+| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
+| Python lint / format | `ruff check .` / `ruff format --check .` | **clean** / **21 files already formatted** |
+| Types (src + tests) | `mypy` | **no issues in 20 source files** |
+| Artifact freshness | `python -m pipeline.build --check` | **PASS** |
+
+No existing test was edited, skipped or weakened. The 120-test count from step 3 is
+intact inside the new total, and the 32 E2E tests from before step 4 all still pass
+— one selector in `typography.e2e.ts` changed because the numeric role moved from a
+`<dd>` into a `MetricCard`, which is a markup change, not a weakened assertion.
+
+**Analytical integrity after step 4.** Tree hashes identical to the baseline:
+
+| Path | Tree hash | vs baseline |
+| --- | --- | --- |
+| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
+| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+
+`git diff` over `pipeline/ data/ reports/ web/src/data/ METHODOLOGY.md` is
+**empty** — the whole data layer, not just the artifacts, is untouched by step 4.
+
+**Visual verification.** Screenshots at 1280×1400 and 375×1000, with the disclosure
+both closed and open, were looked at: three bordered non-floating metric cards, the
+provisional badge with its sentence beside it, five market badges, the guardrail
+callout with its worded badge, the disclosure expanding to a left-ruled panel, and
+correct stacking with tighter padding at 375px. Diagnostic screenshots and the
+capture script were deleted.
 
 ### Windows device-transition validation (2026-09-15)
 
@@ -1443,33 +1612,83 @@ Every number in §15–§17 was reconciled against `metrics.json` and
 
 ## 10. Next step
 
-**Phase 3C step 4 — `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`,
-`ReadMore`.**
+**Phase 3C step 5 — `EChart`, `ChartFrame`, `ChartControls`, `ChartTableFallback`
+and the ECharts theme adapter.**
 
-`docs/product-architecture.md` §10 step 4, with each component's responsibility in
-§4 of the same document, the `ReadMore` interface and behaviour table in §6, and
-the surface/radius/elevation rules in `docs/design-system.md` §4.
+`docs/product-architecture.md` §10 step 5, with each component's responsibility in
+§4 of the same document, the accessibility requirements for charts in §5, and the
+typed visual contract in `web/src/styles/chart-language.ts` (whose `CHART_TOKENS`
+are already asserted against `tokens.css` by `tests/chart-language.test.ts`).
 
-Where step 4 starts from what step 3 built:
+Where step 5 starts from what step 4 built:
 
-1. **`SourceNote` is an extraction, not a new component.** `Footer` already renders
-   `manifest.sources[]` in the right shape; move it and keep the footer composing.
-2. **`Card` must not float.** `--shadow-none` for cards; only the two overlay
-   tokens exist as utilities, deliberately (design-system §1, §4).
-3. **`Callout` will replace the inline warning surface** on the comparability block
-   in `app/page.tsx`. That block is where its treatment already lives.
-4. **`MetricCard` and `StatHighlight` are the first components that render a
-   statistic**, so §16 binds them: a level correlation may not appear without the
-   specification comparison beside it. The components must make the caveat slot
-   structural rather than optional.
-5. **No critical conclusion may live only inside a `ReadMore`** — §6's hard rule
-   lists the five statements that must be visible without interaction.
+1. **`ChartFrame` is a `Card` with slots**, not a new surface. Eyebrow, title, a
+   one-line "what to look for", the chart slot, controls, a `SourceNote` and the
+   fallback toggle. It must not float either.
+2. **`EChart` is the only client component in the chart layer.** Lazy mount via
+   `IntersectionObserver`, `ResizeObserver` → debounced `resize()`, `dispose()` on
+   unmount, theme resolved once per theme change. `reactStrictMode` is on precisely
+   because this is the class of code it catches.
+3. **The theme adapter reads CSS custom properties at runtime**, so charts inherit
+   light/dark from `tokens.css` with no second palette. `chart-language.ts` already
+   defines the DOM-free resolver contract.
+4. **`ChartTableFallback` is first-class**, never `display:none`-only. Every chart
+   has a tabular twin.
+5. **`echarts` 6.1.0 is already installed and unused.** `echarts-for-react` is
+   deliberately absent — the project builds its own wrapper over the `ChartTheme`
+   contract.
+6. **Still no statistic is computed.** A chart series is artifact data passed
+   through; axis ranges and tick formatting are presentation, but any derived
+   figure must already exist in the artifacts.
+
+### Chart direction — decided, to be implemented in step 5
+
+Recorded here so the visual language is not re-litigated when the adapter is
+written. These are constraints on step 5, not work for any earlier step.
+
+**Appearance**
+
+- Dark/black plotting treatment; restrained green as the primary analytical
+  signal; thin, precise data strokes; subtle axes and gridlines; generous
+  whitespace; editorial data-intelligence appearance.
+- **No** generic ECharts blue/orange/rainbow palette and **no** BI-style chart
+  grid. `--chart-grid-*` is horizontal-only for exactly this reason: vertical
+  gridlines add noise to a time series.
+- The reserved-colour rule stands: `--color-oil` is never assigned to a country,
+  and country colours are identifiers carrying no ranking (design-system §2).
+
+**Interaction**
+
+- A contextual tooltip persists while the pointer remains inside the chart and
+  updates as it moves across observations, disappearing on leaving the
+  interaction region.
+- Paired oil/EV charts expose **both** variables for the same weekly observation,
+  with the week visible in the tooltip.
+- Important event annotations stay visible without hover — the elevated-regime
+  window and the oil peak are part of the argument, not a hover reward.
+
+**Motion**
+
+- Subtle line draw-in on viewport entry, ~1–2s, once.
+- Optional very slow ambient emphasis only where it stays analytically quiet.
+- **The underlying data points never move.** No continuous frame-by-frame React
+  re-rendering; animation belongs to the canvas, not to the component tree.
+- Hover and analytical reading take priority over ambient motion, and
+  `prefers-reduced-motion` is honoured — `tokens.css` §6 already collapses every
+  duration to 1ms globally, so a missed component cannot reintroduce motion.
+
+The principle, stated once: **the data stays still, the interface breathes.**
 
 Still binding for every remaining step:
 
 - The frontend **must not compute a statistic**. `analytical-safety.test.ts`
-  enforces it over `src/data/`; `layout-contract.test.ts` now enforces the same
-  over the layout components, and step 4's components should join that check.
+  enforces it over `src/data/`, `layout-contract.test.ts` over the layout
+  components, and `content-contract.test.ts` over the content components —
+  including `toFixed(` and `toPrecision(`, because formatting a coefficient is the
+  pipeline's job. The chart layer must join that check in step 5.
+- §16 binds anything that renders a statistic: use `MetricContent`'s
+  `kind: "inferential"` variant, which cannot be constructed without the
+  specification comparison and at least one caveat.
 - `web/src/data/generated/` is pipeline-owned. Never edit or reformat it from the
   frontend.
 - New modules must not be added to `src/data/` — its file list is asserted.
@@ -1479,11 +1698,9 @@ Still binding for every remaining step:
   lacks a level association.
 - Register new sections in `src/content/sections.ts` as they are built, so
   navigation and anchors cannot drift.
-
-Reminder for every remaining step: the frontend **must not compute a statistic**,
-`web/src/data/generated/` is pipeline-owned and must never be edited or
-reformatted from the frontend, and the Singapore rules in §19 bind all narrative
-copy.
+- Typography is OS-supplied by design (§4). Do not "fix" a per-machine typeface
+  difference; chart label sizes come from `--chart-*-size` tokens, which are
+  deterministic, while the face is not.
 
 ---
 
@@ -1496,7 +1713,7 @@ copy.
 | Phase 3 | Product transformation direction | **COMPLETE** — direction locked |
 | Phase 3A | Frontend/data/design foundations | **COMPLETE** — authored on `phase-3a-frontend-foundation`, restored to `main` as `97d1a5c` |
 | Phase 3B | Dependency bootstrap (environment baseline) | **COMPLETE** — all 10 steps; validated baseline committed |
-| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — steps 1–3 of 8 complete |
+| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — steps 1–4 of 8 complete |
 
 ### Phase 2 validation record
 
