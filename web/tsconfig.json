@@ -20,7 +20,14 @@
     "noEmit": true,
 
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    // TypeScript 6 no longer auto-includes every package under node_modules/@types.
+    // Declare the ambient types this project actually uses. This is narrower than
+    // the old implicit behaviour, not looser. Phase 3A's hand-written
+    // web/types/node-minimal.d.ts stopgap was deleted once real @types/node was
+    // installed, exactly as that file's own header instructed.
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "types/**/*.d.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

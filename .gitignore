@@ -9,6 +9,18 @@ __pycache__/
 .mypy_cache/
 *.egg-info/
 
+# frontend
+node_modules/
+.next/
+out/
+next-env.d.ts
+playwright-report/
+test-results/
+.playwright/
+
+# NOTE: web/package-lock.json is deliberately COMMITTED so `npm ci` reproduces
+# the exact dependency tree the Phase 3A/3B validation gates were run against.
+
 # NOTE: web/src/data/generated/*.json is deliberately COMMITTED.
 # The frontend imports those artifacts at build time, so committing them keeps
 # the build reproducible without requiring a Python toolchain. Verify freshness

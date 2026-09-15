@@ -44,7 +44,7 @@ wording never lives in the analytical layer.
 | `python -m pipeline.build --legacy` | assert the legacy replay still matches `final_data.csv` byte-for-byte |
 | `python -m pipeline.build --report` | write `../reports/VALIDATION_REPORT.md` |
 | `python -m pipeline.build --check` | fail if committed artifacts are stale (for CI) |
-| `python -m pytest` | 190 tests |
+| `python -m pytest` | 191 tests |
 | `ruff check . && ruff format --check .` | lint + format |
 | `mypy src` | strict type check |
 

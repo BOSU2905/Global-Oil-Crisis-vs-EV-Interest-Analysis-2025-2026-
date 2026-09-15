@@ -76,8 +76,14 @@ Requires Python 3.11+. **No third-party packages.**
 
 ```bash
 cd pipeline
-python -m pipeline.build --legacy --report
+PYTHONPATH=src python -m pipeline.build --legacy --report
 ```
+
+The package uses a `src/` layout, so `pipeline` is only importable once `src` is
+on the path. `PYTHONPATH=src` is the zero-install form. Alternatively install it
+once — `pip install -e pipeline` (or `uv pip install -e "pipeline[dev]"` to get
+the test and lint tooling too) — after which plain
+`python -m pipeline.build` works from anywhere.
 
 | Flag | Effect |
 | --- | --- |
@@ -90,7 +96,7 @@ Tests and checks:
 
 ```bash
 cd pipeline
-python -m pytest          # 190 tests
+python -m pytest          # 191 tests
 ruff check . && ruff format --check .
 mypy src                  # strict
 ```
@@ -129,7 +135,7 @@ decision is verifiable rather than asserted.
 │   │   ├── emit.py         # JSON artifacts + manifest
 │   │   ├── report.py       # renders the validation report from live metrics
 │   │   └── build.py        # CLI
-│   └── tests/              # 190 tests
+│   └── tests/              # 191 tests
 ├── notebooks/main.ipynb    # original exploratory notebook, kept as provenance
 ├── web/src/data/generated/ # ← generated artifacts the future frontend consumes
 ├── METHODOLOGY.md          # how every number is produced, and what it can't support

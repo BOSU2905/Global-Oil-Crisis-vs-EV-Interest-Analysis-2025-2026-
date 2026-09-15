@@ -3,17 +3,41 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Presentation layer for the Oil vs EV interest analysis. Phase 3A: framework-independent foundation only.",
+  "description": "Presentation layer for the Oil vs EV interest analysis. Phase 3B: dependency baseline established; UI not yet implemented.",
   "engines": {
     "node": ">=22.6"
   },
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "node --test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "npm run typecheck && npm run test && npm run format:check"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run format:check"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "echarts": "6.1.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.20.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "10.10.0",
+    "eslint-config-next": "16.3.5",
+    "prettier": "3.9.6",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0"
+  }
 }

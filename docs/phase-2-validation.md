@@ -138,6 +138,14 @@ Run from a wiped state on 2026-09-14.
 
 The skipped test is the SciPy cross-validation suite (SciPy unavailable offline).
 
+**Test-count reconciliation (added 2026-09-15).** Re-running these gates during the
+Phase 3B bootstrap, on pytest 9.1.1 / Python 3.11.16, reports **191 passed, 1
+skipped**, and `python -m pytest --collect-only` reports **191 tests collected**.
+Every other figure in the table above reproduced exactly (21 files formatted, 20
+source files type-checked), so the `190` recorded on 2026-09-14 is an off-by-one
+transcription in that run's record, not a change in the suite. The dated row is
+left as originally written; 191 is the correct count.
+
 `mypy` runs strict over `src` with **no exemptions**. A documented per-module
 override relaxes exactly three annotation rules (`disallow_untyped_defs`,
 `disallow_untyped_calls`, `disallow_incomplete_defs`) for `tests.*`, because

@@ -1,20 +1,23 @@
 # web/
 
-Presentation layer for the Oil vs EV analysis. **Phase 3A: framework-independent
-foundation only — no Next.js, no React, no charts yet.**
+Presentation layer for the Oil vs EV analysis. **Phase 3B bootstrap: dependencies
+installed and validated; no Next.js app, React components or charts yet.**
 
-The npm registry is unreachable in the build environment, so nothing that
-requires a package could be written and verified. What is here is everything that
-does not: the typed data contract, boundary validation, accessors, design tokens
-and the chart-language contract — all type-checked and tested offline.
+The framework-independent foundation — typed data contract, boundary validation,
+accessors, design tokens, chart-language contract — is complete and green. The
+dependency baseline (Next.js, React, ECharts, Zod, TypeScript, ESLint, Prettier,
+Tailwind, Playwright) is installed and locked, but no UI has been written against
+it. There is no `app/`, no `components/` and no `content/` yet.
 
 ## Layout
 
 ```text
 web/
-├── package.json               no dependencies; scripts use only global tooling
+├── package.json               dependency baseline; scripts below
+├── package-lock.json          committed — `npm ci` reproduces the validated tree
 ├── tsconfig.json              strict, nodenext, verbatimModuleSyntax
-├── types/node-minimal.d.ts    temporary stand-in for @types/node (see below)
+├── eslint.config.mjs          flat config; TS/Next rules scoped to .ts/.tsx
+├── postcss.config.mjs         Tailwind v4 plugin registration
 ├── src/
 │   ├── data/
 │   │   ├── generated/         ← artifacts from pipeline/. DO NOT EDIT
@@ -31,15 +34,27 @@ web/
 
 ## Commands
 
-Run from `web/`. Requires Node ≥22.6 (TypeScript runs natively via type
-stripping). No install step.
+Run from `web/`. Requires Node ≥22.6 (the tests import `.ts` directly and rely on
+Node's native type stripping). Install with `npm ci` to reproduce the exact tree
+the gates below were validated against.
 
 ```bash
 npm run typecheck     # tsc --noEmit, strict
+npm run lint          # eslint
 npm run test          # node --test  (109 tests)
-npm run format:check  # prettier
-npm run verify        # all three
+npm run format        # prettier --write
+npm run format:check  # prettier --check
+npm run verify        # typecheck + lint + test + format:check
+
+npm run dev           # next dev    ── needs app/, added in the UI phase
+npm run build         # next build  ── needs app/, added in the UI phase
+npm run start         # next start  ── needs a completed build
 ```
+
+`dev`, `build` and `start` are wired but cannot succeed yet: `next build` fails
+with "Couldn't find any `pages` or `app` directory" until the UI phase creates the
+App Router entrypoint. That failure is expected at this stage and confirms the
+Next.js toolchain itself resolves and runs.
 
 If `node` fails with `MODULE_NOT_FOUND` for `proxy-bootstrap.js`, the environment
 has a stale `NODE_OPTIONS`. Prefix commands with `NODE_OPTIONS= ` to clear it.
@@ -73,20 +88,25 @@ python -m pipeline.build          # regenerate
 python -m pipeline.build --check  # fail if stale
 ```
 
-## Two documented workarounds
+## Resolved Phase 3A workarounds
 
-**`types/node-minimal.d.ts`** — `@types/node` cannot be installed offline, so
-`node:test`, `node:assert/strict`, `node:fs`, `node:path`, `node:url` and
-`structuredClone` are declared locally. It is hand-written from the documented
-APIs, contains no third-party source, and is a strict subset of the real types.
-Delete it in Phase 3B and add `@types/node`.
+Both stopgaps that Phase 3A carried because the registry was unreachable are gone:
 
-**No ESLint** — ESLint cannot parse TypeScript without
-`@typescript-eslint/parser`, which is not installable. `tsc --strict` plus
-Prettier is the current gate. ESLint arrives in Phase 3B.
+**`types/node-minimal.d.ts` — deleted.** Real `@types/node` (22.20.2, tracking the
+Node 22 runtime rather than the registry `latest`) now supplies `node:test`,
+`node:assert/strict`, `node:fs`, `node:path`, `node:url` and `structuredClone`.
+`tsconfig.json` declares `"types": ["node"]` explicitly, because TypeScript 6 no
+longer auto-includes every package under `node_modules/@types`.
 
-## Phase 3B
+**ESLint — installed.** `eslint.config.mjs` is a flat config with the
+TypeScript and Next.js rule sets scoped to `.ts`/`.tsx`, and
+`src/data/generated/**` ignored so lint can never rewrite a pipeline-owned
+artifact. `tsc --strict`, ESLint and Prettier now all gate the tree.
 
-Requires the npm registry: Next.js app and routing, React components, Tailwind
-theme wiring, the ECharts adapter, browser rendering, real responsive
-verification, chart interaction, and visual QA.
+## Next phase — UI implementation
+
+Follows `../docs/product-architecture.md` §10, starting at step 1: the Next.js
+App Router scaffold plus the Tailwind `@theme` mapping of
+`src/styles/tokens.css`. `tsconfig.json` will need `jsx`, the DOM lib, `@types/react`
+and `**/*.tsx` added at that point; it is deliberately left Node-only while no
+React source exists.
