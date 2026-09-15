@@ -1572,6 +1572,19 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 | 3C step 2 docs | `97b69f1` | docs: record the Phase 3C step 2 commit hash in KIRO.md |
 | 3C step 3 | **`6acb553`** | feat: build the application shell and layout primitives |
 | 3C step 3 fix | **`ee03249`** | fix: decide the scrollspy from geometry rather than observer entries |
+| Windows transition | **`94a9998`** | fix: make the checkout and the type contract deterministic across machines |
+| 3C step 4 | **`5fd07f7`** | feat: build the content components and make §16 a compile error |
+
+`94a9998` changed 9 files: `.gitattributes` (new), `web/e2e/typography.e2e.ts`
+(new), the four `import.meta.dirname` path fixes, and three documents. No font
+declaration and no design token was touched, and the working tree was normalised to
+LF with **zero** resulting content change in git — the staged diff was exactly
+those 9 files.
+
+`5fd07f7` changed 16 files: 8 created under `web/src/components/content/` plus the
+two test files, `app/page.tsx` and `Footer.tsx` modified, one selector updated in
+`typography.e2e.ts`, and three documents. Nothing under `web/src/data/` was
+touched.
 
 `6acb553` changed 17 files: 10 created (7 components, `contract.ts`,
 `src/content/sections.ts`, and the two test files), 3 source files modified
@@ -1585,6 +1598,11 @@ and `web/README.md`. Nothing else in `web/src/data/` was touched.
 `94bf7cf` changed 14 files (9 modified, 5 added trees). `node_modules/`, `.next/`,
 `next-env.d.ts`, `*.tsbuildinfo` and Playwright output are all ignored and untracked;
 `web/package-lock.json` is tracked.
+
+**Push status.** Kiro has performed **no push** in this session. `main` is **2
+commits ahead of `origin/main`** — `94a9998` (Windows transition) and `5fd07f7`
+(step 4) are local only. Everything up to and including `d670830` is on the remote.
+Re-check with `git status -sb` / `git log --oneline origin/main..main`.
 
 **Push status — corrected 2026-09-15 during post-reset reconciliation.** Kiro
 performed no push; the user subsequently synchronised the branch. `git ls-remote
