@@ -1812,6 +1812,15 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 | 3C step 3 fix | **`ee03249`** | fix: decide the scrollspy from geometry rather than observer entries |
 | Windows transition | **`94a9998`** | fix: make the checkout and the type contract deterministic across machines |
 | 3C step 4 | **`5fd07f7`** | feat: build the content components and make §16 a compile error |
+| Refinement | **`ad87a20`** | refine: give the layout one shared frame and stop relying on weight 500 |
+
+`ad87a20` changed 14 files (+922/−66): `tokens.css`, `globals.css`, `page.tsx`,
+`SectionHeader.tsx`, `Container.tsx`, `Header.tsx`, `StatHighlight.tsx`, the two E2E
+suites, the new `tests/typography-contract.test.ts`, and four documents. **Nothing
+under `pipeline/`, `data/`, `reports/` or `web/src/data/` was touched**, and no
+colour, radius, motion or spacing token changed. It is a presentation-only pass
+between steps 4 and 5 — no chart, no ECharts import, no country component and no
+narrative section.
 
 `94a9998` changed 9 files: `.gitattributes` (new), `web/e2e/typography.e2e.ts`
 (new), the four `import.meta.dirname` path fixes, and three documents. No font
