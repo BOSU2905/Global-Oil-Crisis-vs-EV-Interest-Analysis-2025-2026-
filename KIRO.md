@@ -1150,11 +1150,13 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 | 3C step 2 | **`0131f74`** | feat: replace the hand-rolled validator with a Zod runtime schema boundary |
 | 3C step 2 docs | `97b69f1` | docs: record the Phase 3C step 2 commit hash in KIRO.md |
 | 3C step 3 | **`6acb553`** | feat: build the application shell and layout primitives |
+| 3C step 3 fix | **`ee03249`** | fix: decide the scrollspy from geometry rather than observer entries |
 
 `6acb553` changed 17 files: 10 created (7 components, `contract.ts`,
 `src/content/sections.ts`, and the two test files), 3 source files modified
 (`app/layout.tsx`, `app/page.tsx`, `tokens.css`) and 4 documents updated. Nothing
-under `web/src/data/` was touched.
+under `web/src/data/` was touched. `ee03249` then rewrote `Navigation`'s scrollspy
+after the E2E suite exposed a ~10% flake in it (see §4).
 
 `0131f74` changed 3 files: `web/src/data/validate.ts` (+643/−990), plus `KIRO.md`
 and `web/README.md`. Nothing else in `web/src/data/` was touched.
