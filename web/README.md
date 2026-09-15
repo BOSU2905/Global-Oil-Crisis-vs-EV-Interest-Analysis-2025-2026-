@@ -70,12 +70,12 @@ npm run start         # next start  (after a build)
 
 npm run typecheck     # tsc --noEmit, strict
 npm run lint          # eslint
-npm run test          # node --test      (109 tests)
+npm run test          # node --test      (120 tests)
 npm run format        # prettier --write
 npm run format:check  # prettier --check
 npm run verify        # typecheck + lint + test + format:check
 
-npm run test:e2e      # playwright test  (8 tests, chromium)
+npm run test:e2e      # playwright test  (32 tests, chromium)
 ```
 
 `verify` is the fast gate. `test:e2e` is separate because it builds the app and
@@ -89,6 +89,31 @@ npx playwright install chromium
 
 If `node` fails with `MODULE_NOT_FOUND` for `proxy-bootstrap.js`, the environment
 has a stale `NODE_OPTIONS`. Prefix commands with `NODE_OPTIONS= ` to clear it.
+
+## Typography is OS-supplied, on purpose
+
+There is no webfont here. No `.woff2` in the repository, no `@font-face`, no
+`next/font`, and a page load makes **zero** font requests. `--font-sans` and
+`--font-mono` in `src/styles/tokens.css` are system stacks — the decision in
+[`../docs/design-system.md`](../docs/design-system.md) §3.
+
+The consequence is that **the typeface differs between machines**: `system-ui`
+resolves to Segoe UI on Windows (with Consolas for `.numeric`) and to whatever
+fontconfig supplies on Linux. Sizes, line-heights, tracking, weights and tabular
+figures are identical everywhere and are asserted by `e2e/typography.e2e.ts`; the
+face is not, so that suite records it as an annotation instead. Two knock-on
+effects are documented in design-system §3: `font-weight: 500` is not a distinct
+face on Segoe UI, and `--width-reading: 68ch` is a different physical width per
+face, so paragraph wrapping legitimately differs per machine.
+
+Do not "fix" this by installing a font locally. Making it fully deterministic
+means the project shipping a typeface, which is a product decision.
+
+Two portability notes for Windows, both already fixed in the repository:
+`.gitattributes` pins the working tree to LF (with `core.autocrlf=true` the
+checkout was CRLF, which failed `format:check` on 37 files), and paths are derived
+from `import.meta.dirname` rather than by slicing `import.meta.url` at `"/"`, which
+resolved one directory too deep on a backslash path.
 
 ## Rules for the frontend
 

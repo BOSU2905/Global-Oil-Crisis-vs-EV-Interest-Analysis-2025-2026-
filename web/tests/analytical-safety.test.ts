@@ -17,7 +17,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { readRawArtifacts } from "../src/data/load-node.ts";
 import {
@@ -30,8 +29,10 @@ import {
   type RawArtifacts,
 } from "../src/data/index.ts";
 
-const here = fileURLToPath(import.meta.url);
-const webRoot = join(here.slice(0, here.lastIndexOf("/")), "..");
+// `import.meta.dirname`, not a slice of `import.meta.url` at the last "/":
+// `fileURLToPath` returns backslashes on Windows, so `lastIndexOf("/")` is -1 there
+// and the slice resolves to a path inside `tests/` instead of `web/`.
+const webRoot = join(import.meta.dirname, "..");
 const dataLayerDir = join(webRoot, "src", "data");
 
 const raw = readRawArtifacts();

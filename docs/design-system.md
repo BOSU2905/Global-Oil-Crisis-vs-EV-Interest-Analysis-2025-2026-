@@ -149,6 +149,61 @@ look careless in a data product.
 Uppercase is confined to section eyebrows at one size. Uppercase elsewhere is
 what makes a dashboard look shouty.
 
+### What is deterministic, and what the operating system decides
+
+The system-stack decision above has a consequence worth stating plainly, because
+it was mistaken for a defect when the project moved from a Linux laptop to a
+Windows PC: **the project does not ship a typeface, so the typeface differs
+between machines.** Nothing is downloaded, nothing falls back by accident, and
+nothing is misconfigured — the stack delegates the choice of face to the OS, by
+design.
+
+Measured in Chromium 153.0.8010.12 (the Playwright build, identical on both
+machines) on Windows 11:
+
+| Declared entry | Resolves on Windows 11? |
+| --- | --- |
+| `ui-sans-serif`, `ui-monospace` | **no** — Safari-only keywords, ignored by Chromium |
+| `system-ui` | **yes** — metrically identical to `"Segoe UI"`, so it wins the sans stack |
+| `-apple-system`, `BlinkMacSystemFont`, `"Helvetica Neue"`, `"Noto Sans"` | no — absent |
+| `Roboto`, `Arial` | installed, but never reached: `system-ui` precedes them |
+| `SFMono-Regular`, `"SF Mono"`, `Menlo`, `"Liberation Mono"` | no — absent |
+| `Consolas` | **yes** — wins the mono/numeric stack |
+
+So on Windows the product renders in **Segoe UI** with **Consolas** for
+statistics; on a stock Linux box `system-ui` resolves through fontconfig to that
+machine's UI font and neither Segoe UI nor Consolas exists. Same CSS, different
+glyphs.
+
+Two knock-on effects follow from that, and both are real rather than cosmetic:
+
+- **Weights are as available as the OS face makes them.** Measured by drawing the
+  same string to a canvas at each weight and hashing the pixels: on Segoe UI, 400
+  and 600 are distinct faces, but **500 and 600 render identically**. The three
+  documented weights therefore collapse to two on Windows, and collapse
+  differently on a Linux face that ships only 400 and 700. Anything that must read
+  as emphasised should differ from body text by more than 400 → 500 alone.
+- **`ch`-based measures change width with the face.** Under Segoe UI at 16px,
+  `1ch` is 8.63px, so `--width-reading: 68ch` is 586.5px. A wider default face
+  yields a wider column, which changes paragraph line counts and section heights.
+  The `ch` unit is still right — it keeps the measure correct in characters — but
+  it means identical CSS legitimately produces different wrapping per machine.
+
+`document.fonts.check()` must not be used to test any of this: it returned `true`
+for `"Inter"`, `"DejaVu Sans"` and `"Cantarell"` on a machine with none of them
+installed. Advance-width comparison against two sentinel families is the reliable
+method.
+
+What the project *does* own is asserted by `web/e2e/typography.e2e.ts` at 1280px
+and 375px: the exact `--font-sans` / `--font-mono` / `--font-numeric` stacks, the
+size, line-height, letter-spacing and weight of every role, tabular figures on
+`.numeric`, uppercase only on eyebrows, that 400 and 600 are distinct faces, and
+that the page requests **zero** font files and declares **zero** `@font-face`
+rules — so the "no webfont, no build-time network dependency" rule is enforced by
+the suite rather than by review. Which face the OS supplied is recorded as a test
+annotation, not asserted, because asserting it would fail every machine that is
+not the author's.
+
 ---
 
 ## 4. Spacing, layout, radius

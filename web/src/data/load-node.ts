@@ -13,7 +13,6 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   ARTIFACT_FILENAMES,
@@ -24,10 +23,10 @@ import { createArtifactBundle, type RawArtifacts } from "./artifacts.ts";
 
 /** Absolute path to `web/src/data/generated`, resolved from this module. */
 export function generatedDir(): string {
-  const here = fileURLToPath(import.meta.url);
-  // .../web/src/data/load-node.ts -> .../web/src/data
-  const dataDir = here.slice(0, here.lastIndexOf("/"));
-  return join(dataDir, "generated");
+  // `import.meta.dirname` rather than slicing `import.meta.url` at the last "/":
+  // on Windows `fileURLToPath` returns backslashes, `lastIndexOf("/")` is then -1,
+  // and the slice silently yields a path one character short of the filename.
+  return join(import.meta.dirname, "generated");
 }
 
 /** Read and JSON.parse one artifact without validating it. */

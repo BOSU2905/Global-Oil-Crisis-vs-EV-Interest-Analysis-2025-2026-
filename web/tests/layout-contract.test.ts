@@ -20,7 +20,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   CONTAINER_MAX_WIDTH,
@@ -30,8 +29,10 @@ import {
 } from "../src/components/layout/contract.ts";
 import { SHELL_SECTIONS } from "../src/content/sections.ts";
 
-const here = fileURLToPath(import.meta.url);
-const webRoot = join(here.slice(0, here.lastIndexOf("/")), "..");
+// `import.meta.dirname`, not a slice of `import.meta.url` at the last "/":
+// `fileURLToPath` returns backslashes on Windows, so `lastIndexOf("/")` is -1 there
+// and the slice resolves to a path inside `tests/` instead of `web/`.
+const webRoot = join(import.meta.dirname, "..");
 const read = (...parts: string[]): string => readFileSync(join(webRoot, ...parts), "utf8");
 
 const pageSource = read("app", "page.tsx");

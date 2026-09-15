@@ -1,0 +1,41 @@
+# Line endings are a property of THIS REPOSITORY, not of each developer's git
+# configuration.
+#
+# WHY THIS FILE EXISTS
+# Without it, checkout depends on the machine's global `core.autocrlf`. On the
+# Windows PC this project moved to, `core.autocrlf=true`, so every tracked text
+# file arrived in the working tree with CRLF while the committed blobs are LF.
+# Two concrete consequences were measured:
+#
+#   1. `npm run format:check` failed on 37 files — Prettier's default
+#      `endOfLine: "lf"` treats a CRLF file as unformatted. That broke
+#      `npm run verify`, the project's own gate, on a clean checkout.
+#   2. The pipeline-owned artifacts in `web/src/data/generated/` no longer
+#      hashed to the values recorded in KIRO.md §9: `panel.json` hashed to
+#      `6e03f7a8…` on disk instead of `e446aeb5…`. LF-normalising the same bytes
+#      reproduced the recorded digest exactly, so the artifacts were never
+#      modified — only the checkout was. But an analytical hash that cannot be
+#      verified on a given machine is a reproducibility claim that machine
+#      cannot check.
+#
+# `python -m pipeline.build --check` was verified to pass either way: it reads in
+# Python text mode, so it is newline-insensitive. The freshness gate was never
+# affected — only the byte-level digests above and the formatting gate.
+#
+# `eol=lf` pins the working tree to LF on every platform regardless of
+# `core.autocrlf`, which is what makes those checks mean the same thing on
+# Windows, Linux and macOS.
+
+* text=auto eol=lf
+
+# Binary formats: never touched, never diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

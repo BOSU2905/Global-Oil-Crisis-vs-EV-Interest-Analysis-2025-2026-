@@ -2,8 +2,9 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-15 — Phase 3C step 3 of 8 COMPLETE (application shell and
-layout primitives). Steps 1–3 done; step 4 is next.
+**Last updated:** 2026-09-15 — Phase 3C step 3 of 8 COMPLETE, plus a Windows
+device-transition fix (typography diagnosis, Windows path defect, line-ending
+determinism). Steps 1–3 done; step 4 is next.
 
 ---
 
@@ -186,6 +187,162 @@ Statistics are absent from the UI on purpose — see §4.
 ---
 
 ## 4. Completed work
+
+### Device transition to Windows — typography diagnosis and portability fixes — COMPLETE
+
+The project moved from a Linux laptop to a Windows 11 PC and "looked different,
+especially the typography". Diagnosed before changing anything. **The typography
+difference is not a defect and no font declaration was changed.** Two unrelated
+*real* portability defects were found while diagnosing it, and both are fixed.
+
+#### The typography difference: cause established, no code change warranted
+
+The product ships **no typeface**. Verified, not assumed:
+
+- No `.woff`, `.woff2`, `.ttf`, `.otf` or `.eot` file anywhere in the repository.
+- No `@font-face` rule in any stylesheet at runtime, and **zero** font requests of
+  any kind on a page load (14 requests total, none for a font, none to
+  `fonts.googleapis.com` / `fonts.gstatic.com`).
+- No `next/font`, no `next/font/local`, no Google Fonts import.
+- Exactly one font-family declaration site: `--font-sans` / `--font-mono` /
+  `--font-numeric` in `tokens.css` §4, applied at `body` and `.numeric` in
+  `globals.css`. No competing declaration, and Tailwind overrides nothing — the
+  computed `font-family` on every element is the token stack verbatim.
+
+That is the documented decision, in two places written before this session:
+`tokens.css` principle 4 ("System font stacks only — no `next/font/google`, no
+downloaded webfonts") and `docs/design-system.md` §3. So the typeface is chosen by
+the operating system on purpose, and it therefore differs per machine.
+
+What it resolves to here, measured in the browser by advance-width comparison
+against two sentinel families:
+
+| | Windows 11 + Chromium 153.0.8010.12 |
+| --- | --- |
+| `ui-sans-serif` | **does not resolve** — Safari-only keyword, ignored by Chromium |
+| `system-ui` | resolves, metrically identical to `"Segoe UI"` → **wins the sans stack** |
+| `-apple-system`, `BlinkMacSystemFont`, `"Helvetica Neue"`, `"Noto Sans"` | absent |
+| `Roboto`, `Arial` | installed but never reached — `system-ui` precedes them |
+| `ui-monospace`, `SFMono-Regular`, `"SF Mono"`, `Menlo`, `"Liberation Mono"` | absent |
+| `Consolas` | resolves → **wins the mono/numeric stack** |
+
+**The browser is not the variable.** Playwright installed Chrome Headless Shell
+**153.0.8010.12 (build v1243)** on this PC — the identical build recorded for the
+previous device in §6. Same engine, same CSS, different OS font layer.
+
+Everything the project actually controls is identical and correct on this machine.
+At 1280px and 375px, every role's computed `font-size`, `line-height`,
+`letter-spacing` and `font-weight` equals its token value exactly (display 60/36px,
+h2 32/24px, label 12px at 0.9px tracking, body 16px/26.88px, and so on); `.numeric`
+carries `tabular-nums`; uppercase appears only on eyebrows; horizontal overflow is
+0 at 375px; there are no console errors.
+
+Two consequences of the system-stack decision are real and now documented in
+`docs/design-system.md` §3 rather than left to be rediscovered:
+
+- **`--weight-medium: 500` is not a distinct face on Windows.** Measured by
+  drawing the same string to a canvas at each weight and hashing the pixels: 400
+  is distinct, **500 and 600 are pixel-identical**, 700 is distinct. The design
+  system's three weights collapse to two here — and collapse *differently* on a
+  Linux face shipping only 400/700, where 500 renders as 400 and 600 as 700. This
+  is the most likely thing that read as "the typography changed": heading and
+  eyebrow emphasis is OS-dependent.
+- **`--width-reading: 68ch` changes physical width with the face.** `1ch` is
+  8.63px under Segoe UI at 16px, so the measure is 586.5px here. A different
+  default face gives a different column width, hence different paragraph line
+  counts and section heights from identical CSS.
+
+Deliberately **not** done, and why:
+
+| Not done | Reason |
+| --- | --- |
+| Bundle a webfont via `next/font/local` | Requires choosing a typeface. That reverses a decision recorded in two documents and changes the product's visual identity — a design decision for the user, not a diagnosis outcome. §1 forbids silent decisions of exactly this kind |
+| `next/font/google` | Same, plus it reintroduces the build-time network dependency `design-system.md` §3 rules out |
+| Change `--font-sans` ordering, or drop `ui-sans-serif` | It is inert in Chromium and correct in Safari. Removing it would change nothing on any machine and lose real coverage |
+| Install a font on Windows | Would make one developer's machine the reference and leave the repository no more deterministic than before |
+| Raise `--weight-medium` to 600 to "restore" emphasis | The tokens are not wrong; the platform face has no 500. Changing the token is a visual change with no evidence behind it |
+
+The honest summary: **deterministic typography would require the project to ship a
+typeface, which is a product decision that has not been made.** Everything short
+of that is now deterministic and enforced by a test.
+
+#### Defect 1: every `import.meta.url` path was wrong on Windows
+
+`npm test` failed to load **all five** test files on this PC. Root cause, in four
+files:
+
+```ts
+const here = fileURLToPath(import.meta.url);
+const webRoot = join(here.slice(0, here.lastIndexOf("/")), "..");
+```
+
+On Windows `fileURLToPath` returns backslashes, so `lastIndexOf("/")` is **-1**,
+`slice(0, -1)` drops the last *character* instead of the filename, and `webRoot`
+resolves one directory too deep. The observable failure was
+`ENOENT … web\tests\app\page.tsx`. The same idiom in `src/data/load-node.ts`
+broke `generatedDir()`, which is why the two artifact test files failed as well.
+
+Fixed by using `import.meta.dirname` (stable since Node 21.2, so inside the
+declared `engines: >=22.6` floor) in `src/data/load-node.ts`,
+`tests/analytical-safety.test.ts`, `tests/chart-language.test.ts` and
+`tests/layout-contract.test.ts`. No assertion was changed, added, removed or
+weakened: **120/120 pass**, the same count as before the move.
+
+This was latent, not introduced by the move — the code was simply never run on
+Windows.
+
+#### Defect 2: line endings depended on the developer's git config
+
+This PC has global `core.autocrlf=true`, so every tracked text file arrived in the
+working tree as CRLF while the committed blobs are LF. Consequences, measured:
+
+- `npm run format:check` failed on **37 files** — Prettier's default
+  `endOfLine: "lf"` treats a CRLF file as unformatted. `npm run verify`, the
+  project's own gate, could not pass on a clean checkout.
+- The pipeline-owned artifacts no longer hashed to the values in §9. `panel.json`
+  hashed `6e03f7a8…` on disk against a recorded `e446aeb5…`.
+
+**The artifacts were never modified.** Proved by hashing three ways: the committed
+blob, the bytes on disk, and the on-disk bytes with CRLF normalised to LF.
+
+| Artifact | Committed blob | On disk (CRLF) | On disk, LF-normalised |
+| --- | --- | --- | --- |
+| `panel.json` | `e446aeb525e12d5b` | `6e03f7a841f3b0cf` | `e446aeb525e12d5b` |
+| `metrics.json` | `5e5f43bf255b1ff7` | `63b3185d98d0bfbe` | `5e5f43bf255b1ff7` |
+| `countries.json` | `6789e21c6b3a3aa0` | `ef4caef401727bf0` | `6789e21c6b3a3aa0` |
+| `claims.json` | `c46072971a2b59e7` | `03809b6d8befd5c9` | `c46072971a2b59e7` |
+
+Every committed blob matches §9 exactly, and LF-normalising the working copy
+reproduces it. Only the checkout was different.
+
+Fixed by adding **`.gitattributes`** with `* text=auto eol=lf`, which pins the
+working tree to LF on every platform regardless of any machine's `core.autocrlf`,
+and normalising the existing working tree to match. Binary extensions are marked
+`binary` so they are never converted or diffed as text.
+
+`python -m pipeline.build --check` was verified to pass **either way** — it reads
+in Python text mode and is newline-insensitive. An earlier draft of the
+`.gitattributes` rationale claimed the freshness gate was affected; that claim was
+tested, found false, and removed rather than shipped.
+
+#### What was added
+
+One file: **`web/e2e/typography.e2e.ts`** — 9 tests, the deterministic half of the
+type contract. It asserts the three font stacks verbatim, the computed size /
+line-height / tracking / weight of every role at **both** 1280px and 375px, the
+mono stack plus `tabular-nums` on `.numeric`, uppercase only on `.text-label`,
+that the size hierarchy is strictly decreasing, that 400 and 600 render as
+distinct faces, and that the page requests **zero** fonts and declares **zero**
+`@font-face` rules — so an accidental `next/font` import or a stray Google Fonts
+`@import` fails the suite instead of shipping.
+
+Which face the OS supplied, and whether 500 and 600 are distinct on it, are
+recorded as **test annotations rather than assertions**: asserting them would fail
+every machine that is not the author's, which is the opposite of a portable gate.
+No screenshot baseline was created — with an OS-dependent typeface a pixel
+baseline would be a machine-specific artifact masquerading as a contract.
+
+E2E total: **32 tests** (8 foundation + 15 shell + 9 typography).
 
 ### Phase 3C step 3 — application shell and layout primitives — COMPLETE
 
@@ -726,7 +883,45 @@ phase.
 
 ## 6. Dependencies / environment
 
-### Node runtime — installed this session
+### Windows 11 PC — current device (2026-09-15)
+
+The project now runs on a second machine. Recorded because several observations in
+this section were made on the Linux laptop and are device-specific.
+
+| | Linux laptop (previous) | Windows 11 PC (current) |
+| --- | --- | --- |
+| OS | Linux x64 | Windows 11 Pro, build 26200 |
+| Node | 22.23.2 | **24.19.0** |
+| npm | 10.9.8 | **11.17.0** |
+| Playwright chromium | Chrome Headless Shell 153.0.8010.12 (v1243) | **identical build** |
+| `core.autocrlf` | unset | **`true`** — see §4, now overridden by `.gitattributes` |
+| Python | 3.11.16 venv (uv) | **3.14.7** venv (`python -m venv`) |
+| pytest / ruff / mypy | 9.1.1 / 0.16.7 / 2.3.1 | **identical versions** |
+
+Node 24.19.0 satisfies `engines: { node: ">=22.6" }` and runs the whole gate set
+clean. It was **not** changed to match the previous device: no runtime difference
+was observed after the path defect in §4 was fixed, and pinning a runtime to
+reproduce a bug is not reproducibility.
+
+`npm ci` reproduces the tree from `web/package-lock.json` on this device:
+**0 version mismatches, 0 extraneous packages**, and the 85 lockfile entries that
+are absent from `node_modules` are all `optional: true` platform binaries for
+other operating systems (`@img/sharp-darwin-*`, `@img/sharp-libvips-linux-*`,
+`@emnapi/*`, wasm fallbacks) — verified by comparing every entry, not by
+inspection.
+
+Two npm 11 differences worth recording, neither a problem:
+
+- npm 11 gates lifecycle scripts. `npm ci` warns that `unrs-resolver@1.12.2`'s
+  `postinstall` was **not** run (`npm approve-scripts` is the opt-in). `eslint .`
+  is clean regardless, so the resolver's native binding is not required by this
+  configuration. Nothing was approved, because nothing needed it.
+- Python here is 3.14.7 rather than the 3.11.16 the previous device used.
+  `requires-python = ">=3.11"`, and `[tool.ruff] target-version`/`[tool.mypy]
+  python_version` both stay `py311`, so the tools still check against 3.11
+  semantics. All 191 tests pass on 3.14.7.
+
+### Node runtime — installed on the previous device
 
 The previous device ran Node 22.23.2. This device shipped **Node 20.20.2**, which
 does **not** satisfy `web/package.json`'s `engines: { node: ">=22.6" }` and cannot
@@ -927,6 +1122,12 @@ Version notes:
 | Component tests live in Playwright, not `node --test` | Node 22.23.2 cannot load `.tsx` (`ERR_UNKNOWN_FILE_EXTENSION`, verified). A JSX transform in the unit-test toolchain to render six presentational components is dependency weight for no gain; Playwright tests the real production build |
 | Page body uses the `content` width, not `page` | At 1280px a `page`-width body left the composition against the left edge with a void beside it. `content` centres the column, which is what the width variant is for. Caught by looking at a screenshot, not by a test |
 | No eyebrow ordinals on the three scaffold blocks | Numbering them `01`–`03` read as though they were narrative sections 01–03, while the real ten are listed inside one of them. `SectionHeader` keeps the ordinal API for when those sections arrive |
+| **Windows transition** — kept the system font stack; changed no font declaration | The stack is a decision recorded in `tokens.css` principle 4 and `design-system.md` §3, and the diagnosis found nothing broken: zero font requests, no `@font-face`, one declaration site, every computed type value equal to its token. Shipping a typeface to force cross-machine parity reverses a documented decision and changes the visual identity — that is the user's call, not a diagnosis outcome |
+| Asserted the type contract, annotated the OS-supplied face | Sizes, line-heights, tracking, stacks, tabular figures and "zero fonts downloaded" are the project's own and are identical everywhere, so they are assertions. Which face Windows or Linux supplies is not, so it is a test annotation. Asserting it would fail every machine but the author's |
+| No screenshot baseline for typography | With an OS-dependent typeface a pixel baseline is a machine-specific artifact posing as a contract. Screenshots were used as evidence during the diagnosis and deleted |
+| `import.meta.dirname` instead of slicing `import.meta.url` | `fileURLToPath` returns backslashes on Windows, so `lastIndexOf("/")` is -1 and the slice silently resolves one directory too deep. It broke all five test files. `import.meta.dirname` is correct on every platform and is inside the declared Node floor |
+| `.gitattributes` with `* text=auto eol=lf`, rather than relaxing Prettier's `endOfLine` | Setting `endOfLine: "auto"` would have silenced the failing gate while leaving the working tree's bytes dependent on each developer's `core.autocrlf` — including the bytes of the pipeline-owned artifacts whose digests the project publishes. Pinning the checkout fixes the cause; loosening the linter hides it |
+| Did not change Node to 22.x to match the previous device | 24.19.0 satisfies `engines >=22.6` and passes every gate once the path defect is fixed. The failure was a portability bug in the repository, not a runtime incompatibility; pinning a runtime to reproduce a bug is not reproducibility |
 
 ---
 
@@ -936,6 +1137,15 @@ Version notes:
 
 Open items, none blocking:
 
+- **The product ships no typeface, so the rendered face is OS-dependent.** This is
+  the documented decision (`tokens.css` principle 4, `design-system.md` §3) and it
+  is now measured rather than assumed: Segoe UI + Consolas on Windows, whatever
+  fontconfig resolves on Linux. Two consequences are open by design — `500` is not
+  a distinct weight on Segoe UI, and `--width-reading: 68ch` is a different
+  physical width per face, so paragraph wrapping and section heights legitimately
+  differ between machines. **Fully deterministic typography would require shipping
+  a typeface, which is a product decision that has not been made.** Recorded in §4
+  and `design-system.md` §3 with the evidence.
 - **Only chromium is installed for Playwright.** Firefox/WebKit binaries are
   absent, so cross-engine behaviour is unverified. The cyan/blue colourblind check
   and the screen-reader pass in `docs/product-architecture.md` §5 also remain
@@ -961,6 +1171,10 @@ Resolved this session:
 
 | Previously open | Resolution |
 | --- | --- |
+| Windows preview "looks different, especially typography" | **DIAGNOSED, no application change needed.** The project ships no typeface; `system-ui` resolves to Segoe UI here and to a different face on Linux. Nothing failed to load. Evidence and consequences in §4 |
+| `npm test` loaded 0 of 5 test files on Windows | **RESOLVED** — `import.meta.url` sliced at `"/"` breaks on backslash paths. Four files switched to `import.meta.dirname`; 120/120 pass |
+| `npm run format:check` failed on 37 untouched files | **RESOLVED** — `core.autocrlf=true` made the checkout CRLF against LF blobs. `.gitattributes` pins `eol=lf` for every platform |
+| Artifact digests unverifiable on Windows | **RESOLVED** — the same CRLF cause. Committed blobs always matched §9; the three-way hash proof is in §4 |
 | npm registry E403, no package access | **RESOLVED** — registry fully reachable on this device |
 | Node runtime below `>=22.6` | **RESOLVED** — Node 22.23.2 installed in user space |
 | `pytest` / `ruff` / `mypy` absent; Phase 2 gates unrunnable | **RESOLVED** — installed via the declared `dev` extra; all gates re-run and green (§9) |
@@ -977,6 +1191,44 @@ Resolved this session:
 ---
 
 ## 9. Validation status
+
+### Windows device-transition validation (2026-09-15)
+
+Every gate below was run on the Windows 11 PC, on this tree, after the two fixes in
+§4. Commands are as a developer would run them from `web/` and `pipeline/`.
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Lockfile reinstall | `npm ci` | **exit 0** — tree reproduced from the lockfile |
+| Frontend tests | `npm test` | **120 / 120 pass**, 0 fail, 0 skipped |
+| Types | `npm run typecheck` | **clean**, exit 0 |
+| Lint | `npm run lint` | **clean**, exit 0 |
+| Format | `npm run format:check` | **clean** after `.gitattributes` normalisation (37 files failed before) |
+| Combined | `npm run verify` | **exit 0** |
+| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
+| Browser E2E | `npm run test:e2e` | **32 / 32 pass** (8 foundation + 15 shell + 9 typography) |
+| Typography suite alone | `npx playwright test e2e/typography.e2e.ts` | **9 / 9 pass** |
+| Python tests | `python -m pytest` | **191 passed, 1 skipped** (4.89 s) |
+| Python lint | `ruff check .` | **All checks passed** |
+| Python format | `ruff format --check .` | **21 files already formatted** |
+| Types (src) | `mypy src` | **no issues in 11 source files** |
+| Types (src + tests) | `mypy` | **no issues in 20 source files** |
+| Artifact freshness | `python -m pipeline.build --check` | **PASS** — all 4 artifacts up to date |
+
+Counts are identical to the Linux baseline: 120 frontend tests, 191 Python tests,
+1 skip. No test was added to the existing suites, edited, skipped or weakened —
+the only new tests are the 9 in `e2e/typography.e2e.ts`.
+
+**Analytical integrity.** Nothing under `pipeline/`, `data/`, `reports/` or
+`web/src/data/generated/` was modified. The four committed artifact digests match
+§9's record exactly; the CRLF/LF three-way hash comparison proving it is in §4.
+`git diff` over those paths is empty.
+
+**Visual verification.** Screenshots were taken at 1280×900 and 375×800 and looked
+at: Segoe UI throughout with Consolas for the numeric values, correct
+eyebrow → title → lead → body hierarchy, cards bordered rather than floating,
+uppercase only on eyebrows, no overflow at 375px. Diagnostic screenshots and the
+probe script were deleted; nothing scratch remains in the tree.
 
 All gates below were run on this device, in this session, on the committed tree.
 
