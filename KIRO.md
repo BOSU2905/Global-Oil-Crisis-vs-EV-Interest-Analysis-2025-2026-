@@ -24,6 +24,53 @@ changing anything**.
 
 ## 1. Operating rules (permanent)
 
+### Governing protocol
+
+Sessions are governed by the **Universal Kiro Protocol**. The rules below are the
+project-specific expression of it; these are the parts a resuming session most
+often needs and most easily gets wrong.
+
+**Source-of-truth hierarchy** — when determining what is true, in this order:
+
+1. Actual repository state
+2. `KIRO.md`
+3. `docs/`
+4. Tests and validation reports
+5. Git history
+6. The current instruction
+7. General assumptions
+
+The repository outranks this document. If they disagree, **reconcile explicitly
+before implementing** — do not assume a phase is incomplete just because its
+implementation is unfamiliar, and do not assume this document is correct just
+because it is confident.
+
+**Mandatory loop:** READ → INSPECT → RECONCILE → PLAN → IMPLEMENT → VALIDATE →
+DOCUMENT → COMMIT → VERIFY → STOP. Never jump from instruction to
+implementation.
+
+**Phase boundaries are hard stops.** A phase is complete only when
+implementation, validation, documentation, `KIRO.md` and a commit are all done
+and the tree is resumable. On reaching that point: **STOP.** Do not
+opportunistically start the next phase — it requires a fresh explicit
+instruction.
+
+**Never report a check as passed unless it was actually run.** If a gate cannot
+run because the project has not reached the necessary phase, record that fact
+instead (see the `next build` row in §9).
+
+**No silent decisions** on anything affecting analytical interpretation, product
+narrative, architecture, data semantics, user-facing claims or design-system
+behaviour. Resolve from existing documentation and evidence; if it cannot be
+resolved safely, document the ambiguity and ask. The open Singapore grouping
+question in §8 is an example that is deliberately still unresolved rather than
+quietly decided.
+
+**No backward regression.** Before completing any task, verify prior phases are
+intact — analytical source, generated artifacts, statistical results, tests,
+reproducibility, design tokens, documented architecture. A new frontend feature
+that silently damages the analytical foundation is a failure, not a success.
+
 ### Kiro project ownership
 
 Kiro has full implementation control over this repository and is responsible for:
