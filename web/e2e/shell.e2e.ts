@@ -16,7 +16,7 @@ import { expect, test, type Page } from "@playwright/test";
  * Nothing in a type check or a build would notice.
  */
 
-const NAV_LABELS = ["Scope", "Comparability", "Structure"] as const;
+const NAV_LABELS = ["Scope", "Comparability", "Oil vs Interest", "Structure"] as const;
 
 const DESKTOP = { width: 1280, height: 900 };
 const MOBILE = { width: 375, height: 720 };
@@ -114,7 +114,7 @@ test.describe("sticky header and anchor offset", () => {
     await page.getByRole("link", { name: "Structure" }).click();
     await expect(page).toHaveURL(/#structure$/);
 
-    const heading = page.getByRole("heading", { name: "Narrative structure" });
+    const heading = page.getByRole("heading", { name: "Narrative Structure" });
 
     // scroll-behavior is smooth, so poll until the scroll settles.
     await expect

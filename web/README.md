@@ -27,7 +27,7 @@ web/
 ├── e2e/
 │   ├── foundation.e2e.ts      8 browser smoke tests
 │   ├── shell.e2e.ts           23 shell tests: nav, anchors, frame/spine, responsive, a11y
-│   ├── typography.e2e.ts      10 type-contract tests (stacks, roles, no 500, zero fonts)
+│   ├── typography.e2e.ts      16 type-contract tests (Geist stacks, roles, weight axis, self-hosting)
 │   └── content.e2e.ts         15 content tests: cards, badges, callout, disclosure
 ├── src/
 │   ├── components/layout/     AppShell Header Navigation Footer
@@ -46,7 +46,7 @@ web/
 │   └── styles/
 │       ├── tokens.css         design tokens: colour, type, space, motion, chart
 │       └── chart-language.ts  typed chart contract + DOM-free theme resolver
-└── tests/                     150 tests
+└── tests/                     160 tests
 ```
 
 **One frame, shared by the shell and the page body.** `Header`, `Footer` and
@@ -92,12 +92,12 @@ npm run start         # next start  (after a build)
 
 npm run typecheck     # tsc --noEmit, strict
 npm run lint          # eslint
-npm run test          # node --test      (150 tests)
+npm run test          # node --test      (160 tests)
 npm run format        # prettier --write
 npm run format:check  # prettier --check
 npm run verify        # typecheck + lint + test + format:check
 
-npm run test:e2e      # playwright test  (56 tests, chromium)
+npm run test:e2e      # playwright test  (62 tests, chromium)
 ```
 
 `verify` is the fast gate. `test:e2e` is separate because it builds the app and
@@ -112,36 +112,81 @@ npx playwright install chromium
 If `node` fails with `MODULE_NOT_FOUND` for `proxy-bootstrap.js`, the environment
 has a stale `NODE_OPTIONS`. Prefix commands with `NODE_OPTIONS= ` to clear it.
 
-## Typography is OS-supplied, on purpose
+## Typography ships with the application
 
-There is no webfont here. No `.woff2` in the repository, no `@font-face`, no
-`next/font`, and a page load makes **zero** font requests. `--font-sans` and
-`--font-mono` in `src/styles/tokens.css` are system stacks — the decision in
-[`../docs/design-system.md`](../docs/design-system.md) §3.
+**Geist Sans and Geist Mono, self-hosted from the `geist` npm package.** No font
+file is committed here, nothing is installed at the operating-system level, and no
+request goes to Google Fonts or any other third party. The typeface is a dependency:
 
-The consequence is that **the typeface differs between machines**: `system-ui`
-resolves to Segoe UI on Windows (with Consolas for `.numeric`) and to whatever
-fontconfig supplies on Linux. Sizes, line-heights, tracking, weights and tabular
-figures are identical everywhere and are asserted by `e2e/typography.e2e.ts`; the
-face is not, so that suite records it as an annotation instead.
+```tsx
+// app/layout.tsx — the only file that names a face
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 
-**No role may request weight 500**, and that is a portability rule rather than a
-taste one. Measured on Segoe UI, 500 and 600 produce an identical pixel digest and
-an identical 707.06px advance, while a Linux face shipping only 400/700 renders 500
-as 400 — so a role at 500 reads as emphasised on one machine and as body text on
-another. Emphasis uses `font-semibold` / `--weight-semibold`;
-`tests/typography-contract.test.ts` rejects the declaration and the `font-medium`
-utility, and an E2E test rejects the computed value.
+<html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+```
 
-One consequence stays open by design: `--width-reading: 68ch` is a different
-physical width per face, so paragraph wrapping legitimately differs per machine. A
-`min(68ch, <rem>)` ceiling was tried and reverted — `ch` scales with the element's
-font size and `rem` does not, so one ceiling binds on the 19px lead and is inert on
-16px body copy. Headings carry `text-wrap: balance` so their wrapping is deliberate
-on whatever face the OS supplies.
+The class goes on `<html>` rather than `<body>` because `<html>` **is** `:root`,
+which is where `tokens.css` declares `--font-display`, `--font-sans`, `--font-mono`
+and `--font-numeric`. A custom property set on `<body>` is invisible to a `var()` in
+a `:root` rule, so the tokens would silently take their fallback chain.
 
-Do not "fix" this by installing a font locally. Making it fully deterministic
-means the project shipping a typeface, which is a product decision.
+`next/font/local` inside the package emits the `@font-face` rules, copies two
+variable `.woff2` files into `/_next/static/media/` at build time, and serves them
+same-origin. So a page load makes **exactly two** font requests, both from this
+origin — where it used to make zero. That reversal is deliberate, and
+`e2e/typography.e2e.ts` asserts the new rule instead of dropping the old one: every
+font byte must come from `/_next/static/media/`, nothing may come from a font
+provider, and every `@font-face` family must match `/^Geist/`.
+
+**The per-machine typeface difference is resolved.** This README previously recorded
+that the face was OS-supplied and therefore differed between machines. It no longer
+does: the same bytes render everywhere, and the E2E suite asserts the face rather
+than annotating it.
+
+**Not every number is monospace.** Two figure treatments, both carrying
+`tabular-nums`, differing only in face:
+
+| Class      | Face                   | For                                                                                                                                                                 |
+| ---------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.tabular` | Geist Sans (inherited) | figures a reader **reads** — observation period, weekly observation count, market count, metric-card figures, intervals, narrative ordinals, inline `StatHighlight` |
+| `.numeric` | Geist Mono             | identifiers a reader **copies** — FRED series ids, content hashes, pipeline versions, filenames                                                                     |
+
+The alignment is load-bearing rather than decorative: Geist Sans's figures are
+proportional by default, so at 400/40px `"111111"` is 80px against `"000000"` at
+162px. With `tabular-nums` both are 144px.
+
+**The weight rule changed, and it got stricter.** "No role may request weight 500"
+is retired. That rule was measured and correct while the face came from the OS — 500
+was pixel-identical to 600 on Segoe UI and collapsed to 400 on a 400/700-only face —
+but its premise was that the platform owned the face. Both Geist files carry a
+`100 900` variable axis, so every step is interpolated from the same bytes on every
+machine; drawing one string at 100…900 gives **nine distinct pixel digests** per
+face. The replacement rules, all enforced: every `--text-*-weight` must resolve to a
+declared step (400/500/600/700), every sized role must declare a weight, no element
+may compute a weight off the scale, no role at 20px or below may exceed 500, and each
+declared step must render as a genuinely distinct face.
+
+**The weight mapping was audited, not carried over.** A weight number does not tell
+you how bold something looks, so the measure used was ink coverage at each role's own
+size. `display` 600 → **500** (31.73% → 28.27%, against 700's 34.71%), `h4` and
+`label` and `stat-small` 600 → **500**, and `small`/`meta` given an explicit 400.
+`display` ends up a step lighter than `h2`, which is optical sizing rather than an
+inverted hierarchy: the hero is nearly twice the size and does not need to be darker
+too. Full table in [`../docs/design-system.md`](../docs/design-system.md) §3.
+
+Two measured caveats remain, neither blocking:
+
+- `next/font`'s metric-adjusted `GeistSans Fallback` face reports
+  `status: "error"` on a machine without Arial, so there is no size-adjusted
+  fallback during the `font-display: swap` window there.
+- The package's `--font-geist-sans` is only `"GeistSans", "GeistSans Fallback"` and
+  does not terminate in a generic family, so `tokens.css` appends an explicit tail
+  ending in `sans-serif`. A unit test asserts it. Geist Mono needs no tail.
+
+Headings carry `text-wrap: balance`. The face is identical everywhere now, but the
+display size is fluid across a `clamp()` range, so a greedy break would still land
+differently at every viewport.
 
 Two portability notes for Windows, both already fixed in the repository:
 `.gitattributes` pins the working tree to LF (with `core.autocrlf=true` the
@@ -194,19 +239,26 @@ TypeScript and Next.js rule sets scoped to `.ts`/`.tsx`, and
 `src/data/generated/**` ignored so lint can never rewrite a pipeline-owned
 artifact. `tsc --strict`, ESLint and Prettier now all gate the tree.
 
-## Next step — Phase 3C step 5
+## Next step — Phase 3C step 5 proper
 
 Step 4 is **done**: the content components exist in `src/components/content/`.
 `SourceNote` was extracted from `Footer`, which now composes it; `Callout` replaced
 the inline warning surface on the comparability block; and `MetricCard` makes the
 §16 caveat slot structural rather than optional.
 
-Next: `EChart`, `ChartFrame`, `ChartControls`, `ChartTableFallback` and the ECharts
-theme adapter — step 5 of
+A **step 5 chart prototype** is also done and committed — ONE chart, Brent crude
+against worldwide EV search interest, at `#oil-vs-interest` on `/`. It is the
+reference implementation for everything step 5 adds after it:
+`src/components/chart/` holds `EChart`, `ChartFrame`, `ChartControls`, `ChartLegend`,
+`ChartTableFallback`, the option builder and the theme adapter; `src/lib/oil-vs-interest.ts`
+is the selector. 43 unit tests and 24 browser tests cover it, and
+`tests/chart-contract.test.ts` carries the chart layer's own no-statistic scan.
+
+Next: the remaining charts and the narrative sections that host them — step 5 of
 [`../docs/product-architecture.md`](../docs/product-architecture.md) §10, with each
 component's responsibility in §4 and the chart accessibility requirements in §5.
-Three things already exist to build on: `echarts` 6.1.0 is installed and unused,
 `src/styles/chart-language.ts` is the typed theme contract (its `CHART_TOKENS` are
 already asserted against `tokens.css`), and `ChartFrame` is a `Card` with slots
 rather than a new surface — so it must not float either. The decided chart visual
-language and interaction/motion direction are recorded in `../KIRO.md` §10.
+language and interaction/motion direction are recorded in `../KIRO.md` §10, together
+with what the prototype already settled and what deliberately stays unbuilt.

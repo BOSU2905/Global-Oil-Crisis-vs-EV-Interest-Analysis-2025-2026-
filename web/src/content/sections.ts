@@ -29,5 +29,6 @@ export interface NavSection {
 export const SHELL_SECTIONS: readonly NavSection[] = [
   { id: "scope", navLabel: "Scope" },
   { id: "comparability", navLabel: "Comparability" },
+  { id: "oil-vs-interest", navLabel: "Oil vs Interest" },
   { id: "structure", navLabel: "Structure" },
 ];

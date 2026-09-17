@@ -9,8 +9,9 @@ JSON artifacts, plus a written record of what the data supports and what it does
 not.
 
 **Status:** analytical layer complete and tested. The web frontend is in progress —
-the Next.js shell builds and is browser-tested, but no charts or narrative
-sections exist yet.
+the Next.js shell builds, is browser-tested, and now renders one prototype chart
+(Brent crude against worldwide EV search interest). The ten narrative sections do not
+exist yet.
 
 ---
 

@@ -2,17 +2,39 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-15 — Phase 3C step 4 of 8 COMPLETE (content components),
-plus a Windows device-transition fix (typography diagnosis, Windows path defect,
-line-ending determinism) and a **visual refinement pass** (one shared layout frame,
-display-type measure, weight-500 removed). Steps 1–4 done; step 5 is next.
+**Last updated:** 2026-09-17 — **cross-device sync checkpoint committed locally; the
+push is BLOCKED on a diverged remote. Read §9 "Divergence" before doing anything.**
+
+Phase 3C steps 1–4 of 8 are COMPLETE. Between step 4 and step 5 sit four passes: the
+Windows device-transition fix (typography diagnosis, Windows path defect, line-ending
+determinism), the **visual refinement pass** (one shared layout frame, display-type
+measure), the **Geist typography migration** (the project now ships its own typeface
+via the `geist` npm package; the no-500 rule retired and replaced) and the **editorial
+title-case polish**. On top of them sits a **step 5 chart prototype** — ONE chart,
+built as an evaluation checkpoint before the rest of the chart system.
+
+All of it is now in **one local commit** — the single child of `211f5c9` on `main`,
+subject `feat: add chart prototype and latest web refinements`. The three passes this
+file previously recorded as "uncommitted, pending a visual preview" were previewed and
+approved on Linux and are part of it.
+
+**Why this checkpoint exists, and what it ran into.** The Windows machine was rendering
+an older UI, and the working assumption was that `origin/main` was simply behind the
+Linux tree. Half true. `origin/main` did lack the Geist work and the chart prototype —
+but it had also advanced to **`e4374a8` "feat: adopt SF Pro typography for local web
+app"**, a Windows commit that is a *sibling* of this checkpoint rather than an ancestor.
+`main` and `origin/main` have therefore **diverged 1 commit against 1**, both children of
+`211f5c9`, and the push was rejected. The two commits are competing resolutions of the
+same typography problem — SF Pro on the remote, Geist here — and they overlap on six
+files. §9 "Divergence" records the full analysis and the options; **the resolution is a
+user decision and has not been taken.**
 
 ---
 
 ## 0. How to read this document
 
 Part A (§1–§11) is **live state**. It is rewritten as work proceeds and always
-describes the *current* repository, not the original plan.
+describes the _current_ repository, not the original plan.
 
 Part B (§12–§24) is **stable contract**: product direction, analytical guardrails
 and the verified numbers. It changes only if the pipeline output changes.
@@ -169,27 +191,557 @@ Phase 3B (dependency bootstrap) is complete and committed at `f950e2b`.
 
 Phase 3C follows the eight-step order in `docs/product-architecture.md` §10:
 
-| # | Step | Status |
-| --- | --- | --- |
-| 1 | Next.js + TypeScript + Tailwind scaffold; wire tokens into the Tailwind theme | **COMPLETE** |
-| 2 | Swap the hand-rolled validator for Zod behind the same accessors | **COMPLETE** |
-| 3 | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation` | **COMPLETE** |
-| 4 | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` (+ `Callout`) | **COMPLETE** |
-| 5 | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter | **NEXT** |
-| 6 | Hero (§2) and the Robustness section (05) | pending |
-| 7 | Remaining narrative sections in order | pending |
-| 8 | Responsive, accessibility and performance passes | pending |
+| #   | Step                                                                                   | Status                                |
+| --- | -------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1   | Next.js + TypeScript + Tailwind scaffold; wire tokens into the Tailwind theme          | **COMPLETE**                          |
+| 2   | Swap the hand-rolled validator for Zod behind the same accessors                       | **COMPLETE**                          |
+| 3   | `AppShell`, `Container`, `Section`, `SectionHeader`, `Header`, `Navigation`            | **COMPLETE**                          |
+| 4   | `Card`, `MetricCard`, `Badge`, `SourceNote`, `StatHighlight`, `ReadMore` (+ `Callout`) | **COMPLETE**                          |
+| 5   | `EChart` + `ChartFrame` + `ChartTableFallback` + the ECharts theme adapter             | **PROTOTYPE COMMITTED** — one chart   |
+| 6   | Hero (§2) and the Robustness section (05)                                              | pending                               |
+| 7   | Remaining narrative sections in order                                                  | pending                               |
+| 8   | Responsive, accessibility and performance passes                                       | pending                               |
 
 **What steps 1–4 did not do, deliberately:** no narrative sections, no hero, no
-charts, no country deep dives, no interpretation panels. The application renders a
-shell, its own scope and the three blocks that describe that scope — now built from
-the real content components. **No coefficient, p-value, interval or classification
-appears anywhere in the UI**, and that is enforced by both a unit test and an E2E
-test — see §4.
+country deep dives, no interpretation panels. The application renders a
+shell, its own scope, one prototype chart and the block that describes the narrative
+still to come. **No coefficient, p-value, interval or classification appears anywhere
+in the UI**, and that is enforced by unit tests and E2E tests — see §4.
+
+Four passes have landed between steps 4 and 5 — the **visual refinement pass**, the
+**Geist typography migration**, the **editorial title-case polish** and a **step 5
+chart prototype** (ONE chart, a deliberate evaluation checkpoint before the rest of the
+chart system). §4 documents all four. **All of them are now committed and pushed**; the
+2026-09-17 cross-device sync checkpoint is what made `origin/main` match the Linux
+working tree again.
+
+Step 5 proper — the remaining charts and their sections — has **not** started, and this
+checkpoint deliberately did not begin it.
 
 ---
 
 ## 4. Completed work
+
+### Phase 3C step 5 — chart PROTOTYPE (one chart) — COMPLETE, COMMITTED
+
+**A deliberate prototype checkpoint, not step 5.** One production-quality chart —
+Brent crude against worldwide EV search interest — built to evaluate the visual
+language and the interactions before the remaining charts are written. The minimum
+reusable infrastructure `docs/product-architecture.md` §4 names exists; nothing
+speculative was added for charts that do not exist.
+
+**Not built, deliberately:** no second chart, no country charts, no lag chart, no
+scatter, no narrative section, no hero. `ChartFrame`'s loading and empty states are
+also absent, and that is not an omission — the artifacts are imported at build time
+and validated before render, so there is no fetch to be pending. A spinner for data
+already in the bundle would be theatre.
+
+#### Architecture
+
+```text
+web/src/lib/oil-vs-interest.ts                    selector: bundle → chart data
+web/src/components/chart/contract.ts              ids, axis binding, a11y contract, table rows
+web/src/components/chart/echarts-option.ts        theme adapter + option builder
+web/src/components/chart/EChart.tsx               lifecycle wrapper (the only stateful part)
+web/src/components/chart/ChartFrame.tsx           Card with slots
+web/src/components/chart/ChartControls.tsx        reset + fallback toggle + gesture hint
+web/src/components/chart/ChartLegend.tsx          HTML legend (see below)
+web/src/components/chart/ChartTableFallback.tsx   the tabular twin
+web/src/components/chart/OilVsWorldwideInterestChart.tsx   composition
+```
+
+**The split that matters: everything decidable is in `.ts`, not `.tsx`.** The
+selector and the option builder are pure functions, so `node --test` can assert the
+things that break silently — unit bindings, axis domains, verbatim values, annotation
+positions, the layout band — without a browser. `OilVsWorldwideInterestChart.tsx`
+holds two `useState`s and a ref and nothing else. 43 unit tests cover the option; 24
+E2E tests cover only what needs a real browser.
+
+**Data path.** `panel.rows[].oil.brent_usd_per_barrel_exact` (USD/barrel) and
+`panel.rows[].interest.worldwide` (0-100 index), both verbatim. Annotations are
+`metrics.global.oil.max_week` (peak) and `metrics.global.regime.onset_week` +
+`regimes_separated` (elevated band). Selected on the **server**, so no artifact JSON
+and no validation code reaches the client. A unit test scans the whole chart layer for
+ISO date literals to keep annotation positions out of the code.
+
+#### Unit integrity, which is the whole risk of a dual-axis chart
+
+Neither series is rescaled. Left axis USD/barrel (60–120, never 0-100); right axis the
+Google Trends index on its own **0-100 domain rather than the sample's 56-100 range** —
+auto-scaling it would stretch the line to fill the plot and overstate the movement.
+Both axes carry four intervals so the plot has one grid, and the unit appears in the
+axis title, the legend label, the tooltip row and the table header.
+
+The oil axis bounds are the only derived numbers: `metrics.global.oil.min/max` rounded
+outward to a $10 step. Asserted as axis scaling that never touches a plotted value.
+
+#### Two measured bugs, both found by looking rather than by a gate
+
+**1. The chart could grow but never shrink.** At a 375px viewport the canvas stayed
+**1006px** wide and the page gained **668px of horizontal overflow**. Cause: ECharts
+writes an inline `width` onto the element it is initialised in, so the sized wrapper
+stopped tracking its parent and the `ResizeObserver` never saw a smaller box — a
+deadlock. Fixed by mounting the instance in an absolutely-positioned child, which
+takes it out of flow so its inline width cannot feed back into layout; the wrapper is
+now the only element measured. Verified: 375px → canvas 301px, overflow **0**.
+
+**2. Every axis and legend label was drawn sub-pixel.** `--chart-axis-label-size` is
+`0.8125rem`, and a custom property resolves to that string verbatim — canvas has no
+`rem`, so `parseFloat` gave a font size of **0.8125 pixels**. The labels were
+invisible and the canvas legend was consequently impossible to click. Fixed by
+threading the root font size into the builder and converting properly; `lengthToPx()`
+and a "no font size below 8px" sweep over the built option are both now asserted.
+Nothing else in the suite would have caught it: the option was structurally correct
+and the chart rendered without error.
+
+#### The legend is HTML, and that is an accessibility fix
+
+ECharts' legend is painted into the canvas, which fails §5 rule 6 — every control must
+be reachable and operable by keyboard, and a shape on a canvas cannot be tabbed to,
+focused or announced. `ChartLegend` renders real `<button aria-pressed>`s instead.
+
+Visibility is then rebuilt into the option rather than dispatched:
+`legendToggleSelect` updated the legend model and changed nothing on screen, because
+it is the legend _component_ that applies the selection while rendering, and the
+canvas legend is off. Filtering in the builder works regardless and is unit-testable.
+Hiding the oil line also drops its dashed provisional overlay, which is a treatment of
+that line rather than a third measure.
+
+#### Interactions
+
+|            |                                                                                                                                                                                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hover      | Axis-triggered tooltip, snapped to the week, persisting while the pointer is inside the plot. Week range, both measures with their own units, and provisional / missing-oil / elevated notes in words                                                             |
+| Crosshair  | Dashed axis pointer from `--chart-crosshair-*`, snapped to observations                                                                                                                                                                                           |
+| Keyboard   | The region is focusable; ←/→/Home/End step the readout, Escape dismisses. `showTip` targets the **last** series, not the first — series 0 is oil, which is null in the final week, so the one observation whose absence most needs explaining produced no readout |
+| Legend     | HTML buttons, `aria-pressed`, keyboard-operable, unit in the label                                                                                                                                                                                                |
+| Zoom / pan | `dataZoom: inside`, **Ctrl + wheel** and drag; `filterMode: "none"` so no observation is ever dropped from a series                                                                                                                                               |
+| Reset      | Always visible, 44px, mandatory because zoom is on (`assertInteractionsCoherent`)                                                                                                                                                                                 |
+
+Plain wheel scrolls the page — a chart inside a long-scroll article that swallows the
+wheel is worse than one that does not zoom, and an E2E test asserts both the scroll
+and that the domain is unchanged.
+
+#### Accessibility and the fallback
+
+`role="img"` with the title plus description as its name, `aria-describedby` pointing
+at an `sr-only` long description that states the finding. `ChartTableFallback` is the
+accessible representation: 31 rows, week as a row header, both units in the column
+headers, provisional and missing rows marked **in words**. It is **unmounted** when
+closed rather than `display:none` — 31 rows of hidden text under every chart is
+reachable by find-in-page and in browse mode, so "collapsed" would be a lie — and it
+is behind a visible, keyboard-reachable toggle rather than dumped into the layout.
+
+#### Analytical safety
+
+**No coefficient, p-value or interval appears**, and the assertion that the page
+contains no `r =`, no `p =` and no "pearson" is kept. The §16 qualification travels as
+words, conditioned on artifact flags (`levels`/`first_differences`
+`significant_at_alpha`, `both_series_trend_same_direction`) so it tracks the pipeline
+rather than a developer's memory: _"the two lines rise together, and that co-movement
+does not survive comparing week-to-week changes instead of levels — both series also
+trend upward, which alone can produce the pattern."_ Visible in the frame, not behind
+a disclosure.
+
+A test rejects causal language **per sentence**, skipping sentences that carry a
+negation — a blanket substring ban failed on "Nothing here establishes that one
+measure caused the other", which is the required denial rather than a claim. A second
+test asserts that denial is still present, so the skip cannot hide its deletion.
+
+#### "What that means for the charts" — now connected
+
+The panel previously stated a requirement for charts that did not exist. A chart exists
+and marks the partial week, so the copy describes the treatment: the dashed segment,
+and the price line stopping a week early at `metrics.global.oil.last_week` rather than
+being interpolated across the missing observation. Both facts come from the artifacts.
+
+#### One latent test error the chart surfaced
+
+`typography.e2e.ts` asserted that no role at **≤20px** may exceed weight 500.
+`--text-h3-weight` has been 600 at 1.25rem (20px) since before the Geist pass, so the
+rule contradicted the token scale — it passed only because nothing on the page
+rendered `text-h3` until `ChartFrame` did. Bound tightened to `< 20px`, which still
+covers every role the ink-coverage audit actually measured (label 12, meta 13, small
+15, h4 and stat-small 17). Documented at the assertion.
+
+#### Files created
+
+Eleven new files, nothing deleted. Two existing files gained the chart: `app/page.tsx`
+(the `oil-vs-interest` section) and `src/content/sections.ts` (its nav entry).
+
+```text
+web/src/lib/oil-vs-interest.ts                    263  selector: bundle → chart data
+web/src/components/chart/contract.ts              210  ids, axis binding, a11y, table rows
+web/src/components/chart/echarts-option.ts        742  theme adapter + option builder
+web/src/components/chart/EChart.tsx               353  lifecycle wrapper
+web/src/components/chart/ChartFrame.tsx           114  Card with slots
+web/src/components/chart/ChartControls.tsx         82  reset + fallback toggle + hint
+web/src/components/chart/ChartLegend.tsx           76  HTML legend
+web/src/components/chart/ChartTableFallback.tsx   102  the tabular twin
+web/src/components/chart/OilVsWorldwideInterestChart.tsx  205  composition
+web/tests/chart-contract.test.ts                  869  43 unit tests
+web/e2e/chart.e2e.ts                              564  24 browser tests
+```
+
+`web/src/components/chart/` is a **new directory**, and it is where every future chart
+component belongs — `src/data/`'s file list is asserted by `analytical-safety.test.ts`,
+so the chart layer was never a candidate for that directory.
+
+### Editorial title-case polish (after the Geist migration) — COMPLETE
+
+A content-casing pass only, run once the Geist preview was approved on Linux. **No
+typography changed**: no font, no weight, no token, no `.tabular` / `.numeric`
+assignment, no component structure. Six visible content strings and one test fixture
+were recased, and the convention that was previously implicit is now written down and
+enforced.
+
+**The convention.** Editorial titles are Title Case; prose and controls are sentence
+case. Chicago-style rather than AP — articles, coordinating conjunctions and
+prepositions stay lowercase unless they lead or close the title, and both halves of a
+hyphenated compound are capitalised. That is why the hero keeps a lowercase "vs".
+
+| Kind                   | Case          | Examples                                                                      |
+| ---------------------- | ------------- | ----------------------------------------------------------------------------- |
+| Section eyebrow        | Title Case    | `Analytical Foundation`, `Cross-Market Comparison`                            |
+| Section title          | Title Case    | `Observation Scope`, `Narrative Structure`                                    |
+| Metric-card label      | Title Case    | `Observation Period`, `Weekly Observations`                                   |
+| Badge / callout kind   | Title Case    | `Provisional`, `Guardrail`                                                    |
+| Lead                   | sentence case | "The finished product is one long-scroll argument in ten sections…"           |
+| Body, caveat sentences | sentence case | "1 week flagged as partial in the panel."                                     |
+| Controls               | sentence case | `Read more`, `Show less`, `What that means for the charts`, `Skip to content` |
+
+Strings changed, all in `app/page.tsx`:
+
+| Before                               | After                          | Visible effect          |
+| ------------------------------------ | ------------------------------ | ----------------------- |
+| `title="Observation scope"`          | **`Observation Scope`**        | yes — `h2`              |
+| `title="Comparability constraint"`   | **`Comparability Constraint`** | yes — `h2`              |
+| `title="Narrative structure"`        | **`Narrative Structure`**      | yes — `h2`              |
+| `label: "Observation period"`        | **`Observation Period`**       | yes — card label        |
+| `label: "Weekly observations"`       | **`Weekly Observations`**      | yes — card label        |
+| `eyebrow="Analytical foundation"`    | **`Analytical Foundation`**    | **no** — CSS-uppercased |
+| `eyebrow="Cross-market comparison"`  | **`Cross-Market Comparison`**  | **no** — CSS-uppercased |
+| `eyebrow="Information architecture"` | **`Information Architecture`** | **no** — CSS-uppercased |
+
+The eyebrows were recased even though the change is invisible, and the reason is not
+tidiness: **`text-transform: uppercase` does not change the accessible name.** A
+screen reader reads the DOM text, so the announced string was sentence case while the
+visible string was upper case. Recasing aligns the two and removes a place where
+casing can drift unnoticed.
+
+Already correct and left alone: the hero `Global Oil Crisis vs EV Interest Analysis`,
+the header wordmark `Oil Prices vs EV Interest`, all ten narrative section names
+(`Overview` … `Conclusion`), `Coverage`, `Sources`, `Provisional`, `Guardrail`, and
+the three nav labels.
+
+**No runtime title-caser was added**, deliberately. A transform would have to guess at
+`vs`, `EV`, `Cross-Market` and every proper noun steps 6–7 introduce, and it would
+mangle the one it guessed wrong while looking correct in review. The case lives in the
+content string; three unit tests hold the convention instead:
+
+- the title-case helper is itself checked against ten known-good and four known-bad
+  strings before anything trusts it;
+- every `eyebrow=` and `title=` on the page must be Title Case;
+- every `label:` must be Title Case **and every `lead=` must not be** — the second
+  half matters, because it stops a future over-correction from turning a section
+  thesis into a headline.
+
+This binds the ten narrative titles in steps 6–7, which is the point of writing it
+down now rather than after they exist.
+
+#### The "What that means for the charts" disclosure was investigated, not changed
+
+The brief recorded this control's expansion content as absent or incomplete. **It is
+neither — the content is present, it renders, and four E2E tests cover it.**
+`npx playwright test e2e/content.e2e.ts -g "ReadMore"` passes 4/4, and one of those
+tests asserts the panel text is _visible_ after a click:
+
+```
+✓ ReadMore › the summary is visible and the detail is absent until asked for
+✓ ReadMore › clicking expands it, changes the label, and reveals the panel
+✓ ReadMore › Escape closes it and returns focus to the toggle
+✓ ReadMore › the toggle meets the 44px tap target at 375px
+```
+
+The panel being empty _before_ a click is `ReadMore`'s design, not a defect: it
+**unmounts** the panel when closed rather than hiding it, because a hidden-but-present
+panel is still reachable by find-in-page and by a screen reader in browse mode, which
+would make "collapsed" a lie. That decision is recorded in §7.
+
+Nothing was invented and no placeholder was added. What was genuinely outstanding at
+the time of this pass was the thing the copy promised: it stated that provisional weeks
+must be marked visibly rather than presented as complete weekly averages, and no chart
+did that because no chart existed. **The chart prototype closed it** — the panel now
+describes the dashed segment and the early end of the price line rather than stating a
+requirement, using `--chart-provisional-color` and `--chart-provisional-dash` over
+`panel.coverage.partial_weeks` and `coverage.weeks_without_oil`.
+
+#### Files changed
+
+```text
+web/app/page.tsx                               6 content strings recased
+web/src/components/layout/SectionHeader.tsx    docstring + prop docs: the case convention
+web/src/components/content/contract.ts         MetricBase.label documented as Title Case
+web/tests/layout-contract.test.ts              + 3 title-case tests (11 → 14)
+web/tests/content-contract.test.ts             one fixture recased to match the convention
+web/e2e/content.e2e.ts                         2 assertions track the new strings
+web/e2e/foundation.e2e.ts                      1 assertion
+web/e2e/shell.e2e.ts                           1 assertion
+```
+
+The four E2E/unit assertions that changed track renamed content — they are the same
+assertions against the same elements, not weakened ones.
+
+### Geist typography migration (between steps 4 and 5) — COMPLETE, COMMITTED
+
+The project now **ships its own typeface**. Geist Sans and Geist Mono arrive through
+the `geist` npm package, are self-hosted out of the build, and render identically on
+every machine. This closes the longest-standing open item in §8. **Not step 5.** No
+chart, no ECharts import, no narrative section, and no change to the analytical layer.
+
+Thirteen files changed, none created, none deleted. No colour, radius, motion or
+spacing token was touched, and no component was added or removed.
+
+#### First, the checkpoint this started from was not clean
+
+`HEAD` is `211f5c9 "update"`, and it needs recording because nothing else does: it
+introduced the **SF Pro pass** — `--font-display` / `--font-sans` renamed to request
+`"SF Pro Display"` / `"SF Pro Text"` by name, with the system stack behind them — and
+it was committed with **two failing gates and no KIRO.md entry**:
+
+| Gate                   | State at `211f5c9`                  | Cause                                                                                    |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run format:check` | **FAIL** on `src/styles/tokens.css` | the new `--font-sans` line wrapping is not Prettier's                                    |
+| `npm run test:e2e`     | **54 passed, 2 FAILED**             | `e2e/typography.e2e.ts` still asserted the _old_ system stack against the new SF Pro one |
+| `npm run verify`       | **FAIL**                            | consequence of `format:check`                                                            |
+
+Everything else was green at that commit (`typecheck`, `lint`, `npm test` 150/150,
+Python 191 passed / 1 skipped, ruff, mypy, artifact freshness). Both failures are
+resolved by this migration rather than worked around: the E2E stacks are rewritten to
+Geist, and `tokens.css` is Prettier-clean. Recorded here because a commit that leaves
+two gates red and no documentation is the thing this file exists to prevent.
+
+The SF Pro pass is also **superseded rather than corrected**. Its reasoning was sound
+— `system-ui` made the product's identity a property of the viewing machine — but its
+mechanism did not fix that: naming a face still depends on the face being installed,
+and on this Linux box SF Pro is absent, so the page rendered the same fallback it did
+before. Worse, where SF Pro _was_ installed the pass documented that the local family
+had no upright Semibold cut, so a 600 request resolved to **Bold**. Naming a face you
+do not ship trades one per-machine outcome for another.
+
+#### The decision: the typeface is a dependency
+
+```tsx
+// app/layout.tsx — the only file in the project that names a face
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
+
+<html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+```
+
+`geist` 1.7.2, exact-pinned in `dependencies`, no transitive dependencies. Each entry
+point calls `next/font/local` on a **variable** `.woff2` inside the package and
+exposes a class name that declares one custom property (`--font-geist-sans`,
+`--font-geist-mono`). `tokens.css` §4 reads those two properties; nothing else in the
+project names a family.
+
+**The class is on `<html>`, not `<body>`, and that is load-bearing.** `<html>` _is_
+`:root`, which is where `tokens.css` declares `--font-display`, `--font-sans`,
+`--font-mono` and `--font-numeric`. A custom property set on `<body>` is invisible to
+a `var()` in a `:root` rule, so every token would have silently taken its fallback
+chain — a failure that looks like "the font didn't apply" and has nothing to do with
+the font.
+
+What is and is not in the repository, verified rather than asserted:
+
+|                                |                                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Font files committed           | **none** — `find web/ -name "*.woff2" …` excluding `node_modules`/`.next` returns nothing, and a unit test walks the tree |
+| OS-installed font required     | **none**                                                                                                                  |
+| Remote font URL / Google Fonts | **none**                                                                                                                  |
+| `@font-face` rules             | **2**, emitted by `next/font` from the package                                                                            |
+| Font requests per page load    | **2**, both `http://127.0.0.1:3100/_next/static/media/*.woff2`                                                            |
+
+That last row is a **deliberate reversal**: the product used to make zero font
+requests, and the E2E suite asserted exactly that. The old absolute is replaced by a
+narrower, stronger rule rather than deleted — every font request must be same-origin
+under `/_next/static/media/`, nothing may come from a font provider, and every
+`@font-face` family must match `/^Geist/`.
+
+#### The audit: 22 roles, measured on the production build
+
+A temporary Playwright spec inspected the rendered page and was **deleted** after the
+findings were recorded here. It covered the hero h1 and lead, header wordmark and
+period, nav links, section eyebrows, h2 and lead, metric labels and figures,
+`StatHighlight`, country badges, the three coverage figures, narrative ordinals,
+source metadata, the FRED series id, the content hash, body copy, the disclosure
+toggle and the metric unit.
+
+**Every role draws in its intended face and nothing falls back.** Checked by
+rendering each element's own text with its computed `font` shorthand, then again with
+the first family replaced by a nonexistent name, and comparing both the pixel digest
+and the advance. All 22 differ, i.e. the first family is genuinely drawing. Geist Sans
+everywhere except the FRED series id and the content hash, which are Geist Mono.
+
+**The variable weight axis is real, not synthesized.**
+
+|                                 | Geist Sans                 | Geist Mono                 |
+| ------------------------------- | -------------------------- | -------------------------- |
+| `@font-face` weight range       | `100 900`, status `loaded` | `100 900`, status `loaded` |
+| Distinct pixel digests, 100…900 | **9 / 9**                  | **9 / 9**                  |
+| Advance at 64px, 100 → 900      | 700px → 811px, monotonic   | **798px at every weight**  |
+
+The constant mono advance is the correct result for a monospace face — weight changes
+stem thickness, never advance — and it is also the cleanest disproof of synthesis: a
+synthetic bold is a stroke-dilated copy of the same instance and would have widened
+it. Per CSS font-matching, a family whose face covers `100 900` is never synthesized
+in that range at all.
+
+**`tabular-nums` is load-bearing, not decorative.** Geist Sans's figures are
+_proportional_ by default: at 400/40px, `"111111"` measures 80px against `"000000"`
+at 162px. With `tabular-nums` both are 144px. Without the utility a column of metric
+cards would visibly misalign.
+
+**Two caveats, both measured, neither blocking.** They are now the only open
+typography items in §8:
+
+- `next/font` emits a third face, `GeistSans Fallback`, which is a metric-adjusted
+  local Arial. It reports **`status: "error"`** here, because Arial is not installed
+  on this machine. It matters only inside the `font-display: swap` window, and its
+  absence means a swap on such a machine shifts layout instead of being size-matched.
+- The package's `--font-geist-sans` resolves to exactly
+  `"GeistSans", "GeistSans Fallback"` — it **does not terminate in a generic family**.
+  Combined with the above, a failed `.woff2` load would run off the end of the chain
+  into the UA default serif. `tokens.css` now appends an explicit tail ending in
+  `sans-serif`, and a unit test asserts it. Geist Mono needs no tail; the package
+  already ships a full chain ending in `monospace`.
+
+#### The weight mapping was re-decided, and the measure is ink coverage
+
+A weight _number_ does not say how bold something looks: 600 at 12px uppercase is
+denser per unit area than 600 at 60px display. So the audit measured **ink coverage**
+— the share of each string's bounding box that is ink, at the role's real size — and
+the mapping follows from that rather than from SF Pro's cut list.
+
+| Role                       | Size |    300 |    400 |    500 |    600 |    700 |     Was |     Now |
+| -------------------------- | ---: | -----: | -----: | -----: | -----: | -----: | ------: | ------: |
+| display (hero)             | 60px |      — | 23.72% | 28.27% | 31.73% | 34.71% |     600 | **500** |
+| label (eyebrow, badge)     | 12px |      — | 30.60% | 35.53% | 40.32% |      — |     600 | **500** |
+| h4 (wordmark)              | 17px |      — | 27.42% | 30.24% | 34.43% |      — |     600 | **500** |
+| stat-small (metric figure) | 17px |      — | 27.91% | 32.21% | 35.62% |      — |     600 | **500** |
+| small (nav link)           | 15px | 22.20% | 26.88% | 32.77% |      — |      — | _unset_ | **400** |
+| meta (metric label)        | 13px |      — |      — |      — |      — |      — | _unset_ | **400** |
+
+Unchanged: `h1` 600, `h2` 600, `h3` 600, `lead` 400, `body` 400, `stat` 600. `data`
+declares no weight; the chart layer will set it from `--chart-*` tokens.
+
+Four decisions, each traceable to a row above:
+
+- **The hero is 500.** 700 (34.71%) is the excessively-bold end the brief forbids and
+  600 (31.73%) was close enough to read as a marketing headline rather than an
+  analytical title. Tracking at `-0.028em` supplies the density weight was doing.
+- **`display` is now a step lighter than `h2`, and that is optical sizing, not an
+  inverted hierarchy.** The larger the type, the less weight it needs to dominate; the
+  hero is nearly twice a section heading's size. Stated explicitly in `tokens.css` and
+  asserted by a unit test, because otherwise it reads as a bug.
+- **Eyebrows and country badges drop to 500.** Uppercase at 12px with `0.075em`
+  tracking is the densest type on the page per unit area, and at 600 it measured
+  40.32% — _heavier than the 60px hero_. Every eyebrow and every country label was
+  out-weighing the title above it.
+- **The navigation rail stays at 400, and it is honest to say it did not get
+  lighter.** The brief asked for the rail one step lighter than the SF Pro pass; the
+  rail was already at prose weight there, because `--text-small-*` declared no weight
+  at all and inherited the body's. 300 was measured (22.20%) and rejected — a thinner
+  stroke at 15px on `--color-fg-muted` degrades perceived legibility even where the
+  contrast ratio passes. What actually got lighter beside the rail is the wordmark,
+  600 → 500, which is where the header's heaviness came from.
+
+#### The no-500 rule is retired, and replaced by a stricter one
+
+This is the substantive architectural change. "No type role may request weight 500"
+was **measured and correct** under the previous two font strategies:
+
+- Segoe UI rendered 500 and 600 to an identical pixel digest and an identical
+  **707.06px** advance — 500 bought nothing;
+- a Linux face shipping only 400/700 rendered 500 as **400**, i.e. as body text;
+- SF Pro Display as installed had no upright Semibold, so 600 resolved to **Bold**.
+
+Every one of those is a property of a font _the machine supplied_. None can occur when
+the file ships with the application and covers `100 900`. The rule's premise is gone,
+so the rule goes — but **not the coverage**. `--weight-medium` is now a working step
+and `--weight-bold: 700` joins the scale as a declared, unused value.
+
+What replaces it, all enforced:
+
+| Rule                                                                                                            | Where |
+| --------------------------------------------------------------------------------------------------------------- | ----- |
+| Every `--text-*-weight` must resolve to a declared step on the scale; a raw number or an undeclared token fails | unit  |
+| Every role that declares a size must declare a weight (`data` exempt)                                           | unit  |
+| Every declared weight must be mapped in `globals.css`, or it never renders                                      | unit  |
+| The scale is exactly 400/500/600/700                                                                            | unit  |
+| No element may compute a weight outside 400/500/600/700                                                         | E2E   |
+| No role at 20px or below may exceed 500                                                                         | E2E   |
+| 400/500/600/700 must be four distinct pixel digests with monotonically increasing ink, **per face**             | E2E   |
+| 700 must remain unused                                                                                          | E2E   |
+
+The measured premise of the retired rule stays in `tokens.css`, and a unit test
+asserts it stays: deleting it would invite the next person to reinstate the rule from
+git history, or to assume 500 is still unsafe here.
+
+#### Not every number is monospace
+
+The brief's principle — human-facing figures belong in the prose face — was **not
+already implemented**, contrary to what the brief assumed. The previous refinement
+moved only `StatHighlight`'s _unit_ ("week") out of the mono face; the header period,
+every metric-card figure, every narrative ordinal and the inline stat itself were all
+still `.numeric`, i.e. all still monospace. Recorded plainly because the discrepancy
+matters: the principle is now applied, but this pass is where it happened.
+
+Applying it naively would have cost tabular alignment, since `.numeric` supplied both
+the mono face _and_ `tabular-nums`. So the concern is split into two utilities:
+
+| Class            | Face                                | For                                                                                                                                                                                                                       |
+| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.tabular` (new) | Geist Sans (declares **no** family) | figures a reader **reads** — observation period, weekly observation count, market count, metric-card figures, confidence intervals, the specification line, narrative ordinals, inline `StatHighlight`, the header period |
+| `.numeric`       | Geist Mono                          | identifiers a reader **copies** — FRED series id, content hash, pipeline version, the `tokens.css` filename mention                                                                                                       |
+
+Both carry `font-variant-numeric: tabular-nums` and `font-feature-settings: "tnum" 1`,
+so design-system §3's "tabular figures are non-negotiable" holds either way. A unit
+test asserts the split in both directions: `Header`, `MetricCard`, `StatHighlight` and
+`SectionHeader` may not use `.numeric`, and `SourceNote` and `Footer` must.
+
+#### Files changed
+
+```text
+web/package.json                               + geist 1.7.2 (dependencies, exact)
+web/package-lock.json                          + 1 package
+web/app/layout.tsx                             GeistSans/GeistMono on <html>
+web/src/styles/tokens.css                      §4 rewritten: faces, 4-step scale,
+                                               audited weights, .tabular utility
+web/app/globals.css                            map small/meta weights; drop SF Pro prose
+web/app/page.tsx                               narrative ordinal .numeric → .tabular
+web/src/components/layout/Header.tsx           drop font-semibold override; period → .tabular
+web/src/components/layout/SectionHeader.tsx    eyebrow ordinal → .tabular
+web/src/components/content/MetricCard.tsx      value/interval/specification → .tabular
+web/src/components/content/StatHighlight.tsx   .numeric semibold → .tabular medium
+web/tests/typography-contract.test.ts          10 → 20 tests
+web/e2e/typography.e2e.ts                      10 → 16 tests
+web/e2e/content.e2e.ts                         one selector: .numeric → .tabular
+```
+
+Plus documentation: this file, `docs/design-system.md` §3, and `web/README.md`.
+`docs/product-architecture.md` needed no change — it does not describe the font
+architecture.
+
+#### No test was weakened
+
+The two E2E tests that were **failing** at `211f5c9` now pass, and neither was
+loosened to get there: they asserted the old system stack against a page declaring SF
+Pro, so they were simply stale. The two that had to change in _substance_ are the
+"zero font requests" and "zero `@font-face`" assertions, and both were replaced by
+narrower rules that a `next/font/google` import or a remote `@import` still fails.
+Test counts went 150 → 160 (unit) and 56 → 62 (E2E), with the E2E role table now
+asserting a weight for **every** role at both viewports rather than for four of them.
 
 ### Visual refinement pass (between steps 4 and 5) — COMPLETE
 
@@ -204,17 +756,17 @@ touched, and no component was added or removed.
 #### Typography: the face is OS-owned, but weight 500 was a real defect
 
 The face difference is **confirmed again as not a defect** — and this time the
-consequence that *was* a defect got fixed.
+consequence that _was_ a defect got fixed.
 
 Measured on this machine by drawing one string to a canvas at each weight and
 hashing the pixels, plus advance widths:
 
-| Weight | Pixel digest | Advance |
-| --- | --- | --- |
-| 400 | `8be5c6f4` | 696.41px |
+| Weight  | Pixel digest   | Advance      |
+| ------- | -------------- | ------------ |
+| 400     | `8be5c6f4`     | 696.41px     |
 | **500** | **`271406a1`** | **707.06px** |
 | **600** | **`271406a1`** | **707.06px** |
-| 700 | `c16e1714` | 741.38px |
+| 700     | `c16e1714`     | 741.38px     |
 
 **500 and 600 are byte-identical on Segoe UI.** A face shipping only 400/700 —
 common on Linux — renders 500 as 400 instead. So every role set to 500 read as
@@ -244,6 +796,10 @@ noted that 500 was unreliable and kept it anyway.
 no Google Fonts, no `.woff2`, zero font requests — the E2E assertions for that are
 untouched and still pass. Deterministic typography would require shipping a
 typeface, which remains an unmade product decision.
+
+> **Superseded by the Geist migration** at the top of this section: the typeface is
+> now shipped, the face is deterministic, and the "zero font requests" assertion has
+> been replaced by a same-origin one. Retained as the record of what this pass did.
 
 #### One responsible measure change, and one rejected after measuring it
 
@@ -277,12 +833,12 @@ it is why the E2E reading-measure probe had to be corrected (below).
 and the cause was not the width. The shell used `--width-page` (1440px) while the
 page body used `--width-content` (1120px). Both centred on the same axis, so:
 
-| Viewport | Header content starts | Body content starts | Inset |
-| --- | ---: | ---: | ---: |
-| 375px | x=16 | x=16 | 0 |
-| 1280px | x=24 | x=104 | **80px** |
-| 1440px | x=24 | x=184 | **160px** |
-| 1920px | x=264 | x=424 | **160px** |
+| Viewport | Header content starts | Body content starts |     Inset |
+| -------- | --------------------: | ------------------: | --------: |
+| 375px    |                  x=16 |                x=16 |         0 |
+| 1280px   |                  x=24 |               x=104 |  **80px** |
+| 1440px   |                  x=24 |               x=184 | **160px** |
+| 1920px   |                 x=264 |               x=424 | **160px** |
 
 Two centred containers of different widths have **no alignment spine**. Nothing
 failed and no gate noticed; the page simply read as a narrow column floating inside
@@ -298,12 +854,12 @@ can breathe" resolves to concretely.
 
 Measured after the change:
 
-| Viewport | Frame | Coverage | Spine offset | Overflow |
-| --- | ---: | ---: | ---: | ---: |
-| 375px | 375px | 100% | **0px** | 0 |
-| 1280px | 1120px | 87.5% | **0px** | 0 |
-| 1440px | 1120px | 77.8% | **0px** | 0 |
-| 1920px | **1280px** | **66.7%** (was 58.3%) | **0px** | 0 |
+| Viewport |      Frame |              Coverage | Spine offset | Overflow |
+| -------- | ---------: | --------------------: | -----------: | -------: |
+| 375px    |      375px |                  100% |      **0px** |        0 |
+| 1280px   |     1120px |                 87.5% |      **0px** |        0 |
+| 1440px   |     1120px |                 77.8% |      **0px** |        0 |
+| 1920px   | **1280px** | **66.7%** (was 58.3%) |      **0px** |        0 |
 
 Header identity, body eyebrow, `h1`, card grid and footer now share one left edge at
 every width. 1280px keeps the composition it already had; mobile is byte-identical
@@ -312,7 +868,7 @@ in layout.
 **Why the body was not simply widened to 1440px.** Step 3 tried a `page`-width body
 and reverted it after looking at a screenshot, because prose left-aligned in a very
 wide frame leaves a void. That finding still holds — which is why the frame was
-brought *down* to meet the body rather than the body pushed out to meet a 1440px
+brought _down_ to meet the body rather than the body pushed out to meet a 1440px
 shell, and why the growth above `2xl` stops at `--width-chart`. A unit test asserts
 the frame never exceeds `--width-chart`, since a frame wider than the widest
 permitted chart is space no content variant can fill.
@@ -387,9 +943,9 @@ zero of six series survive first differencing. Until now that rule lived in pros
 
 `MetricContent` in `contract.ts` is a discriminated union:
 
-| Variant | Requires |
-| --- | --- |
-| `kind: "descriptive"` | nothing beyond label + value. Counts, dates, coverage |
+| Variant               | Requires                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `kind: "descriptive"` | nothing beyond label + value. Counts, dates, coverage                                 |
 | `kind: "inferential"` | `specification: string` **and** `caveats: readonly [MetricCaveat, ...MetricCaveat[]]` |
 
 The tuple type is what makes "at least one caveat" checkable. **Verified against
@@ -425,20 +981,20 @@ the original project's error. Two tests hold the line: a unit test asserts
 rendered body still matches no `r =`, no `p =`, no "pearson" and no "other
 specifications".
 
-Building the gate *before* the sections that need it was the point of the ordering.
+Building the gate _before_ the sections that need it was the point of the ordering.
 
 #### Component decisions worth knowing
 
-| Component | Decision | Why |
-| --- | --- | --- |
-| `Card` | `shadow-none` written explicitly; `as` prop for `li`/`article` | design-system §1/§4: elevation is border + background delta. Stating it at the place someone would add a shadow is stronger than omitting it. `globals.css` does not even generate a card-sized shadow utility |
-| `Badge` | `tone` defaults to `neutral`; children always rendered | §5 forbids colour as the sole cue. Three cues carry meaning and only one is colour; reaching for a colour must be deliberate |
-| `MetricCard` | badge **and** sentence for every caveat | A badge alone puts the qualification in a `title` attribute, i.e. behind a hover. The accessibility contract does not allow that |
-| `StatHighlight` | `label` is required, rendered as `aria-label` | An inline figure is the one place a number appears with no visible label. "31" reads fine and speaks badly |
-| `SourceNote` | a move, not a rewrite | `Footer` already rendered `manifest.sources[]` in the right shape. A test asserts `Footer` no longer references `source.url`, so the list cannot grow back |
-| `Callout` | four tones, each mapped to a badge tone | A callout whose surface and badge disagree is worse than either alone. `CALLOUT_BADGE_TONE` makes the pair a single decision |
-| `ReadMore` | a real `<button>`, not `<details>`/`<summary>` | §6 asks for animated height, a deep-linkable open state and Escape-to-close. `<details>` gives none of the three reliably |
-| `ReadMore` | the panel is **unmounted** when closed, not hidden | A hidden-but-present panel is reachable by find-in-page and by a screen reader in browse mode, which makes "collapsed" a lie |
+| Component       | Decision                                                       | Why                                                                                                                                                                                                            |
+| --------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Card`          | `shadow-none` written explicitly; `as` prop for `li`/`article` | design-system §1/§4: elevation is border + background delta. Stating it at the place someone would add a shadow is stronger than omitting it. `globals.css` does not even generate a card-sized shadow utility |
+| `Badge`         | `tone` defaults to `neutral`; children always rendered         | §5 forbids colour as the sole cue. Three cues carry meaning and only one is colour; reaching for a colour must be deliberate                                                                                   |
+| `MetricCard`    | badge **and** sentence for every caveat                        | A badge alone puts the qualification in a `title` attribute, i.e. behind a hover. The accessibility contract does not allow that                                                                               |
+| `StatHighlight` | `label` is required, rendered as `aria-label`                  | An inline figure is the one place a number appears with no visible label. "31" reads fine and speaks badly                                                                                                     |
+| `SourceNote`    | a move, not a rewrite                                          | `Footer` already rendered `manifest.sources[]` in the right shape. A test asserts `Footer` no longer references `source.url`, so the list cannot grow back                                                     |
+| `Callout`       | four tones, each mapped to a badge tone                        | A callout whose surface and badge disagree is worse than either alone. `CALLOUT_BADGE_TONE` makes the pair a single decision                                                                                   |
+| `ReadMore`      | a real `<button>`, not `<details>`/`<summary>`                 | §6 asks for animated height, a deep-linkable open state and Escape-to-close. `<details>` gives none of the three reliably                                                                                      |
+| `ReadMore`      | the panel is **unmounted** when closed, not hidden             | A hidden-but-present panel is reachable by find-in-page and by a screen reader in browse mode, which makes "collapsed" a lie                                                                                   |
 
 #### Where the components are used, and the §6 hard rule
 
@@ -447,7 +1003,7 @@ the finding — that one week rests on fewer than five trading days — is in th
 always-visible summary with the figure as a `StatHighlight`; only the charting
 instruction is behind the disclosure. §6's list of statements that must never be
 inside a `ReadMore` is unaffected, and the comparability guardrail is deliberately
-*not* in one: a test asserts the `Callout` is not wrapped by a `ReadMore`, and an
+_not_ in one: a test asserts the `Callout` is not wrapped by a `ReadMore`, and an
 E2E test asserts both the constraint and the remedy are visible without
 interaction.
 
@@ -475,7 +1031,7 @@ keyword, which would have failed for the right reason and the wrong cause.
 The project moved from a Linux laptop to a Windows 11 PC and "looked different,
 especially the typography". Diagnosed before changing anything. **The typography
 difference is not a defect and no font declaration was changed.** Two unrelated
-*real* portability defects were found while diagnosing it, and both are fixed.
+_real_ portability defects were found while diagnosing it, and both are fixed.
 
 #### The typography difference: cause established, no code change warranted
 
@@ -499,14 +1055,14 @@ the operating system on purpose, and it therefore differs per machine.
 What it resolves to here, measured in the browser by advance-width comparison
 against two sentinel families:
 
-| | Windows 11 + Chromium 153.0.8010.12 |
-| --- | --- |
-| `ui-sans-serif` | **does not resolve** — Safari-only keyword, ignored by Chromium |
-| `system-ui` | resolves, metrically identical to `"Segoe UI"` → **wins the sans stack** |
-| `-apple-system`, `BlinkMacSystemFont`, `"Helvetica Neue"`, `"Noto Sans"` | absent |
-| `Roboto`, `Arial` | installed but never reached — `system-ui` precedes them |
-| `ui-monospace`, `SFMono-Regular`, `"SF Mono"`, `Menlo`, `"Liberation Mono"` | absent |
-| `Consolas` | resolves → **wins the mono/numeric stack** |
+|                                                                             | Windows 11 + Chromium 153.0.8010.12                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `ui-sans-serif`                                                             | **does not resolve** — Safari-only keyword, ignored by Chromium          |
+| `system-ui`                                                                 | resolves, metrically identical to `"Segoe UI"` → **wins the sans stack** |
+| `-apple-system`, `BlinkMacSystemFont`, `"Helvetica Neue"`, `"Noto Sans"`    | absent                                                                   |
+| `Roboto`, `Arial`                                                           | installed but never reached — `system-ui` precedes them                  |
+| `ui-monospace`, `SFMono-Regular`, `"SF Mono"`, `Menlo`, `"Liberation Mono"` | absent                                                                   |
+| `Consolas`                                                                  | resolves → **wins the mono/numeric stack**                               |
 
 **The browser is not the variable.** Playwright installed Chrome Headless Shell
 **153.0.8010.12 (build v1243)** on this PC — the identical build recorded for the
@@ -525,7 +1081,7 @@ Two consequences of the system-stack decision are real and now documented in
 - **`--weight-medium: 500` is not a distinct face on Windows.** Measured by
   drawing the same string to a canvas at each weight and hashing the pixels: 400
   is distinct, **500 and 600 are pixel-identical**, 700 is distinct. The design
-  system's three weights collapse to two here — and collapse *differently* on a
+  system's three weights collapse to two here — and collapse _differently_ on a
   Linux face shipping only 400/700, where 500 renders as 400 and 600 as 700. This
   is the most likely thing that read as "the typography changed": heading and
   eyebrow emphasis is OS-dependent.
@@ -536,17 +1092,24 @@ Two consequences of the system-stack decision are real and now documented in
 
 Deliberately **not** done, and why:
 
-| Not done | Reason |
-| --- | --- |
-| Bundle a webfont via `next/font/local` | Requires choosing a typeface. That reverses a decision recorded in two documents and changes the product's visual identity — a design decision for the user, not a diagnosis outcome. §1 forbids silent decisions of exactly this kind |
-| `next/font/google` | Same, plus it reintroduces the build-time network dependency `design-system.md` §3 rules out |
-| Change `--font-sans` ordering, or drop `ui-sans-serif` | It is inert in Chromium and correct in Safari. Removing it would change nothing on any machine and lose real coverage |
-| Install a font on Windows | Would make one developer's machine the reference and leave the repository no more deterministic than before |
-| Raise `--weight-medium` to 600 to "restore" emphasis | The tokens are not wrong; the platform face has no 500. Changing the token is a visual change with no evidence behind it |
+| Not done                                               | Reason                                                                                                                                                                                                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bundle a webfont via `next/font/local`                 | Requires choosing a typeface. That reverses a decision recorded in two documents and changes the product's visual identity — a design decision for the user, not a diagnosis outcome. §1 forbids silent decisions of exactly this kind |
+| `next/font/google`                                     | Same, plus it reintroduces the build-time network dependency `design-system.md` §3 rules out                                                                                                                                           |
+| Change `--font-sans` ordering, or drop `ui-sans-serif` | It is inert in Chromium and correct in Safari. Removing it would change nothing on any machine and lose real coverage                                                                                                                  |
+| Install a font on Windows                              | Would make one developer's machine the reference and leave the repository no more deterministic than before                                                                                                                            |
+| Raise `--weight-medium` to 600 to "restore" emphasis   | The tokens are not wrong; the platform face has no 500. Changing the token is a visual change with no evidence behind it                                                                                                               |
 
 The honest summary: **deterministic typography would require the project to ship a
 typeface, which is a product decision that has not been made.** Everything short
 of that is now deterministic and enforced by a test.
+
+> **Superseded.** That product decision has since been taken. The Geist migration
+> (top of this section) ships the typeface through the `geist` npm package, so the
+> first two rows of the table above no longer describe the project — `next/font/local`
+> _is_ what the package uses, and it introduces no network dependency because the
+> files are served same-origin out of the build. `next/font/google` remains forbidden.
+> The rest of this subsection stands as the record of the diagnosis that preceded it.
 
 #### Defect 1: every `import.meta.url` path was wrong on Windows
 
@@ -559,7 +1122,7 @@ const webRoot = join(here.slice(0, here.lastIndexOf("/")), "..");
 ```
 
 On Windows `fileURLToPath` returns backslashes, so `lastIndexOf("/")` is **-1**,
-`slice(0, -1)` drops the last *character* instead of the filename, and `webRoot`
+`slice(0, -1)` drops the last _character_ instead of the filename, and `webRoot`
 resolves one directory too deep. The observable failure was
 `ENOENT … web\tests\app\page.tsx`. The same idiom in `src/data/load-node.ts`
 broke `generatedDir()`, which is why the two artifact test files failed as well.
@@ -587,12 +1150,12 @@ working tree as CRLF while the committed blobs are LF. Consequences, measured:
 **The artifacts were never modified.** Proved by hashing three ways: the committed
 blob, the bytes on disk, and the on-disk bytes with CRLF normalised to LF.
 
-| Artifact | Committed blob | On disk (CRLF) | On disk, LF-normalised |
-| --- | --- | --- | --- |
-| `panel.json` | `e446aeb525e12d5b` | `6e03f7a841f3b0cf` | `e446aeb525e12d5b` |
-| `metrics.json` | `5e5f43bf255b1ff7` | `63b3185d98d0bfbe` | `5e5f43bf255b1ff7` |
-| `countries.json` | `6789e21c6b3a3aa0` | `ef4caef401727bf0` | `6789e21c6b3a3aa0` |
-| `claims.json` | `c46072971a2b59e7` | `03809b6d8befd5c9` | `c46072971a2b59e7` |
+| Artifact         | Committed blob     | On disk (CRLF)     | On disk, LF-normalised |
+| ---------------- | ------------------ | ------------------ | ---------------------- |
+| `panel.json`     | `e446aeb525e12d5b` | `6e03f7a841f3b0cf` | `e446aeb525e12d5b`     |
+| `metrics.json`   | `5e5f43bf255b1ff7` | `63b3185d98d0bfbe` | `5e5f43bf255b1ff7`     |
+| `countries.json` | `6789e21c6b3a3aa0` | `ef4caef401727bf0` | `6789e21c6b3a3aa0`     |
+| `claims.json`    | `c46072971a2b59e7` | `03809b6d8befd5c9` | `c46072971a2b59e7`     |
 
 Every committed blob matches §9 exactly, and LF-normalising the working copy
 reproduces it. Only the checkout was different.
@@ -671,10 +1234,10 @@ update. Three `getBoundingClientRect()` calls, deterministic, no dependence on
 which entries a callback batched. It is triggered by two things, each covering what
 the other cannot:
 
-| Trigger | Covers |
-| --- | --- |
-| `IntersectionObserver` (the mechanism §4 specifies) | entering/leaving the region below the reading line, plus the initial state; free while the page is still |
-| passive, frame-throttled `scroll` listener | a section **already inside** that region crossing the line, which produces no intersection change and therefore no observer callback |
+| Trigger                                             | Covers                                                                                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `IntersectionObserver` (the mechanism §4 specifies) | entering/leaving the region below the reading line, plus the initial state; free while the page is still                             |
+| passive, frame-throttled `scroll` listener          | a section **already inside** that region crossing the line, which produces no intersection change and therefore no observer callback |
 
 Verified with 15 repeats of the scrollspy tests (30/30) and three consecutive full
 E2E runs (23/23 each). A second test now covers the failing case directly by
@@ -689,15 +1252,15 @@ mid-smooth-scroll. Measured after settling, a deep link lands at exactly
 
 #### Component boundaries
 
-| Component | Owns | Does not own |
-| --- | --- | --- |
-| `AppShell` | skip link, `header`/`main`/`footer` landmarks, reading the artifacts the chrome needs | any copy, the `h1`, any width decision |
-| `Header` | product identity, observation period, the nav slot, stickiness | which sections exist |
-| `Navigation` | the rail, scrollspy, active state | the section list — it is passed in |
-| `Footer` | attribution, pipeline version, content hash | hard-coded URLs; every source is read from `manifest.sources[]` |
-| `Container` | the ONLY max-width in the product | vertical rhythm |
-| `Section` | landmark, `aria-labelledby`, rhythm, anchor offset | width, headings |
-| `SectionHeader` | eyebrow, title, optional lead, the heading id | its own width beyond the reading measure |
+| Component       | Owns                                                                                  | Does not own                                                    |
+| --------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `AppShell`      | skip link, `header`/`main`/`footer` landmarks, reading the artifacts the chrome needs | any copy, the `h1`, any width decision                          |
+| `Header`        | product identity, observation period, the nav slot, stickiness                        | which sections exist                                            |
+| `Navigation`    | the rail, scrollspy, active state                                                     | the section list — it is passed in                              |
+| `Footer`        | attribution, pipeline version, content hash                                           | hard-coded URLs; every source is read from `manifest.sources[]` |
+| `Container`     | the ONLY max-width in the product                                                     | vertical rhythm                                                 |
+| `Section`       | landmark, `aria-labelledby`, rhythm, anchor offset                                    | width, headings                                                 |
+| `SectionHeader` | eyebrow, title, optional lead, the heading id                                         | its own width beyond the reading measure                        |
 
 The `h1` stays with the page, not the shell: a shell-owned `h1` makes every future
 page's heading structure the shell's decision.
@@ -736,10 +1299,10 @@ runs at both widths on every E2E run.
 
 #### Responsive behaviour
 
-| Width | Header | Navigation |
-| --- | --- | --- |
-| ≥1024 (`lg`) | one row: identity left, rail right | inline row |
-| <1024 | two rows: identity, then the rail | horizontally scrollable rail |
+| Width        | Header                             | Navigation                   |
+| ------------ | ---------------------------------- | ---------------------------- |
+| ≥1024 (`lg`) | one row: identity left, rail right | inline row                   |
+| <1024        | two rows: identity, then the rail  | horizontally scrollable rail |
 
 Adaptation is a layout decision, not scaled-down desktop CSS: the header changes
 row count and the token that anchors follow changes with it. Rhythm needs no
@@ -767,12 +1330,12 @@ never exceeds `--width-reading` at 1280px.
 
 #### Deliberately deferred, with reasons
 
-| Contract item | Why not now |
-| --- | --- |
-| Header "condenses on scroll" (§4) | It makes the header height dynamic, and that height is what every section anchor depends on. Doing it correctly means driving the offset from a measured height instead of a token — that belongs with step 8 |
-| Theme toggle (§4) | Needs client state, persistence and an inline script to avoid a wrong-theme first paint. `tokens.css` already ships both themes via `prefers-color-scheme`, so nothing is missing functionally |
-| Mobile drawer / sheet (§4, §7) | Three links. A drawer means a focus trap, which is a real accessibility liability to get wrong for no gain. The horizontally scrollable rail is the baseline; revisit when the ten narrative sections exist |
-| `Card`, `Callout`, `SourceNote` (§4) | Step 4. The comparability block keeps its inline warning surface rather than a half-built `Callout` that step 4 would have to undo |
+| Contract item                        | Why not now                                                                                                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header "condenses on scroll" (§4)    | It makes the header height dynamic, and that height is what every section anchor depends on. Doing it correctly means driving the offset from a measured height instead of a token — that belongs with step 8 |
+| Theme toggle (§4)                    | Needs client state, persistence and an inline script to avoid a wrong-theme first paint. `tokens.css` already ships both themes via `prefers-color-scheme`, so nothing is missing functionally                |
+| Mobile drawer / sheet (§4, §7)       | Three links. A drawer means a focus trap, which is a real accessibility liability to get wrong for no gain. The horizontally scrollable rail is the baseline; revisit when the ten narrative sections exist   |
+| `Card`, `Callout`, `SourceNote` (§4) | Step 4. The comparability block keeps its inline warning surface rather than a half-built `Callout` that step 4 would have to undo                                                                            |
 
 #### Component tests are browser tests, and that is forced
 
@@ -860,11 +1423,11 @@ types depend on Zod.
 Three Zod behaviours are load-bearing and were each verified against 4.6.5
 before use, because the error contract fails quietly if any is wrong:
 
-| Behaviour | Why it is relied on |
-| --- | --- |
-| `.nullable()` preserves inner issue paths; a union does not | the 8 nullable fields keep precise paths |
+| Behaviour                                                                                          | Why it is relied on                                                                                        |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `.nullable()` preserves inner issue paths; a union does not                                        | the 8 nullable fields keep precise paths                                                                   |
 | `z.record(z.enum(IDS), value)` is exhaustive **and** rejects unknown keys at the record's own path | exactly replaces the old `exactRecord`, derived from `SERIES_IDS`/`COUNTRY_IDS` rather than restating them |
-| refinements do not run when the base parse of the same schema failed | preserves fail-fast ordering, so a cross-field check never fires on a wrong-typed value |
+| refinements do not run when the base parse of the same schema failed                               | preserves fail-fast ordering, so a cross-field check never fires on a wrong-typed value                    |
 
 `z.iso.date()` also replaced the old regex-plus-`Date`-round-trip calendar check:
 verified to reject `2026-02-30`, `2025-02-29`, `2026-13-01`, `31/08/2025` and
@@ -901,7 +1464,7 @@ Two differences are deliberate and immaterial:
   variant-computability, comparability-flag, claims-gate, coverage-mismatch,
   registry-completeness and key/id messages are unchanged, and the messages that
   quoted the offending value still quote it (`Google Trends interest must lie in
-  0-100, got 140`).
+0-100, got 140`).
 
 #### Analytical safety
 
@@ -963,7 +1526,7 @@ a browser by two E2E tests that read computed colours in both themes.
 Three token families needed **no** mapping, because `tokens.css` already overrides
 the identically-named Tailwind default: `--font-sans`/`--font-mono`,
 `--radius-xs…full`, and `--ease-out`/`--ease-in-out`. Three more coincide with
-Tailwind's defaults by design: the 4px spacing base (`p-4` *is* `--space-4`), the
+Tailwind's defaults by design: the 4px spacing base (`p-4` _is_ `--space-4`), the
 400/500/600 weights, and all five breakpoints.
 
 #### Two design-system rules now enforced by the build
@@ -1047,12 +1610,12 @@ web/README.md (modified)
 **Analytical layer confirmed untouched by the merge.** Git tree hashes are
 identical across `d19a7c7..HEAD`:
 
-| Path | Tree hash (unchanged) |
-| --- | --- |
-| `pipeline/` | `5bb617c0a19cf62814a0ee6a44f8ad28b47be9fd` |
-| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` |
+| Path                      | Tree hash (unchanged)                      |
+| ------------------------- | ------------------------------------------ |
+| `pipeline/`               | `5bb617c0a19cf62814a0ee6a44f8ad28b47be9fd` |
+| `data/`                   | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` |
 | `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` |
-| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` |
+| `reports/`                | `78aebdc94b36462502b516771caa2d5bdebbaf83` |
 
 `git diff d19a7c7 HEAD -- pipeline/ data/ reports/ web/src/data/generated/ METHODOLOGY.md`
 is **empty**.
@@ -1062,12 +1625,12 @@ no longer matches, because `pipeline/README.md` received a documentation-only
 test-count fix (190 → 191). The analytical invariant that matters is stricter and
 still holds:
 
-| Path | Tree hash | vs `d19a7c7` |
-| --- | --- | --- |
-| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
-| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| Path                      | Tree hash                                  | vs `d19a7c7`  |
+| ------------------------- | ------------------------------------------ | ------------- |
+| `pipeline/src`            | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/`                   | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
 | `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
-| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+| `reports/`                | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
 
 No analytical source, input datum, generated artifact or report was touched in
 this session. The only file changed under `pipeline/` is its README.
@@ -1134,54 +1697,63 @@ Phase 1 (audit), Phase 2 (analytical remediation and reproducibility), Phase 3
 
 ## 5. Current implementation status
 
-| Layer | Status |
-| --- | --- |
-| Analytical pipeline (`pipeline/`) | **COMPLETE**, zero runtime dependencies, verified |
-| Generated artifacts (`web/src/data/generated/`) | **COMPLETE**, fresh, hash-verified |
-| Reproducibility / validation | **COMPLETE** |
-| Product direction | **LOCKED** |
-| Frontend data contract + validators | **COMPLETE** — Zod 4.6.5 boundary as of Phase 3C step 2 |
-| Design foundation (tokens, chart language) | **COMPLETE** (Phase 3A, now on `main`) |
-| Node runtime | **COMPLETE** — Node 22.23.2 in user space |
-| Frontend dependencies installed | **COMPLETE** — locked, `npm ci`-reproducible |
-| Frontend toolchain gates (tsc / eslint / prettier / node --test) | **COMPLETE** — all green |
-| Python dev gates (pytest / ruff / mypy) | **COMPLETE** — restored via the declared `dev` extra |
-| Next.js App Router scaffold | **COMPLETE** — builds clean, 3 static routes |
-| Tailwind ↔ design-token integration | **COMPLETE** — verified in-browser, light and dark |
-| Browser / E2E harness | **COMPLETE** — Playwright chromium, 8 smoke tests passing |
-| React component library (`AppShell`, `Card`, …) | **SHELL + LAYOUT + CONTENT COMPLETE** — `AppShell`, `Header`, `Navigation`, `Footer`, `Container`, `Section`, `SectionHeader`, `Card`, `MetricCard`, `Badge`, `StatHighlight`, `SourceNote`, `Callout`, `ReadMore`. `InsightCard` and `CountrySelector` belong to the sections that use them (steps 6–7) |
-| Charts / ECharts adapter | **NOT STARTED** — step 5 |
-| Narrative sections + hero | **NOT STARTED** — steps 6–7 |
-| Responsive / a11y / performance passes | **NOT STARTED** — step 8 |
-| Production-ready frontend | **NOT STARTED** |
+| Layer                                                            | Status                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Analytical pipeline (`pipeline/`)                                | **COMPLETE**, zero runtime dependencies, verified                                                                                                                                                                                                                                                        |
+| Generated artifacts (`web/src/data/generated/`)                  | **COMPLETE**, fresh, hash-verified                                                                                                                                                                                                                                                                       |
+| Reproducibility / validation                                     | **COMPLETE**                                                                                                                                                                                                                                                                                             |
+| Product direction                                                | **LOCKED**                                                                                                                                                                                                                                                                                               |
+| Frontend data contract + validators                              | **COMPLETE** — Zod 4.6.5 boundary as of Phase 3C step 2                                                                                                                                                                                                                                                  |
+| Design foundation (tokens, chart language)                       | **COMPLETE** (Phase 3A, now on `main`)                                                                                                                                                                                                                                                                   |
+| Typeface                                                         | **COMPLETE** — Geist Sans + Geist Mono, self-hosted from `geist` 1.7.2. Deterministic on every machine; no font file in the repository                                                                                                                                                                   |
+| Node runtime                                                     | **COMPLETE** — Node 22.23.2 in user space                                                                                                                                                                                                                                                                |
+| Frontend dependencies installed                                  | **COMPLETE** — locked, `npm ci`-reproducible                                                                                                                                                                                                                                                             |
+| Frontend toolchain gates (tsc / eslint / prettier / node --test) | **COMPLETE** — all green                                                                                                                                                                                                                                                                                 |
+| Python dev gates (pytest / ruff / mypy)                          | **COMPLETE** — restored via the declared `dev` extra                                                                                                                                                                                                                                                     |
+| Next.js App Router scaffold                                      | **COMPLETE** — builds clean, 3 static routes                                                                                                                                                                                                                                                             |
+| Tailwind ↔ design-token integration                              | **COMPLETE** — verified in-browser, light and dark                                                                                                                                                                                                                                                       |
+| Browser / E2E harness                                            | **COMPLETE** — Playwright chromium, 8 smoke tests passing                                                                                                                                                                                                                                                |
+| React component library (`AppShell`, `Card`, …)                   | **SHELL + LAYOUT + CONTENT COMPLETE, CHART PROTOTYPE COMMITTED** — `AppShell`, `Header`, `Navigation`, `Footer`, `Container`, `Section`, `SectionHeader`, `Card`, `MetricCard`, `Badge`, `StatHighlight`, `SourceNote`, `Callout`, `ReadMore`, plus `src/components/chart/` (`EChart`, `ChartFrame`, `ChartControls`, `ChartLegend`, `ChartTableFallback`, `OilVsWorldwideInterestChart`). `InsightCard` and `CountrySelector` belong to the sections that use them (steps 6–7) |
+| Charts / ECharts adapter                                         | **PROTOTYPE** — one chart (`EChart`, `ChartFrame`, `ChartControls`, `ChartLegend`, `ChartTableFallback`, the option builder and the theme adapter) built and committed. Step 5 proper — the remaining charts — is not started                                                                              |
+| Narrative sections + hero                                        | **NOT STARTED** — steps 6–7                                                                                                                                                                                                                                                                              |
+| Responsive / a11y / performance passes                           | **NOT STARTED** — step 8                                                                                                                                                                                                                                                                                 |
+| Production-ready frontend                                        | **NOT STARTED**                                                                                                                                                                                                                                                                                          |
 
 `web/` now contains a **running application shell** with the data and design
-foundations wired into it. It is not the product: there is no `components/`, no
-`content/`, and the narrative is a static list of ten section names. `npm run
-build` succeeds and `npm run test:e2e` passes, which was not true before this
-phase.
+foundations wired into it, plus one production-quality chart. It is not the product:
+the ten narrative sections do not exist, and the narrative is still a static list of
+their names. `npm run build`, `npm test` (206) and `npx playwright test` (86) all pass.
 
 ---
 
 ## 6. Dependencies / environment
 
-### Windows 11 PC — current device (2026-09-15)
+### Two machines, and which one is current
 
-The project now runs on a second machine. Recorded because several observations in
-this section were made on the Linux laptop and are device-specific.
+**Current device as of 2026-09-17: the Linux laptop.** Work moved Linux → Windows on
+2026-09-15 and back to Linux for the Geist migration, the title-case polish and the
+chart prototype. Every gate in §9's checkpoint table was run here. The Windows PC is
+the second machine and is the reason this checkpoint exists — it was rendering an older
+UI because `origin/main` was behind this tree.
 
-| | Linux laptop (previous) | Windows 11 PC (current) |
-| --- | --- | --- |
-| OS | Linux x64 | Windows 11 Pro, build 26200 |
-| Node | 22.23.2 | **24.19.0** |
-| npm | 10.9.8 | **11.17.0** |
-| Playwright chromium | Chrome Headless Shell 153.0.8010.12 (v1243) | **identical build** |
-| `core.autocrlf` | unset | **`true`** — see §4, now overridden by `.gitattributes` |
-| Python | 3.11.16 venv (uv) | **3.14.7** venv (`python -m venv`) |
-| pytest / ruff / mypy | 9.1.1 / 0.16.7 / 2.3.1 | **identical versions** |
+| Tool                 | Linux laptop (current)                      | Windows 11 PC (second machine)                          |
+| -------------------- | ------------------------------------------- | ------------------------------------------------------- |
+| OS                   | Linux x64                                   | Windows 11 Pro, build 26200                             |
+| Node                 | **22.23.2**                                 | 24.19.0                                                 |
+| npm                  | **10.9.8**                                  | 11.17.0                                                 |
+| Playwright chromium  | Chrome Headless Shell 153.0.8010.12 (v1243) | identical build                                         |
+| `core.autocrlf`      | unset                                       | `true` — see §4, now overridden by `.gitattributes`     |
+| Python               | **3.11.16 venv (uv)**                       | 3.14.7 venv (`python -m venv`)                          |
+| pytest / ruff / mypy | **9.1.1 / 0.16.7 / 2.3.1**                  | identical versions                                      |
+
+**After pulling this checkpoint, Windows needs `npm ci` before anything else.**
+`package.json` and `package-lock.json` both gained `geist` 1.7.2; without the install
+the `geist/font/sans` import in `app/layout.tsx` fails the build. Nothing else about
+the checkout differs — `.gitattributes` already pins `eol=lf`, so the CRLF problem
+recorded in §4 cannot recur.
 
 Node 24.19.0 satisfies `engines: { node: ">=22.6" }` and runs the whole gate set
-clean. It was **not** changed to match the previous device: no runtime difference
+clean on Windows. It was **not** changed to match this device: no runtime difference
 was observed after the path defect in §4 was fixed, and pinning a runtime to
 reproduce a bug is not reproducibility.
 
@@ -1200,7 +1772,7 @@ Two npm 11 differences worth recording, neither a problem:
   configuration. Nothing was approved, because nothing needed it.
 - Python here is 3.14.7 rather than the 3.11.16 the previous device used.
   `requires-python = ">=3.11"`, and `[tool.ruff] target-version`/`[tool.mypy]
-  python_version` both stay `py311`, so the tools still check against 3.11
+python_version` both stay `py311`, so the tools still check against 3.11
   semantics. All 191 tests pass on 3.14.7.
 
 ### Node runtime — installed on the previous device
@@ -1220,10 +1792,10 @@ changes:
 4. Symlinked `node`, `npm`, `npx`, `corepack` into `~/.local/bin`, which is
    already ahead of `/usr/bin` on `PATH`, so no shell rc file was modified.
 
-| Tool | Before | Now | Path |
-| --- | --- | --- | --- |
-| node | 20.20.2 | **22.23.2** | `~/.local/bin/node` |
-| npm | 12.0.2 | **10.9.8** (bundled with Node 22) | `~/.local/bin/npm` |
+| Tool | Before  | Now                               | Path                |
+| ---- | ------- | --------------------------------- | ------------------- |
+| node | 20.20.2 | **22.23.2**                       | `~/.local/bin/node` |
+| npm  | 12.0.2  | **10.9.8** (bundled with Node 22) | `~/.local/bin/npm`  |
 
 Verified on the new runtime: satisfies `>=22.6`; runs `.ts` files with no flag;
 `node --test` executes `.ts` tests importing `.ts` modules.
@@ -1246,30 +1818,31 @@ is **committed**: `lockfileVersion 3`, **443 locked packages**.
 
 Runtime (`dependencies`), exact-pinned — no `^`, no `~`:
 
-| Package | Version |
-| --- | --- |
-| `next` | 16.3.5 |
-| `react` | 19.3.0 |
-| `react-dom` | 19.3.0 |
-| `echarts` | 6.1.0 |
-| `zod` | 4.6.5 |
+| Package     | Version |
+| ----------- | ------- |
+| `next`      | 16.3.5  |
+| `react`     | 19.3.0  |
+| `react-dom` | 19.3.0  |
+| `echarts`   | 6.1.0   |
+| `zod`       | 4.6.5   |
+| `geist`     | 1.7.2   |
 
 Dev (`devDependencies`), exact-pinned:
 
-| Package | Version |
-| --- | --- |
-| `typescript` | 6.0.3 |
-| `@types/node` | 22.20.2 |
-| `@types/react` | 19.3.0 |
-| `@types/react-dom` | 19.3.0 |
-| `eslint` | 10.10.0 |
-| `@eslint/js` | 10.0.1 |
-| `typescript-eslint` | 8.70.0 |
-| `eslint-config-next` | 16.3.5 |
-| `prettier` | 3.9.6 |
-| `@playwright/test` | 1.63.0 |
-| `tailwindcss` | 4.3.3 |
-| `@tailwindcss/postcss` | 4.3.3 |
+| Package                | Version |
+| ---------------------- | ------- |
+| `typescript`           | 6.0.3   |
+| `@types/node`          | 22.20.2 |
+| `@types/react`         | 19.3.0  |
+| `@types/react-dom`     | 19.3.0  |
+| `eslint`               | 10.10.0 |
+| `@eslint/js`           | 10.0.1  |
+| `typescript-eslint`    | 8.70.0  |
+| `eslint-config-next`   | 16.3.5  |
+| `prettier`             | 3.9.6   |
+| `@playwright/test`     | 1.63.0  |
+| `tailwindcss`          | 4.3.3   |
+| `@tailwindcss/postcss` | 4.3.3   |
 
 Two version constraints were forced by real peer ranges, not preference:
 
@@ -1286,11 +1859,25 @@ step 5 specifies the project builds its own `EChart` + `ChartFrame` +
 `web/src/styles/chart-language.ts`. A third-party wrapper would duplicate that and
 obscure the token-driven theming.
 
+`geist` **1.7.2** was added in the typography migration (§4) and is the project's
+typeface. It is a runtime dependency rather than a dev one because the application
+imports it at build time and serves its files: `geist/font/sans` and
+`geist/font/mono` each call `next/font/local` on a variable `.woff2` inside the
+package, so Next emits the `@font-face` rules and copies the files into
+`/_next/static/media/`. Two consequences worth recording:
+
+- **It has no transitive dependencies.** `deps: none`, one peer (`next >=13.2.0`),
+  8.0 MB unpacked — of which only two files (`Geist-Variable.woff2` 69,652 B and
+  `GeistMono-Variable.woff2` 71,368 B) reach the build. The rest is static cuts and
+  `.ttf` originals the project does not import.
+- **`node_modules` is the only place font binaries exist.** Nothing is committed to
+  the repository, and a unit test walks `web/` to keep it that way.
+
 Two benign observations, recorded so they are not re-investigated:
 
 - `npm ls --depth=0` labels a handful of `@emnapi/*`, `@img/sharp-wasm32`,
   `@napi-rs/wasm-runtime` and `@tybys/wasm-util` entries **"extraneous"**. All of
-  them *are* present in the lockfile as `optional: true` cross-platform wasm
+  them _are_ present in the lockfile as `optional: true` cross-platform wasm
   fallbacks for `sharp` (Next's image optimiser). `npm ls` exits 0. Not a problem.
 - Next.js anonymous telemetry was **opted out** (`npx next telemetry disable`) to
   avoid unnecessary outbound requests from the build.
@@ -1306,19 +1893,19 @@ application bugs.
 
 ### npm scripts (`web/package.json`)
 
-| Script | Command | Works now? |
-| --- | --- | --- |
-| `dev` | `next dev` | **yes** |
-| `build` | `next build` | **yes, clean** — 3 static routes, no warnings |
-| `start` | `next start` | **yes** (after a build) |
-| `typecheck` | `tsc -p tsconfig.json` | **yes, clean** |
-| `lint` | `eslint .` | **yes, clean** |
-| `lint:fix` | `eslint . --fix` | yes |
-| `test` | `node --test` | **yes, 109/109** |
-| `test:e2e` | `playwright test` | **yes, 8/8** (added in Phase 3C) |
-| `format` | `prettier --write .` | yes |
-| `format:check` | `prettier --check .` | **yes, clean** |
-| `verify` | `typecheck && lint && test && format:check` | **yes, all green** |
+| Script         | Command                                     | Works now?                                    |
+| -------------- | ------------------------------------------- | --------------------------------------------- |
+| `dev`          | `next dev`                                  | **yes**                                       |
+| `build`        | `next build`                                | **yes, clean** — 3 static routes, no warnings |
+| `start`        | `next start`                                | **yes** (after a build)                       |
+| `typecheck`    | `tsc -p tsconfig.json`                      | **yes, clean**                                |
+| `lint`         | `eslint .`                                  | **yes, clean**                                |
+| `lint:fix`     | `eslint . --fix`                            | yes                                           |
+| `test`         | `node --test`                               | **yes, 206/206**                              |
+| `test:e2e`     | `playwright test`                           | **yes, 86/86**                                |
+| `format`       | `prettier --write .`                        | yes                                           |
+| `format:check` | `prettier --check .`                        | **yes, clean**                                |
+| `verify`       | `typecheck && lint && test && format:check` | **yes, all green**                            |
 
 `verify` is the fast gate and does **not** include `test:e2e`, which builds the app
 and starts a server. Run `npm run test:e2e` explicitly, or after `npm run verify`.
@@ -1333,13 +1920,13 @@ The repository **already declared** the mechanism, so none was invented:
 Restored with `uv pip install -e ".[dev]"` from `pipeline/`, into the repo-root
 `.venv` (git-ignored):
 
-| Tool | Version |
-| --- | --- |
-| Python (venv) | 3.11.16 (uv-managed CPython) |
-| `pytest` | 9.1.1 |
-| `ruff` | 0.16.7 |
-| `mypy` | 2.3.1 |
-| `oil-ev-pipeline` | 1.0.0, editable |
+| Tool              | Version                      |
+| ----------------- | ---------------------------- |
+| Python (venv)     | 3.11.16 (uv-managed CPython) |
+| `pytest`          | 9.1.1                        |
+| `ruff`            | 0.16.7                       |
+| `mypy`            | 2.3.1                        |
+| `oil-ev-pipeline` | 1.0.0, editable              |
 
 Version notes:
 
@@ -1349,7 +1936,7 @@ Version notes:
 - The editable install is what makes plain `python -m pipeline.build` work; the
   `src/` layout otherwise requires `PYTHONPATH=src`. **The analytical runtime
   itself is unchanged** — still zero runtime dependencies, still stdlib-only.
-  `dev` is an optional extra and `scipy`/`numpy` were *not* installed, so
+  `dev` is an optional extra and `scipy`/`numpy` were _not_ installed, so
   `tests/test_statistics_scipy.py` still skips.
 - One snag: `uv` aborted the first attempt with
   `Failed to acquire lock on the distribution cache … Timeout (300s)` on
@@ -1361,73 +1948,85 @@ Version notes:
 
 ## 7. Decisions made
 
-| Decision | Rationale |
-| --- | --- |
-| Restore Phase 3A by `git merge --no-ff` rather than cherry-pick | Preserves the original Phase 3A commit history and the PR #2 merge; verified conflict-free beforehand |
-| Node **22 LTS (22.23.2)**, not 24 | Satisfies `engines >=22.6`; matches the exact runtime the Phase 3A code was authored and validated against, maximising reproducibility of the 109-test baseline; also satisfies ESLint 10's `^22.13.0`. Node 24 LTS is the documented future upgrade path |
-| Node installed from official tarball into `~/.local`, checksum-verified | No sudo available or needed; no system packages touched; avoids trusting a third-party version manager |
-| Git identity supplied via env vars, not `git config` | Leaves the user's git configuration unmodified while matching the identity of all prior Kiro commits |
-| Analytical layer treated as read-only for this whole task | Only `--check` / `--legacy` (both read-only hash comparisons) are run against the pipeline |
-| Exact-pin every frontend dependency (no `^`/`~`) | The lockfile already pins transitively; exact ranges in `package.json` make an unintended major bump impossible to introduce silently by editing one file |
-| `typescript@6.0.3`, not 7.x | Forced by `typescript-eslint@8.70.0`'s peer range `<6.1.0`. Choosing the lint stack over the newest compiler keeps a real gate rather than a nominal one |
-| Created `web/postcss.config.mjs` in the bootstrap | Installing `@tailwindcss/postcss` without it leaves the required PostCSS integration nominal — a dependency in the committed lockfile that does nothing. This is configuration, not UI |
-| Did **not** create `web/next.config.mjs` | Next runs on defaults; it is not needed for the dependency baseline, and it cannot be validated with no `app/`. Belongs to the scaffold in §10 step 1 |
-| Did **not** wire Tailwind `@theme` tokens or a CSS entrypoint | That is `docs/design-system.md` §8 and `docs/product-architecture.md` §10 step 1 — UI phase, and the boundary for this task |
-| Left `tsconfig.json` Node-only (`lib: ["ES2023"]`, no `jsx`, no `.tsx` in `include`) | It type-checks clean today. Adding the DOM lib and JSX support with zero React source present would change type resolution for existing Node code with nothing to validate against. The UI phase adds them together with the first `.tsx` file |
-| ESLint TS/Next rules scoped to `.ts`/`.tsx` | Not stylistic — unscoped, ESLint 10 + `@typescript-eslint/scope-manager@8` throw a `TypeError` on `.mjs` config files. See §4 |
-| Restored Python tooling via the repo's own `dev` extra into `.venv` | The mechanism was already declared in `pipeline/pyproject.toml`; no new dependency-management architecture was invented |
-| Opted out of Next.js telemetry | Avoids unnecessary outbound requests from the build |
-| **Phase 3C** — map tokens with `@theme inline` same-name self-reference | The only form that yields ergonomic utilities (`bg-surface`) while keeping `tokens.css` the single source of truth. Verified by compiling the pattern and by two in-browser computed-colour assertions |
-| Import `tokens.css` unlayered, after `tailwindcss` | Unlayered declarations outrank `@layer theme`, so the real token values beat Tailwind's circular copy. Load-bearing, and documented as such in `globals.css` |
-| Removed Tailwind's default colour palette and radius above `xl` | Both were competing token systems able to bypass documented design-system rules by accident. Enforcing the rules in the build is stronger than enforcing them by review |
-| Consume semantic rhythm tokens as `p-(--card-padding)` rather than naming them in `@theme` | They change value under 768px inside `tokens.css`; giving them utility names would split one responsive decision across two files |
-| App loader at `src/lib/artifacts.ts`, not `src/data/` | `analytical-safety.test.ts` asserts the exact file list of `src/data/`. Adding a file there would have required weakening a guardrail; adding it elsewhere costs nothing |
-| `tsconfig` moved to `esnext` / `bundler` | Turbopack is a bundler, and `nodenext` would require `with { type: "json" }` attributes to import the artifacts. No source file changed — imports already carry explicit `.ts` extensions |
-| Wrote Next's four mandatory `tsconfig` options explicitly | `next build` silently rewrites `tsconfig.json` when `jsx`, `esModuleInterop`, `allowJs` or `incremental` are missing, leaving a dirty tree after every build. Stating them keeps the file stable |
-| Still **no** `paths` aliases | `node --test` resolves imports itself and ignores tsconfig `paths`. An alias would type-check and then fail at runtime in the test suite |
-| No statistics rendered on the scaffold page | §16 requires the specification caveat beside any level correlation. A coefficient with nowhere to qualify it is the original project's error. Asserted by an E2E test |
-| Playwright specs named `*.e2e.ts` | `node --test`'s default patterns include `**/*.test.ts`; a Playwright spec collected by the Node runner fails confusingly |
-| E2E runs against `next build` output, not `next dev` | The CSS pipeline and RSC rendering both differ in development, and production output is what ships |
-| **Phase 3C step 2** — `.nullable()` for every nullable field, never `z.union([schema, z.null()])` | A union collapses inner failures into one `invalid_union` issue at the union's own path, which would report `panel.rows[3].oil` instead of the field inside it. Verified against 4.6.5 |
-| `z.record(z.enum(IDS), value)` instead of hand-listing the six series keys | Exhaustive keys plus unknown-key rejection at the record's own path — the old `exactRecord` contract — derived from `SERIES_IDS`/`COUNTRY_IDS`, so adding a market cannot leave the validator behind |
-| Return the existing interfaces from the `validate*` functions rather than exporting `z.infer` types | `tsc` then proves schema and contract agree, while `index.ts`'s exported types stay independent of Zod. Inferring the public types would make every consumer's type depend on a schema library |
-| Deleted the eight exported combinators instead of keeping them as a shim | Nothing imported them (verified by grep), they have no Zod analogue, and keeping them would keep the library this step deletes |
-| Verified path parity against the old implementation over 52 mutations before deleting it | The acceptance tests assert `path.includes(fragment)`, which a less precise path can still satisfy. Substring matching is not proof of parity; a field-by-field comparison is |
-| Kept range checks exactly where the old validator had them | `pearson_r`/`pearson_p` are range-checked on `CorrelationBundle` only. Zod makes it trivial to add the same bounds to lag points, specifications and variants, which would be a new analytical rule invented by the tool rather than by the contract |
-| **Phase 3C step 3** — `--header-height` as a token, measured in a browser rather than estimated | Two components depend on the number (`Header` renders it, `Section` offsets anchors by it). The E2E check caught a 1px error from the header's bottom border in the first draft |
-| Section rhythm is `margin-top`, not `padding-top` | `scroll-margin-top` positions the border box and a margin sits outside it, so a deep link lands on the heading rather than `--section-spacing` above it. Same visual rhythm, correct anchor |
-| A section registry (`src/content/sections.ts`) holding only the sections that exist | Registering the ten narrative sections now would ship navigation links that scroll nowhere. A test asserts registry and page agree both ways, because a dead anchor is invisible to `tsc` and to `next build` |
-| Navigation is anchors with `aria-current`, not buttons with JS routing | Real ids are shareable and keyboard-native, and `aria-current` makes the scrollspy state audible rather than colour-only |
-| Scrollspy decides from live geometry, with the observer as a trigger only | An `IntersectionObserver` callback carries only the entries that changed, so deciding from them left the previous section highlighted when the active one scrolled out of the band — a ~10% E2E flake. A passive frame-throttled scroll listener covers the case the observer structurally cannot: a section already inside the band crossing the reading line |
-| Horizontally scrollable nav rail instead of a mobile drawer | Three links do not justify a focus trap, which is the part of a drawer most easily got wrong. Revisit at ten sections |
-| Deferred the header's condense-on-scroll and the theme toggle | Condensing makes the header height dynamic, and that height is the anchor offset every section depends on; the toggle needs persistence plus an inline script to avoid a wrong-theme flash. Both are step 8 work, and `prefers-color-scheme` already themes the product |
-| Component tests live in Playwright, not `node --test` | Node 22.23.2 cannot load `.tsx` (`ERR_UNKNOWN_FILE_EXTENSION`, verified). A JSX transform in the unit-test toolchain to render six presentational components is dependency weight for no gain; Playwright tests the real production build |
-| Page body uses the `content` width, not `page` | At 1280px a `page`-width body left the composition against the left edge with a void beside it. `content` centres the column, which is what the width variant is for. Caught by looking at a screenshot, not by a test |
-| No eyebrow ordinals on the three scaffold blocks | Numbering them `01`–`03` read as though they were narrative sections 01–03, while the real ten are listed inside one of them. `SectionHeader` keeps the ordinal API for when those sections arrive |
-| **Windows transition** — kept the system font stack; changed no font declaration | The stack is a decision recorded in `tokens.css` principle 4 and `design-system.md` §3, and the diagnosis found nothing broken: zero font requests, no `@font-face`, one declaration site, every computed type value equal to its token. Shipping a typeface to force cross-machine parity reverses a documented decision and changes the visual identity — that is the user's call, not a diagnosis outcome |
-| Asserted the type contract, annotated the OS-supplied face | Sizes, line-heights, tracking, stacks, tabular figures and "zero fonts downloaded" are the project's own and are identical everywhere, so they are assertions. Which face Windows or Linux supplies is not, so it is a test annotation. Asserting it would fail every machine but the author's |
-| No screenshot baseline for typography | With an OS-dependent typeface a pixel baseline is a machine-specific artifact posing as a contract. Screenshots were used as evidence during the diagnosis and deleted |
-| `import.meta.dirname` instead of slicing `import.meta.url` | `fileURLToPath` returns backslashes on Windows, so `lastIndexOf("/")` is -1 and the slice silently resolves one directory too deep. It broke all five test files. `import.meta.dirname` is correct on every platform and is inside the declared Node floor |
-| `.gitattributes` with `* text=auto eol=lf`, rather than relaxing Prettier's `endOfLine` | Setting `endOfLine: "auto"` would have silenced the failing gate while leaving the working tree's bytes dependent on each developer's `core.autocrlf` — including the bytes of the pipeline-owned artifacts whose digests the project publishes. Pinning the checkout fixes the cause; loosening the linter hides it |
-| Did not change Node to 22.x to match the previous device | 24.19.0 satisfies `engines >=22.6` and passes every gate once the path defect is fixed. The failure was a portability bug in the repository, not a runtime incompatibility; pinning a runtime to reproduce a bug is not reproducibility |
-| **Phase 3C step 4** — express §16 as a discriminated union rather than a lint rule or a review habit | An `inferential` metric that cannot be constructed without its specification comparison makes the project's most important presentational rule a compile error. Verified against `tsc` with both violations before relying on it |
-| `value` and `interval` typed as `string`, not `number` | Rounding a coefficient is a presentational decision that belongs in the pipeline or an accessor, made once. A string also makes arithmetic on a statistic impossible on the way to the screen, which is the analytical-safety rule restated as a type |
-| Every caveat renders a badge **and** a sentence | A badge alone leaves the qualification in a `title` attribute — behind a hover, invisible to touch and to a screen reader in browse mode. §5 does not allow information to depend on hover |
-| `ReadMore` unmounts its panel instead of hiding it | A hidden-but-present panel is still found by find-in-page and still read in browse mode, so "collapsed" would be a lie. The cost is that height cannot be transitioned from the previous content, which is why the animation is opacity and translate |
-| `ReadMore` is a `<button>` + `aria-expanded`, not `<details>`/`<summary>` | §6 requires animated disclosure, a deep-linkable open state and Escape-to-close. `<details>` delivers none of the three reliably, and a button is what a screen reader announces anyway |
-| `Card` takes an `as` prop, and its optional props are typed `| undefined` | `exactOptionalPropertyTypes` is on, so a wrapper cannot forward a possibly-undefined prop through a plain `?:`. `Card` is the primitive designed to be wrapped, so it absorbs that instead of forcing every caller to invent a default |
-| Metric cards sit in a `<ul>`, not a `<dl>` | `MetricCard` renders `<p>` for label and value, and a `div` inside a `dl` must contain `dt`/`dd`. Making the component emit `dt`/`dd` would force every future use into a definition list |
-| Kept the foundation page free of inferential metrics even though the component now exists | Steps 6–7 build the sections that can carry a specification comparison. A coefficient here would have nowhere to be qualified, which is exactly what §16 forbids. Two tests assert it stays that way |
-| **Refinement pass** — one shared frame: `--width-page` is used by the shell *and* the page body | Two centred containers of different widths have no alignment spine. Measured: the body sat 80px inside the header's left edge at 1280px and 160px inside it at 1440px/1920px. That inset, not the width, is what made a 1920px canvas read as a narrow floating column |
-| Brought the frame **down** to 1120px rather than pushing the body out to 1440px | Step 3 already tried a `page`-width body and reverted it on a screenshot: prose left-aligned in a very wide frame leaves a void. Meeting in the middle fixes the alignment without recreating the defect step 3 found |
-| The frame is **banded** (1120px → 1280px at `2xl`), not a `clamp()` | A continuously growing frame makes every chart a different width at every viewport, which is the opposite of the banded adaptation design-system §5 requires. The boundary reuses the documented 1536px `2xl` rather than inventing a sixth breakpoint |
-| The frame may never exceed `--width-chart` | A frame wider than the widest permitted chart is space no content variant can fill. Asserted by a unit test rather than left as an intention |
-| No multi-column grid, even though the frame now has room for one | `product-architecture.md` §7 permits multi-column evidence at `≥1280`, but nothing in the scaffold needs it. A grid built before there is content to justify it is the dense-card-grid outcome design-system §1 rejects. Deferred explicitly, not skipped |
-| `--width-title: 22ch` on the **heading element**, not a wrapper | `ch` resolves against the element's own font size, so one value tracks the fluid display scale — ~733px at 60px, ~343px at 36px — with no breakpoint logic. A wrapper would also clamp the heading to the wrapper's measure, which is the bug being fixed |
-| No type role may request weight 500 | Measured, not assumed: on Segoe UI 500 and 600 produce an identical pixel digest and an identical 707.06px advance, while a 400/700-only face renders 500 as 400. A role at 500 lets the OS decide whether text reads as emphasised. A unit test rejects the declaration and the `font-medium` utility; an E2E test rejects the computed value. **A no-op on Windows** — 500 already resolved to the 600 face here — so it is honest to report it as a Linux fix rather than a visible improvement |
-| Rejected `--width-reading: min(68ch, 42rem)` after implementing and measuring it | `ch` scales with the element's font size and `rem` does not, so one ceiling binds on the 19px lead and is inert on 16px body copy — the token would mean different things per role. Bounding cross-OS wrapping drift is not worth a measure that is inconsistent by role, and the drift is already documented and accepted |
-| `text-wrap: balance` on `h1`–`h4` | With an OS-supplied typeface the same heading occupies a different pixel width per machine, so a greedy break lands somewhere different on each. Balance makes the break depend on line count instead, which is the only way heading wrapping can be deliberate on a machine that is not the author's |
-| Corrected the reading-measure E2E probe rather than deleting it | It resolved `ch` in the root's 16px font and compared the result against the 19px lead, so it was asserting the wrong number and passed only by coincidence of where the cap sat. The probe now copies the element's computed font. A faulty assertion is worse than a missing one, and this is a correction, not a relaxation |
+| Decision                                                                                                       | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Restore Phase 3A by `git merge --no-ff` rather than cherry-pick                                                | Preserves the original Phase 3A commit history and the PR #2 merge; verified conflict-free beforehand                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Node **22 LTS (22.23.2)**, not 24                                                                              | Satisfies `engines >=22.6`; matches the exact runtime the Phase 3A code was authored and validated against, maximising reproducibility of the 109-test baseline; also satisfies ESLint 10's `^22.13.0`. Node 24 LTS is the documented future upgrade path                                                                                                                                                                                                                                                                                                                                 |
+| Node installed from official tarball into `~/.local`, checksum-verified                                        | No sudo available or needed; no system packages touched; avoids trusting a third-party version manager                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Git identity supplied via env vars, not `git config`                                                           | Leaves the user's git configuration unmodified while matching the identity of all prior Kiro commits                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Analytical layer treated as read-only for this whole task                                                      | Only `--check` / `--legacy` (both read-only hash comparisons) are run against the pipeline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Exact-pin every frontend dependency (no `^`/`~`)                                                               | The lockfile already pins transitively; exact ranges in `package.json` make an unintended major bump impossible to introduce silently by editing one file                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `typescript@6.0.3`, not 7.x                                                                                    | Forced by `typescript-eslint@8.70.0`'s peer range `<6.1.0`. Choosing the lint stack over the newest compiler keeps a real gate rather than a nominal one                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Created `web/postcss.config.mjs` in the bootstrap                                                              | Installing `@tailwindcss/postcss` without it leaves the required PostCSS integration nominal — a dependency in the committed lockfile that does nothing. This is configuration, not UI                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Did **not** create `web/next.config.mjs`                                                                       | Next runs on defaults; it is not needed for the dependency baseline, and it cannot be validated with no `app/`. Belongs to the scaffold in §10 step 1                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Did **not** wire Tailwind `@theme` tokens or a CSS entrypoint                                                  | That is `docs/design-system.md` §8 and `docs/product-architecture.md` §10 step 1 — UI phase, and the boundary for this task                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Left `tsconfig.json` Node-only (`lib: ["ES2023"]`, no `jsx`, no `.tsx` in `include`)                           | It type-checks clean today. Adding the DOM lib and JSX support with zero React source present would change type resolution for existing Node code with nothing to validate against. The UI phase adds them together with the first `.tsx` file                                                                                                                                                                                                                                                                                                                                            |
+| ESLint TS/Next rules scoped to `.ts`/`.tsx`                                                                    | Not stylistic — unscoped, ESLint 10 + `@typescript-eslint/scope-manager@8` throw a `TypeError` on `.mjs` config files. See §4                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Restored Python tooling via the repo's own `dev` extra into `.venv`                                            | The mechanism was already declared in `pipeline/pyproject.toml`; no new dependency-management architecture was invented                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Opted out of Next.js telemetry                                                                                 | Avoids unnecessary outbound requests from the build                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Phase 3C** — map tokens with `@theme inline` same-name self-reference                                        | The only form that yields ergonomic utilities (`bg-surface`) while keeping `tokens.css` the single source of truth. Verified by compiling the pattern and by two in-browser computed-colour assertions                                                                                                                                                                                                                                                                                                                                                                                    |
+| Import `tokens.css` unlayered, after `tailwindcss`                                                             | Unlayered declarations outrank `@layer theme`, so the real token values beat Tailwind's circular copy. Load-bearing, and documented as such in `globals.css`                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Removed Tailwind's default colour palette and radius above `xl`                                                | Both were competing token systems able to bypass documented design-system rules by accident. Enforcing the rules in the build is stronger than enforcing them by review                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Consume semantic rhythm tokens as `p-(--card-padding)` rather than naming them in `@theme`                     | They change value under 768px inside `tokens.css`; giving them utility names would split one responsive decision across two files                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| App loader at `src/lib/artifacts.ts`, not `src/data/`                                                          | `analytical-safety.test.ts` asserts the exact file list of `src/data/`. Adding a file there would have required weakening a guardrail; adding it elsewhere costs nothing                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `tsconfig` moved to `esnext` / `bundler`                                                                       | Turbopack is a bundler, and `nodenext` would require `with { type: "json" }` attributes to import the artifacts. No source file changed — imports already carry explicit `.ts` extensions                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Wrote Next's four mandatory `tsconfig` options explicitly                                                      | `next build` silently rewrites `tsconfig.json` when `jsx`, `esModuleInterop`, `allowJs` or `incremental` are missing, leaving a dirty tree after every build. Stating them keeps the file stable                                                                                                                                                                                                                                                                                                                                                                                          |
+| Still **no** `paths` aliases                                                                                   | `node --test` resolves imports itself and ignores tsconfig `paths`. An alias would type-check and then fail at runtime in the test suite                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| No statistics rendered on the scaffold page                                                                    | §16 requires the specification caveat beside any level correlation. A coefficient with nowhere to qualify it is the original project's error. Asserted by an E2E test                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Playwright specs named `*.e2e.ts`                                                                              | `node --test`'s default patterns include `**/*.test.ts`; a Playwright spec collected by the Node runner fails confusingly                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| E2E runs against `next build` output, not `next dev`                                                           | The CSS pipeline and RSC rendering both differ in development, and production output is what ships                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Phase 3C step 2** — `.nullable()` for every nullable field, never `z.union([schema, z.null()])`              | A union collapses inner failures into one `invalid_union` issue at the union's own path, which would report `panel.rows[3].oil` instead of the field inside it. Verified against 4.6.5                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `z.record(z.enum(IDS), value)` instead of hand-listing the six series keys                                     | Exhaustive keys plus unknown-key rejection at the record's own path — the old `exactRecord` contract — derived from `SERIES_IDS`/`COUNTRY_IDS`, so adding a market cannot leave the validator behind                                                                                                                                                                                                                                                                                                                                                                                      |
+| Return the existing interfaces from the `validate*` functions rather than exporting `z.infer` types            | `tsc` then proves schema and contract agree, while `index.ts`'s exported types stay independent of Zod. Inferring the public types would make every consumer's type depend on a schema library                                                                                                                                                                                                                                                                                                                                                                                            |
+| Deleted the eight exported combinators instead of keeping them as a shim                                       | Nothing imported them (verified by grep), they have no Zod analogue, and keeping them would keep the library this step deletes                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Verified path parity against the old implementation over 52 mutations before deleting it                       | The acceptance tests assert `path.includes(fragment)`, which a less precise path can still satisfy. Substring matching is not proof of parity; a field-by-field comparison is                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Kept range checks exactly where the old validator had them                                                     | `pearson_r`/`pearson_p` are range-checked on `CorrelationBundle` only. Zod makes it trivial to add the same bounds to lag points, specifications and variants, which would be a new analytical rule invented by the tool rather than by the contract                                                                                                                                                                                                                                                                                                                                      |
+| **Phase 3C step 3** — `--header-height` as a token, measured in a browser rather than estimated                | Two components depend on the number (`Header` renders it, `Section` offsets anchors by it). The E2E check caught a 1px error from the header's bottom border in the first draft                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Section rhythm is `margin-top`, not `padding-top`                                                              | `scroll-margin-top` positions the border box and a margin sits outside it, so a deep link lands on the heading rather than `--section-spacing` above it. Same visual rhythm, correct anchor                                                                                                                                                                                                                                                                                                                                                                                               |
+| A section registry (`src/content/sections.ts`) holding only the sections that exist                            | Registering the ten narrative sections now would ship navigation links that scroll nowhere. A test asserts registry and page agree both ways, because a dead anchor is invisible to `tsc` and to `next build`                                                                                                                                                                                                                                                                                                                                                                             |
+| Navigation is anchors with `aria-current`, not buttons with JS routing                                         | Real ids are shareable and keyboard-native, and `aria-current` makes the scrollspy state audible rather than colour-only                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Scrollspy decides from live geometry, with the observer as a trigger only                                      | An `IntersectionObserver` callback carries only the entries that changed, so deciding from them left the previous section highlighted when the active one scrolled out of the band — a ~10% E2E flake. A passive frame-throttled scroll listener covers the case the observer structurally cannot: a section already inside the band crossing the reading line                                                                                                                                                                                                                            |
+| Horizontally scrollable nav rail instead of a mobile drawer                                                    | Three links do not justify a focus trap, which is the part of a drawer most easily got wrong. Revisit at ten sections                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Deferred the header's condense-on-scroll and the theme toggle                                                  | Condensing makes the header height dynamic, and that height is the anchor offset every section depends on; the toggle needs persistence plus an inline script to avoid a wrong-theme flash. Both are step 8 work, and `prefers-color-scheme` already themes the product                                                                                                                                                                                                                                                                                                                   |
+| Component tests live in Playwright, not `node --test`                                                          | Node 22.23.2 cannot load `.tsx` (`ERR_UNKNOWN_FILE_EXTENSION`, verified). A JSX transform in the unit-test toolchain to render six presentational components is dependency weight for no gain; Playwright tests the real production build                                                                                                                                                                                                                                                                                                                                                 |
+| Page body uses the `content` width, not `page`                                                                 | At 1280px a `page`-width body left the composition against the left edge with a void beside it. `content` centres the column, which is what the width variant is for. Caught by looking at a screenshot, not by a test                                                                                                                                                                                                                                                                                                                                                                    |
+| No eyebrow ordinals on the three scaffold blocks                                                               | Numbering them `01`–`03` read as though they were narrative sections 01–03, while the real ten are listed inside one of them. `SectionHeader` keeps the ordinal API for when those sections arrive                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Windows transition** — kept the system font stack; changed no font declaration                               | The stack is a decision recorded in `tokens.css` principle 4 and `design-system.md` §3, and the diagnosis found nothing broken: zero font requests, no `@font-face`, one declaration site, every computed type value equal to its token. Shipping a typeface to force cross-machine parity reverses a documented decision and changes the visual identity — that is the user's call, not a diagnosis outcome                                                                                                                                                                              |
+| Asserted the type contract, annotated the OS-supplied face                                                     | Sizes, line-heights, tracking, stacks, tabular figures and "zero fonts downloaded" are the project's own and are identical everywhere, so they are assertions. Which face Windows or Linux supplies is not, so it is a test annotation. Asserting it would fail every machine but the author's                                                                                                                                                                                                                                                                                            |
+| No screenshot baseline for typography                                                                          | With an OS-dependent typeface a pixel baseline is a machine-specific artifact posing as a contract. Screenshots were used as evidence during the diagnosis and deleted                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `import.meta.dirname` instead of slicing `import.meta.url`                                                     | `fileURLToPath` returns backslashes on Windows, so `lastIndexOf("/")` is -1 and the slice silently resolves one directory too deep. It broke all five test files. `import.meta.dirname` is correct on every platform and is inside the declared Node floor                                                                                                                                                                                                                                                                                                                                |
+| `.gitattributes` with `* text=auto eol=lf`, rather than relaxing Prettier's `endOfLine`                        | Setting `endOfLine: "auto"` would have silenced the failing gate while leaving the working tree's bytes dependent on each developer's `core.autocrlf` — including the bytes of the pipeline-owned artifacts whose digests the project publishes. Pinning the checkout fixes the cause; loosening the linter hides it                                                                                                                                                                                                                                                                      |
+| Did not change Node to 22.x to match the previous device                                                       | 24.19.0 satisfies `engines >=22.6` and passes every gate once the path defect is fixed. The failure was a portability bug in the repository, not a runtime incompatibility; pinning a runtime to reproduce a bug is not reproducibility                                                                                                                                                                                                                                                                                                                                                   |
+| **Phase 3C step 4** — express §16 as a discriminated union rather than a lint rule or a review habit           | An `inferential` metric that cannot be constructed without its specification comparison makes the project's most important presentational rule a compile error. Verified against `tsc` with both violations before relying on it                                                                                                                                                                                                                                                                                                                                                          |
+| `value` and `interval` typed as `string`, not `number`                                                         | Rounding a coefficient is a presentational decision that belongs in the pipeline or an accessor, made once. A string also makes arithmetic on a statistic impossible on the way to the screen, which is the analytical-safety rule restated as a type                                                                                                                                                                                                                                                                                                                                     |
+| Every caveat renders a badge **and** a sentence                                                                | A badge alone leaves the qualification in a `title` attribute — behind a hover, invisible to touch and to a screen reader in browse mode. §5 does not allow information to depend on hover                                                                                                                                                                                                                                                                                                                                                                                                |
+| `ReadMore` unmounts its panel instead of hiding it                                                             | A hidden-but-present panel is still found by find-in-page and still read in browse mode, so "collapsed" would be a lie. The cost is that height cannot be transitioned from the previous content, which is why the animation is opacity and translate                                                                                                                                                                                                                                                                                                                                     |
+| `ReadMore` is a `<button>` + `aria-expanded`, not `<details>`/`<summary>`                                      | §6 requires animated disclosure, a deep-linkable open state and Escape-to-close. `<details>` delivers none of the three reliably, and a button is what a screen reader announces anyway                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `Card` takes an `as` prop, and its optional props are typed `                                                  | undefined`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `exactOptionalPropertyTypes` is on, so a wrapper cannot forward a possibly-undefined prop through a plain `?:`. `Card` is the primitive designed to be wrapped, so it absorbs that instead of forcing every caller to invent a default |
+| Metric cards sit in a `<ul>`, not a `<dl>`                                                                     | `MetricCard` renders `<p>` for label and value, and a `div` inside a `dl` must contain `dt`/`dd`. Making the component emit `dt`/`dd` would force every future use into a definition list                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Kept the foundation page free of inferential metrics even though the component now exists                      | Steps 6–7 build the sections that can carry a specification comparison. A coefficient here would have nowhere to be qualified, which is exactly what §16 forbids. Two tests assert it stays that way                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Refinement pass** — one shared frame: `--width-page` is used by the shell _and_ the page body                | Two centred containers of different widths have no alignment spine. Measured: the body sat 80px inside the header's left edge at 1280px and 160px inside it at 1440px/1920px. That inset, not the width, is what made a 1920px canvas read as a narrow floating column                                                                                                                                                                                                                                                                                                                    |
+| Brought the frame **down** to 1120px rather than pushing the body out to 1440px                                | Step 3 already tried a `page`-width body and reverted it on a screenshot: prose left-aligned in a very wide frame leaves a void. Meeting in the middle fixes the alignment without recreating the defect step 3 found                                                                                                                                                                                                                                                                                                                                                                     |
+| The frame is **banded** (1120px → 1280px at `2xl`), not a `clamp()`                                            | A continuously growing frame makes every chart a different width at every viewport, which is the opposite of the banded adaptation design-system §5 requires. The boundary reuses the documented 1536px `2xl` rather than inventing a sixth breakpoint                                                                                                                                                                                                                                                                                                                                    |
+| The frame may never exceed `--width-chart`                                                                     | A frame wider than the widest permitted chart is space no content variant can fill. Asserted by a unit test rather than left as an intention                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| No multi-column grid, even though the frame now has room for one                                               | `product-architecture.md` §7 permits multi-column evidence at `≥1280`, but nothing in the scaffold needs it. A grid built before there is content to justify it is the dense-card-grid outcome design-system §1 rejects. Deferred explicitly, not skipped                                                                                                                                                                                                                                                                                                                                 |
+| `--width-title: 22ch` on the **heading element**, not a wrapper                                                | `ch` resolves against the element's own font size, so one value tracks the fluid display scale — ~733px at 60px, ~343px at 36px — with no breakpoint logic. A wrapper would also clamp the heading to the wrapper's measure, which is the bug being fixed                                                                                                                                                                                                                                                                                                                                 |
+| No type role may request weight 500                                                                            | Measured, not assumed: on Segoe UI 500 and 600 produce an identical pixel digest and an identical 707.06px advance, while a 400/700-only face renders 500 as 400. A role at 500 lets the OS decide whether text reads as emphasised. A unit test rejects the declaration and the `font-medium` utility; an E2E test rejects the computed value. **A no-op on Windows** — 500 already resolved to the 600 face here — so it is honest to report it as a Linux fix rather than a visible improvement. **RETIRED by the Geist migration below**, because its premise was an OS-supplied face |
+| Rejected `--width-reading: min(68ch, 42rem)` after implementing and measuring it                               | `ch` scales with the element's font size and `rem` does not, so one ceiling binds on the 19px lead and is inert on 16px body copy — the token would mean different things per role. Bounding cross-OS wrapping drift is not worth a measure that is inconsistent by role, and the drift is already documented and accepted                                                                                                                                                                                                                                                                |
+| `text-wrap: balance` on `h1`–`h4`                                                                              | With an OS-supplied typeface the same heading occupies a different pixel width per machine, so a greedy break lands somewhere different on each. Balance makes the break depend on line count instead, which is the only way heading wrapping can be deliberate on a machine that is not the author's                                                                                                                                                                                                                                                                                     |
+| Corrected the reading-measure E2E probe rather than deleting it                                                | It resolved `ch` in the root's 16px font and compared the result against the 19px lead, so it was asserting the wrong number and passed only by coincidence of where the cap sat. The probe now copies the element's computed font. A faulty assertion is worse than a missing one, and this is a correction, not a relaxation                                                                                                                                                                                                                                                            |
+| **Geist migration** — ship the typeface through the `geist` npm package rather than naming an OS-installed one | Naming a face you do not ship trades one per-machine outcome for another. The SF Pro pass proved it: on a box without SF Pro the page rendered the same fallback as before, and where SF Pro _was_ installed the local family had no upright Semibold so 600 resolved to Bold. A dependency renders the same bytes everywhere                                                                                                                                                                                                                                                             |
+| `geist` in `dependencies`, exact-pinned, not a devDependency                                                   | The application imports it at build time and serves its files. It has no transitive dependencies and one peer (`next`), so the cost is two 70 KB `.woff2` files in `/_next/static/media/`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| The font class goes on `<html>`, not `<body>`                                                                  | `<html>` **is** `:root`, which is where `tokens.css` declares the font tokens. A custom property set on `<body>` is invisible to a `var()` in a `:root` rule, so every token would silently take its fallback chain — a failure that looks like "the font didn't apply"                                                                                                                                                                                                                                                                                                                   |
+| Replaced "zero font requests / zero `@font-face`" with a narrower rule instead of deleting it                  | Both absolutes are now false by design. Deleting them would drop the guardrail; the replacement — every font byte same-origin under `/_next/static/media/`, nothing from a font provider, every `@font-face` family matching `/^Geist/` — still fails a `next/font/google` import or a remote `@import`                                                                                                                                                                                                                                                                                   |
+| Appended an explicit generic tail to the sans chain                                                            | Measured: the package's `--font-geist-sans` is only `"GeistSans", "GeistSans Fallback"`, and that fallback face reports `status: "error"` on a machine without Arial. Without a tail a failed `.woff2` load runs off the end of the chain into the UA default serif. Geist Mono ships its own full chain and needs none                                                                                                                                                                                                                                                                   |
+| Kept the `--font-display` / `--font-sans` split even though Geist has one optical size                         | The _roles_ still differ — headings consume one token, prose the other. Collapsing them would make a later decision to give display type its own face an edit to every heading instead of one line in `tokens.css`                                                                                                                                                                                                                                                                                                                                                                        |
+| A second figure utility (`.tabular`) rather than removing `.numeric` from human-facing values                  | `.numeric` supplied the mono face _and_ `tabular-nums`. Moving figures off it naively would have cost the digit alignment that design-system §3 calls non-negotiable — measured as load-bearing, since Geist Sans's figures are proportional (80px vs 162px at 400/40px). Two utilities, one concern each                                                                                                                                                                                                                                                                                 |
+| Chose the weight mapping by measured ink coverage, not by weight number                                        | A number does not say how bold something looks: 600 at 12px uppercase measured 40.32% ink, denser per unit area than the 60px hero at 31.73%. Every eyebrow and country badge was out-weighing the title above it, which no amount of reasoning from "600 is semibold" would have surfaced                                                                                                                                                                                                                                                                                                |
+| `display` (hero) is 500, a step **lighter** than `h2` at 600                                                   | Optical sizing, not an inverted hierarchy: the larger the type, the less weight it needs to dominate, and the hero is nearly twice a section heading's size. 700 measured 34.71% and 600 measured 31.73%, both reading as a marketing headline rather than an analytical title. Stated in `tokens.css` and asserted by a test, because otherwise it looks like a bug                                                                                                                                                                                                                      |
+| **Retired** the no-500 rule and replaced it with a stricter set                                                | Its premise was that the platform owned the face. Geist's `100 900` variable axis interpolates every step from the same file — verified as nine distinct pixel digests per face, with Geist Mono holding a constant 798px advance, which is both correct for a monospace face and the cleanest disproof of synthesis. The replacement rules are narrower _and_ more numerous: declared-step-only, every sized role weighted, nothing off the scale, nothing above 500 at ≤20px, each step provably distinct, 700 unused                                                                   |
+| Kept the retired rule's measurement in `tokens.css`, asserted by a test                                        | Deleting it invites the next person to reinstate the rule from git history, or to assume 500 is still unsafe. It is unsafe with an OS-supplied face and safe with a bundled variable one, and that distinction is the whole point                                                                                                                                                                                                                                                                                                                                                         |
+| Deleted the audit spec after recording its findings                                                            | A permanent 22-role diagnostic suite that logs tables is not a contract — it cannot fail. What it established is now either documented in §4 or asserted by a test that can fail                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ---
 
@@ -1437,22 +2036,28 @@ Version notes:
 
 Open items, none blocking:
 
-- **The product ships no typeface, so the rendered face is OS-dependent.** This is
-  the documented decision (`tokens.css` principle 4, `design-system.md` §3) and it
-  is measured rather than assumed: Segoe UI + Consolas on Windows, whatever
-  fontconfig resolves on Linux. **Fully deterministic typography would require
-  shipping a typeface, which is a product decision that has not been made.**
+- **Two measured font caveats, both inside `next/font`'s fallback machinery.** The
+  typeface itself is now deterministic (§4), and what remains is only what happens
+  during or after a failed load:
+  - `next/font` emits a third face, `GeistSans Fallback`, which is a
+    metric-adjusted local Arial. It reports **`status: "error"`** on a machine
+    without Arial — including this one. It only matters inside the
+    `font-display: swap` window, where its absence means a swap shifts layout
+    instead of being size-matched.
+  - The package's `--font-geist-sans` is only `"GeistSans", "GeistSans Fallback"`
+    and does **not** terminate in a generic family. `tokens.css` appends an
+    explicit tail ending in `sans-serif` and a unit test asserts it, so this is
+    contained rather than open — but it is a property of the dependency, so a
+    `geist` upgrade should re-check it. Geist Mono needs no tail.
 
-  Re-examined in the refinement pass rather than accepted on the previous session's
-  word, and one consequence turned out to be a real defect that is now fixed: weight
-  500 is not a distinct face (identical digest *and* identical 707.06px advance to
-  600 on Segoe UI; renders as 400 on a 400/700-only face), so four roles let the OS
-  decide whether text read as emphasised. Emphasis now uses 600 and two tests
-  forbid 500. **What remains open is only the face itself**, plus the `ch`-measure
-  consequence: `--width-reading: 68ch` is a different physical width per face, so
-  paragraph wrapping and section heights legitimately differ between machines. A px
-  ceiling on that was implemented, measured and rejected — it resolves differently
-  per role (§4).
+  Neither is worth reporting upstream as a bug: the first is inherent to a
+  metric-adjusted fallback, and the second is a defensible default for a package
+  that expects the consumer to own the stack.
+
+- **The `ch`-measure consequence is resolved, not open.** `--width-reading: 68ch`
+  now resolves to one physical width everywhere, because the face is fixed. The
+  `min(68ch, 42rem)` ceiling stays rejected on its own merits — it resolved
+  differently per role, binding on the 19px lead and inert on 16px body copy (§4).
 - **Only chromium is installed for Playwright.** Firefox/WebKit binaries are
   absent, so cross-engine behaviour is unverified. The cyan/blue colourblind check
   and the screen-reader pass in `docs/product-architecture.md` §5 also remain
@@ -1474,45 +2079,172 @@ Open items, none blocking:
 - **`next dev` is unverified in a browser.** Only the production build is
   E2E-tested, which is the deliberate choice recorded in §7.
 
-Resolved this session:
+Resolved (most recent first — the top four in the Geist migration, the rest earlier):
 
-| Previously open | Resolution |
-| --- | --- |
-| Windows preview "looks different, especially typography" | **DIAGNOSED, no application change needed.** The project ships no typeface; `system-ui` resolves to Segoe UI here and to a different face on Linux. Nothing failed to load. Evidence and consequences in §4 |
-| `npm test` loaded 0 of 5 test files on Windows | **RESOLVED** — `import.meta.url` sliced at `"/"` breaks on backslash paths. Four files switched to `import.meta.dirname`; 120/120 pass |
-| `npm run format:check` failed on 37 untouched files | **RESOLVED** — `core.autocrlf=true` made the checkout CRLF against LF blobs. `.gitattributes` pins `eol=lf` for every platform |
-| Artifact digests unverifiable on Windows | **RESOLVED** — the same CRLF cause. Committed blobs always matched §9; the three-way hash proof is in §4 |
-| npm registry E403, no package access | **RESOLVED** — registry fully reachable on this device |
-| Node runtime below `>=22.6` | **RESOLVED** — Node 22.23.2 installed in user space |
-| `pytest` / `ruff` / `mypy` absent; Phase 2 gates unrunnable | **RESOLVED** — installed via the declared `dev` extra; all gates re-run and green (§9) |
-| `web/types/node-minimal.d.ts` stopgap | **RESOLVED** — deleted; real `@types/node@22.20.2` installed |
-| `.gitignore` missing `node_modules/` | **RESOLVED** — frontend ignore block added |
-| Python test count: 191 vs README's 190 | **RESOLVED** — measured **191 collected, 191 passed, 1 module-level skip**. READMEs corrected; `docs/phase-2-validation.md` given a dated reconciliation note |
-| Stale `uv` cache lock from the interrupted session | **RESOLVED** — no holding process; single stale lock file removed |
-| **Singapore: editorial grouping vs statistical classification** | **RESOLVED in Phase 3C.** The two are different kinds of object and both stand, with `level_only_association` authoritative. Five binding rules recorded in §19 and mirrored as hard rule 5 in `docs/product-architecture.md` §3. The product may never imply Singapore lacks a level association |
-| `tsconfig.json` not React-capable | **RESOLVED** — `jsx`, DOM libs, React types and `**/*.tsx` added; every Phase 3A strictness flag preserved |
-| No `next.config.mjs`; `build`/`dev`/`start` unusable | **RESOLVED** — config added, build clean |
-| Playwright browser binaries absent | **RESOLVED** — chromium installed; 8 E2E tests pass |
-| `src/data/validate.ts` was the hand-rolled validator; Zod installed but unused | **RESOLVED in Phase 3C step 2.** Replaced in place with Zod 4.6.5 schemas. `index.ts` unchanged, 109/109 tests pass unedited, error paths identical across 52 mutations |
+| Previously open                                                                | Resolution                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **The product ships no typeface, so the rendered face is OS-dependent**        | **RESOLVED by the Geist migration (§4).** Geist Sans and Geist Mono arrive through the `geist` npm package, are self-hosted out of `/_next/static/media/`, and render from the same bytes on every machine. No font file is committed, no OS install is required, nothing is fetched from a third party. The E2E suite now _asserts_ the face where it previously annotated it |
+| **Weight availability is decided by the OS face**                              | **RESOLVED.** Both Geist files carry a `100 900` variable axis, verified as nine distinct pixel digests per face. The no-500 rule is retired and replaced by a stricter set (§4, §7)                                                                                                                                                                                           |
+| `211f5c9` left `format:check` and 2 E2E tests failing, with no KIRO.md entry   | **RESOLVED.** Both gates are green; the commit and its state are now recorded in §4                                                                                                                                                                                                                                                                                            |
+| Windows preview "looks different, especially typography"                       | **DIAGNOSED then RESOLVED.** The diagnosis was correct — the project shipped no typeface — and the Geist migration removes the cause rather than documenting it                                                                                                                                                                                                                |
+| `npm test` loaded 0 of 5 test files on Windows                                 | **RESOLVED** — `import.meta.url` sliced at `"/"` breaks on backslash paths. Four files switched to `import.meta.dirname`; 120/120 pass                                                                                                                                                                                                                                         |
+| `npm run format:check` failed on 37 untouched files                            | **RESOLVED** — `core.autocrlf=true` made the checkout CRLF against LF blobs. `.gitattributes` pins `eol=lf` for every platform                                                                                                                                                                                                                                                 |
+| Artifact digests unverifiable on Windows                                       | **RESOLVED** — the same CRLF cause. Committed blobs always matched §9; the three-way hash proof is in §4                                                                                                                                                                                                                                                                       |
+| npm registry E403, no package access                                           | **RESOLVED** — registry fully reachable on this device                                                                                                                                                                                                                                                                                                                         |
+| Node runtime below `>=22.6`                                                    | **RESOLVED** — Node 22.23.2 installed in user space                                                                                                                                                                                                                                                                                                                            |
+| `pytest` / `ruff` / `mypy` absent; Phase 2 gates unrunnable                    | **RESOLVED** — installed via the declared `dev` extra; all gates re-run and green (§9)                                                                                                                                                                                                                                                                                         |
+| `web/types/node-minimal.d.ts` stopgap                                          | **RESOLVED** — deleted; real `@types/node@22.20.2` installed                                                                                                                                                                                                                                                                                                                   |
+| `.gitignore` missing `node_modules/`                                           | **RESOLVED** — frontend ignore block added                                                                                                                                                                                                                                                                                                                                     |
+| Python test count: 191 vs README's 190                                         | **RESOLVED** — measured **191 collected, 191 passed, 1 module-level skip**. READMEs corrected; `docs/phase-2-validation.md` given a dated reconciliation note                                                                                                                                                                                                                  |
+| Stale `uv` cache lock from the interrupted session                             | **RESOLVED** — no holding process; single stale lock file removed                                                                                                                                                                                                                                                                                                              |
+| **Singapore: editorial grouping vs statistical classification**                | **RESOLVED in Phase 3C.** The two are different kinds of object and both stand, with `level_only_association` authoritative. Five binding rules recorded in §19 and mirrored as hard rule 5 in `docs/product-architecture.md` §3. The product may never imply Singapore lacks a level association                                                                              |
+| `tsconfig.json` not React-capable                                              | **RESOLVED** — `jsx`, DOM libs, React types and `**/*.tsx` added; every Phase 3A strictness flag preserved                                                                                                                                                                                                                                                                     |
+| No `next.config.mjs`; `build`/`dev`/`start` unusable                           | **RESOLVED** — config added, build clean                                                                                                                                                                                                                                                                                                                                       |
+| Playwright browser binaries absent                                             | **RESOLVED** — chromium installed; 8 E2E tests pass                                                                                                                                                                                                                                                                                                                            |
+| `src/data/validate.ts` was the hand-rolled validator; Zod installed but unused | **RESOLVED in Phase 3C step 2.** Replaced in place with Zod 4.6.5 schemas. `index.ts` unchanged, 109/109 tests pass unedited, error paths identical across 52 mutations                                                                                                                                                                                                        |
 
 ---
 
 ## 9. Validation status
 
+### Cross-device sync checkpoint validation (2026-09-17, Linux) — CURRENT
+
+The full gate set, run on the exact tree that became the checkpoint commit. This is the
+authoritative record; the sections below it are historical.
+
+| Gate                 | Command                            | Result                                                             |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| Frontend tests       | `npm test`                         | **206 / 206 pass**, 0 fail, 0 skipped (was 160 before the chart)   |
+| Types                | `npm run typecheck`                | **clean**, exit 0                                                  |
+| Lint                 | `npm run lint`                     | **clean**, exit 0                                                  |
+| Format               | `npm run format:check`             | **clean** — all matched files use Prettier style                   |
+| Combined             | `npm run verify`                   | **exit 0**                                                         |
+| Production build     | `npm run build`                    | **PASS** — compiled 1177 ms, TS 1713 ms, 3 static pages, 0 warnings |
+| Browser E2E          | `npx playwright test`              | **86 / 86 pass** (23.1 s) — was 62 before the chart                |
+| Python tests         | `python -m pytest`                 | **191 passed, 1 skipped** (6.27 s)                                 |
+| Python lint          | `ruff check .`                     | **All checks passed**                                              |
+| Python format        | `ruff format --check .`            | **21 files already formatted**                                     |
+| Types (src, strict)  | `mypy src`                         | **no issues in 11 source files**                                   |
+| Types (src + tests)  | `mypy`                             | **no issues in 20 source files**                                   |
+| Artifact freshness   | `python -m pipeline.build --check` | **PASS** — all 4 artifacts up to date                              |
+
+**Nothing was fixed, because nothing failed.** Every gate above passed on the first run
+against the working tree as found. No test was added, edited, skipped or weakened during
+this checkpoint, and no source file was changed to make a gate pass. The only files this
+session changed are documentation: `KIRO.md`, `README.md` (its status line said no chart
+existed) and `web/README.md` (its next-step section described the prototype as unbuilt).
+
+Test counts per file, measured rather than carried forward:
+
+| Unit (`node --test`)                | Count | E2E (`playwright test`) | Count |
+| ----------------------------------- | ----: | ----------------------- | ----: |
+| `tests/validator.test.ts`           |    46 | `e2e/chart.e2e.ts`      |    24 |
+| `tests/chart-contract.test.ts`      |    43 | `e2e/shell.e2e.ts`      |    23 |
+| `tests/data-contract.test.ts`       |    28 | `e2e/typography.e2e.ts` |    16 |
+| `tests/chart-language.test.ts`      |    22 | `e2e/content.e2e.ts`    |    15 |
+| `tests/content-contract.test.ts`    |    20 | `e2e/foundation.e2e.ts` |     8 |
+| `tests/typography-contract.test.ts` |    20 |                         |       |
+| `tests/layout-contract.test.ts`     |    14 |                         |       |
+| `tests/analytical-safety.test.ts`   |    13 |                         |       |
+| **Total**                           |   206 | **Total**               |    86 |
+
+`tests/chart-contract.test.ts` holds **43** tests, not the 44 recorded in an earlier
+draft of §4; the count above is what `node --test` reports and §4 has been corrected to
+match. The chart layer also carries **its own** analytical-safety scan — "no statistical
+or smoothing operation appears in the chart layer" forbids `Math.sqrt`, `Math.pow`,
+`Math.log`, `Math.exp`, `Math.hypot`, `pearson`, `toPrecision(` and `.reduce(` across
+every chart file, which is what §10 required step 5 to add.
+
+**Analytical integrity — verified, not assumed.** All five artifact digests on disk are
+byte-identical to the values recorded further down this section:
+
+| Artifact         | sha256 (on disk, 2026-09-17)                                       | vs record     |
+| ---------------- | ------------------------------------------------------------------ | ------------- |
+| `claims.json`    | `c46072971a2b59e7b0199351cec59c8c12bf5b53cc0c374c8629b17459112231` | **identical** |
+| `countries.json` | `6789e21c6b3a3aa019832348995e7545b8f5b4cbff88697284ba22687e4ee1fb` | **identical** |
+| `manifest.json`  | `8afbb2a9818abd259ec14fdf2c4e30dd9f59f3e0fda01a7a15d729a746914c8b` | **identical** |
+| `metrics.json`   | `5e5f43bf255b1ff70715e391a13b786b55b23128a1e1388fbff8c98674fb4002` | **identical** |
+| `panel.json`     | `e446aeb525e12d5b5ff3a0291fa1d06260aa46e7ab45da8cf5b8c032596d471c` | **identical** |
+
+Tree hashes at `HEAD` identical to the baseline: `pipeline/src` `0d4e1273`, `data/`
+`e3b3ea39`, `reports/` `78aebdc9`, `web/src/data/generated/` `0b4db970`. And
+`git diff HEAD -- pipeline/ data/ reports/ web/src/data/ METHODOLOGY.md` is **empty** —
+the whole analytical layer, not just the artifacts, is untouched by everything in this
+checkpoint.
+
+**No line-ending churn.** Every one of the 23 modified tracked files was checked for
+CR bytes and none contains any. `git diff --ignore-all-space --ignore-blank-lines`
+accounts for the difference in the two large Markdown files (`KIRO.md`,
+`docs/design-system.md`): that residue is table reflow around changed content, not a
+whitespace-only commit. `.gitattributes` (`* text=auto eol=lf`) is doing its job.
+
+Root-level Markdown (`KIRO.md`, `README.md`, `docs/design-system.md`) sits **outside**
+the Prettier gate — `prettier --check .` runs from `web/` and covers `web/` only. Both
+`KIRO.md` and `README.md` were already Prettier-dirty at `211f5c9`, verified by checking
+the committed blobs, so reformatting them here would have produced thousands of lines of
+churn unrelated to the checkpoint. They are left hand-formatted in the file's existing
+style. `web/README.md`, which **is** inside the gate, is clean.
+
+**Nothing environment-only was committed.** `node_modules/`, `.next/`, `next-env.d.ts`,
+`*.tsbuildinfo`, `playwright-report/`, `test-results/` and `.venv/` are all ignored and
+absent from `git status`. The two dependency files that did change —
+`web/package.json` and `web/package-lock.json` — changed by exactly one dependency
+(`geist` 1.7.2, plus its single lockfile entry with no transitive dependencies), which is
+the typography migration and not an environment artifact.
+
+### Geist typography migration validation (2026-09-16, Linux)
+
+| Gate                      | Command                                         | Result                                               |
+| ------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| Typography/frame contract | `node --test tests/typography-contract.test.ts` | **20 / 20 pass** (was 10)                            |
+| Full frontend suite       | `npm test`                                      | **160 / 160 pass**, 0 fail, 0 skipped (was 150)      |
+| Types                     | `npm run typecheck`                             | **clean**, exit 0                                    |
+| Lint                      | `npm run lint`                                  | **clean**, exit 0                                    |
+| Format                    | `npm run format:check`                          | **clean** — was FAILING on `tokens.css` at `211f5c9` |
+| Combined                  | `npm run verify`                                | **exit 0** — was failing at `211f5c9`                |
+| Production build          | `npm run build`                                 | **PASS** — 3 static routes, no warnings              |
+| Browser E2E               | `npx playwright test`                           | **62 / 62 pass** (was 54 passed + **2 failed**)      |
+| Python tests              | `python -m pytest`                              | **191 passed, 1 skipped**                            |
+| Python lint               | `python -m ruff check .`                        | **All checks passed**                                |
+| Python types              | `python -m mypy src tests`                      | **clean**, 20 source files                           |
+| Artifact freshness        | `python -m pipeline.build --check`              | **PASS** — all 4 artifacts up to date                |
+
+**The two gates that were red at `211f5c9` are now green**, and neither was made to
+pass by loosening it — `format:check` failed on unformatted CSS that this pass
+rewrote, and the two E2E failures were assertions of the _old_ system stack against a
+page declaring SF Pro. See §4.
+
+**Analytical artifacts are byte-identical.** sha256 before and after the migration:
+
+| Artifact         | sha256                                                             |
+| ---------------- | ------------------------------------------------------------------ |
+| `claims.json`    | `c46072971a2b59e7b0199351cec59c8c12bf5b53cc0c374c8629b17459112231` |
+| `countries.json` | `6789e21c6b3a3aa019832348995e7545b8f5b4cbff88697284ba22687e4ee1fb` |
+| `manifest.json`  | `8afbb2a9818abd259ec14fdf2c4e30dd9f59f3e0fda01a7a15d729a746914c8b` |
+| `metrics.json`   | `5e5f43bf255b1ff70715e391a13b786b55b23128a1e1388fbff8c98674fb4002` |
+| `panel.json`     | `e446aeb525e12d5b5ff3a0291fa1d06260aa46e7ab45da8cf5b8c032596d471c` |
+
+Also confirmed: **no font file was added to the repository** (a recursive walk of
+`web/` excluding `node_modules` and `.next` finds none, and a unit test enforces it);
+**no remote font loading was introduced** (both font requests are same-origin under
+`/_next/static/media/`); **no Python, pipeline, dataset, artifact or contract file was
+touched**; and **no step 5 / ECharts work was introduced** — `echarts` remains
+installed and unimported.
+
 ### Visual refinement pass validation (2026-09-15, Windows)
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| New typography/frame tests | `node --test tests/typography-contract.test.ts` | **10 / 10 pass** |
-| Full frontend suite | `npm test` | **150 / 150 pass**, 0 fail, 0 skipped (140 + 10) |
-| Types | `npm run typecheck` | **clean**, exit 0 |
-| Lint | `npm run lint` | **clean**, exit 0 |
-| Format | `npm run format:check` | **clean** — all matched files use Prettier style |
-| Combined | `npm run verify` | **exit 0** |
-| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
-| Browser E2E | `npm run test:e2e` | **56 / 56 pass** (was 47; +9) |
-| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
-| Artifact freshness | `python -m pipeline.build --check` | **PASS** — all 4 artifacts up to date |
+| Gate                       | Command                                         | Result                                           |
+| -------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| New typography/frame tests | `node --test tests/typography-contract.test.ts` | **10 / 10 pass**                                 |
+| Full frontend suite        | `npm test`                                      | **150 / 150 pass**, 0 fail, 0 skipped (140 + 10) |
+| Types                      | `npm run typecheck`                             | **clean**, exit 0                                |
+| Lint                       | `npm run lint`                                  | **clean**, exit 0                                |
+| Format                     | `npm run format:check`                          | **clean** — all matched files use Prettier style |
+| Combined                   | `npm run verify`                                | **exit 0**                                       |
+| Production build           | `npm run build`                                 | **PASS** — 3 static routes, no warnings          |
+| Browser E2E                | `npm run test:e2e`                              | **56 / 56 pass** (was 47; +9)                    |
+| Python tests               | `python -m pytest`                              | **191 passed, 1 skipped**                        |
+| Artifact freshness         | `python -m pipeline.build --check`              | **PASS** — all 4 artifacts up to date            |
 
 Port 3100 was explicitly cleared and every `node` process killed before the E2E run,
 and the listener was confirmed absent, so Playwright built and started its own
@@ -1523,12 +2255,12 @@ wrong number (§4).
 
 **Responsive verification — measured in-browser at four viewports.**
 
-| Viewport | Frame | Coverage | Spine offset | Overflow | Prose |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 375px | 375px | 100% | 0px | 0 | within measure |
-| 1280px | 1120px | 87.5% | 0px | 0 | within measure |
-| 1440px | 1120px | 77.8% | 0px | 0 | within measure |
-| 1920px | 1280px | 66.7% | 0px | 0 | within measure |
+| Viewport |  Frame | Coverage | Spine offset | Overflow |          Prose |
+| -------- | -----: | -------: | -----------: | -------: | -------------: |
+| 375px    |  375px |     100% |          0px |        0 | within measure |
+| 1280px   | 1120px |    87.5% |          0px |        0 | within measure |
+| 1440px   | 1120px |    77.8% |          0px |        0 | within measure |
+| 1920px   | 1280px |    66.7% |          0px |        0 | within measure |
 
 "Spine offset" is the header identity's left edge minus the body eyebrow's left
 edge; it was 80px at 1280px and 160px at 1440px/1920px before the change. Four E2E
@@ -1545,12 +2277,12 @@ its screenshots lived outside the tracked tree and were deleted.
 
 **Analytical integrity.** Tree hashes identical to the baseline:
 
-| Path | Tree hash | vs baseline |
-| --- | --- | --- |
-| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
-| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| Path                      | Tree hash                                  | vs baseline   |
+| ------------------------- | ------------------------------------------ | ------------- |
+| `pipeline/src`            | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/`                   | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
 | `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
-| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+| `reports/`                | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
 
 `git diff HEAD -- pipeline/ data/ reports/ web/src/data/ METHODOLOGY.md` is
 **empty**, and the four artifact digests on disk still match §9's record exactly:
@@ -1559,21 +2291,21 @@ its screenshots lived outside the tracked tree and were deleted.
 
 ### Phase 3C step 4 validation (2026-09-15, Windows)
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| New content tests | `node --test tests/content-contract.test.ts` | **20 / 20 pass** |
-| Full frontend suite | `npm test` | **140 / 140 pass**, 0 fail, 0 skipped (120 + 20) |
-| Types | `npm run typecheck` | **clean**, exit 0 |
-| Lint | `npm run lint` | **clean**, exit 0 |
-| Format | `npm run format:check` | **clean** |
-| Combined | `npm run verify` | **exit 0** |
-| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
-| Browser E2E | `npm run test:e2e` | **47 / 47 pass** (8 foundation + 15 shell + 9 typography + 15 content) |
-| §16 gate is a compile error | scratch file through `tsc` | **2 / 2 violations rejected** (TS2322 on both) |
-| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
-| Python lint / format | `ruff check .` / `ruff format --check .` | **clean** / **21 files already formatted** |
-| Types (src + tests) | `mypy` | **no issues in 20 source files** |
-| Artifact freshness | `python -m pipeline.build --check` | **PASS** |
+| Gate                        | Command                                      | Result                                                                 |
+| --------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| New content tests           | `node --test tests/content-contract.test.ts` | **20 / 20 pass**                                                       |
+| Full frontend suite         | `npm test`                                   | **140 / 140 pass**, 0 fail, 0 skipped (120 + 20)                       |
+| Types                       | `npm run typecheck`                          | **clean**, exit 0                                                      |
+| Lint                        | `npm run lint`                               | **clean**, exit 0                                                      |
+| Format                      | `npm run format:check`                       | **clean**                                                              |
+| Combined                    | `npm run verify`                             | **exit 0**                                                             |
+| Production build            | `npm run build`                              | **PASS** — 3 static routes, no warnings                                |
+| Browser E2E                 | `npm run test:e2e`                           | **47 / 47 pass** (8 foundation + 15 shell + 9 typography + 15 content) |
+| §16 gate is a compile error | scratch file through `tsc`                   | **2 / 2 violations rejected** (TS2322 on both)                         |
+| Python tests                | `python -m pytest`                           | **191 passed, 1 skipped**                                              |
+| Python lint / format        | `ruff check .` / `ruff format --check .`     | **clean** / **21 files already formatted**                             |
+| Types (src + tests)         | `mypy`                                       | **no issues in 20 source files**                                       |
+| Artifact freshness          | `python -m pipeline.build --check`           | **PASS**                                                               |
 
 No existing test was edited, skipped or weakened. The 120-test count from step 3 is
 intact inside the new total, and the 32 E2E tests from before step 4 all still pass
@@ -1582,12 +2314,12 @@ intact inside the new total, and the 32 E2E tests from before step 4 all still p
 
 **Analytical integrity after step 4.** Tree hashes identical to the baseline:
 
-| Path | Tree hash | vs baseline |
-| --- | --- | --- |
-| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
-| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| Path                      | Tree hash                                  | vs baseline   |
+| ------------------------- | ------------------------------------------ | ------------- |
+| `pipeline/src`            | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/`                   | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
 | `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
-| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+| `reports/`                | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
 
 `git diff` over `pipeline/ data/ reports/ web/src/data/ METHODOLOGY.md` is
 **empty** — the whole data layer, not just the artifacts, is untouched by step 4.
@@ -1604,23 +2336,23 @@ capture script were deleted.
 Every gate below was run on the Windows 11 PC, on this tree, after the two fixes in
 §4. Commands are as a developer would run them from `web/` and `pipeline/`.
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| Lockfile reinstall | `npm ci` | **exit 0** — tree reproduced from the lockfile |
-| Frontend tests | `npm test` | **120 / 120 pass**, 0 fail, 0 skipped |
-| Types | `npm run typecheck` | **clean**, exit 0 |
-| Lint | `npm run lint` | **clean**, exit 0 |
-| Format | `npm run format:check` | **clean** after `.gitattributes` normalisation (37 files failed before) |
-| Combined | `npm run verify` | **exit 0** |
-| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
-| Browser E2E | `npm run test:e2e` | **32 / 32 pass** (8 foundation + 15 shell + 9 typography) |
-| Typography suite alone | `npx playwright test e2e/typography.e2e.ts` | **9 / 9 pass** |
-| Python tests | `python -m pytest` | **191 passed, 1 skipped** (4.89 s) |
-| Python lint | `ruff check .` | **All checks passed** |
-| Python format | `ruff format --check .` | **21 files already formatted** |
-| Types (src) | `mypy src` | **no issues in 11 source files** |
-| Types (src + tests) | `mypy` | **no issues in 20 source files** |
-| Artifact freshness | `python -m pipeline.build --check` | **PASS** — all 4 artifacts up to date |
+| Gate                   | Command                                     | Result                                                                  |
+| ---------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
+| Lockfile reinstall     | `npm ci`                                    | **exit 0** — tree reproduced from the lockfile                          |
+| Frontend tests         | `npm test`                                  | **120 / 120 pass**, 0 fail, 0 skipped                                   |
+| Types                  | `npm run typecheck`                         | **clean**, exit 0                                                       |
+| Lint                   | `npm run lint`                              | **clean**, exit 0                                                       |
+| Format                 | `npm run format:check`                      | **clean** after `.gitattributes` normalisation (37 files failed before) |
+| Combined               | `npm run verify`                            | **exit 0**                                                              |
+| Production build       | `npm run build`                             | **PASS** — 3 static routes, no warnings                                 |
+| Browser E2E            | `npm run test:e2e`                          | **32 / 32 pass** (8 foundation + 15 shell + 9 typography)               |
+| Typography suite alone | `npx playwright test e2e/typography.e2e.ts` | **9 / 9 pass**                                                          |
+| Python tests           | `python -m pytest`                          | **191 passed, 1 skipped** (4.89 s)                                      |
+| Python lint            | `ruff check .`                              | **All checks passed**                                                   |
+| Python format          | `ruff format --check .`                     | **21 files already formatted**                                          |
+| Types (src)            | `mypy src`                                  | **no issues in 11 source files**                                        |
+| Types (src + tests)    | `mypy`                                      | **no issues in 20 source files**                                        |
+| Artifact freshness     | `python -m pipeline.build --check`          | **PASS** — all 4 artifacts up to date                                   |
 
 Counts are identical to the Linux baseline: 120 frontend tests, 191 Python tests,
 1 skip. No test was added to the existing suites, edited, skipped or weakened —
@@ -1641,39 +2373,39 @@ All gates below were run on this device, in this session, on the committed tree.
 
 **Analytical (read-only against the pipeline):**
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| Legacy replay | `python -m pipeline.build --legacy` | **MATCH** — `rows=29`, sha256 `e653ad8c6521dd35` |
-| Artifact freshness | `python -m pipeline.build --check` | **PASS** — all 4 artifacts up to date |
-| Artifacts unchanged by the merge | 4 git tree hashes + `git diff` | **PASS** — hashes identical, diff empty |
+| Gate                             | Command                             | Result                                           |
+| -------------------------------- | ----------------------------------- | ------------------------------------------------ |
+| Legacy replay                    | `python -m pipeline.build --legacy` | **MATCH** — `rows=29`, sha256 `e653ad8c6521dd35` |
+| Artifact freshness               | `python -m pipeline.build --check`  | **PASS** — all 4 artifacts up to date            |
+| Artifacts unchanged by the merge | 4 git tree hashes + `git diff`      | **PASS** — hashes identical, diff empty          |
 
 **Python (`pipeline/`):**
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| Tests | `python -m pytest` | **191 passed, 1 skipped** (6.58 s) |
-| Collection | `python -m pytest --collect-only` | **191 tests collected** |
-| Lint | `ruff check .` | **All checks passed** |
-| Format | `ruff format --check .` | **21 files already formatted** |
-| Types (src, strict) | `mypy src` | **Success — no issues in 11 source files** |
-| Types (src + tests) | `mypy` | **Success — no issues in 20 source files** |
+| Gate                | Command                           | Result                                     |
+| ------------------- | --------------------------------- | ------------------------------------------ |
+| Tests               | `python -m pytest`                | **191 passed, 1 skipped** (6.58 s)         |
+| Collection          | `python -m pytest --collect-only` | **191 tests collected**                    |
+| Lint                | `ruff check .`                    | **All checks passed**                      |
+| Format              | `ruff format --check .`           | **21 files already formatted**             |
+| Types (src, strict) | `mypy src`                        | **Success — no issues in 11 source files** |
+| Types (src + tests) | `mypy`                            | **Success — no issues in 20 source files** |
 
-The single skip is `tests/test_statistics_scipy.py` (module-level): *"SciPy not
-installed; stdlib implementations validated against published values instead."*
+The single skip is `tests/test_statistics_scipy.py` (module-level): _"SciPy not
+installed; stdlib implementations validated against published values instead."_
 SciPy is deliberately not installed — the `validate` extra was not requested.
 
 **Frontend (`web/`):**
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| Tests | `npm test` (`node --test`) | **109 / 109 pass**, 0 fail, 0 skipped |
-| Types | `npm run typecheck` (`tsc`, strict) | **clean**, exit 0 |
-| Lint | `npm run lint` (`eslint .`) | **clean**, exit 0, no warnings |
-| Format | `npm run format:check` (`prettier`) | **clean** |
-| Combined | `npm run verify` | **exit 0** |
-| Lockfile sync | `npm ci --dry-run` | **exit 0** — lockfile in sync with `package.json` |
-| Production build | `npm run build` | **PASS** — compiled in 717 ms, 3 static routes (`/`, `/_not-found`), **no warnings** |
-| Browser E2E | `npm run test:e2e` | **8 / 8 pass** (chromium, against the production build) |
+| Gate             | Command                             | Result                                                                               |
+| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Tests            | `npm test` (`node --test`)          | **109 / 109 pass**, 0 fail, 0 skipped                                                |
+| Types            | `npm run typecheck` (`tsc`, strict) | **clean**, exit 0                                                                    |
+| Lint             | `npm run lint` (`eslint .`)         | **clean**, exit 0, no warnings                                                       |
+| Format           | `npm run format:check` (`prettier`) | **clean**                                                                            |
+| Combined         | `npm run verify`                    | **exit 0**                                                                           |
+| Lockfile sync    | `npm ci --dry-run`                  | **exit 0** — lockfile in sync with `package.json`                                    |
+| Production build | `npm run build`                     | **PASS** — compiled in 717 ms, 3 static routes (`/`, `/_not-found`), **no warnings** |
+| Browser E2E      | `npm run test:e2e`                  | **8 / 8 pass** (chromium, against the production build)                              |
 
 The 109-test Phase 3A suite is **unchanged** — no test was added to it, deleted,
 skipped or rewritten, and the count is identical before and after Phase 3C.
@@ -1683,18 +2415,18 @@ skipped or rewritten, and the count is identical before and after Phase 3C.
 Every gate below was run on the committed tree. No existing test was edited,
 skipped or weakened; the 109-test Phase 3A suite is intact inside the new total.
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| New layout tests | `node --test tests/layout-contract.test.ts` | **11 / 11 pass** |
-| Full frontend suite | `npm test` | **120 / 120 pass**, 0 fail, 0 skipped (109 + 11) |
-| Types | `npm run typecheck` | **clean**, exit 0 |
-| Lint | `npm run lint` | **clean**, exit 0 |
-| Format | `npm run format:check` | **clean** |
-| Combined | `npm run verify` | **exit 0** |
-| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
-| Browser E2E | `npm run test:e2e` | **23 / 23 pass** (chromium; 8 foundation + 15 shell) |
-| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
-| Python lint / types | `ruff check .` / `mypy src` | **clean** / **no issues in 11 files** |
+| Gate                | Command                                     | Result                                               |
+| ------------------- | ------------------------------------------- | ---------------------------------------------------- |
+| New layout tests    | `node --test tests/layout-contract.test.ts` | **11 / 11 pass**                                     |
+| Full frontend suite | `npm test`                                  | **120 / 120 pass**, 0 fail, 0 skipped (109 + 11)     |
+| Types               | `npm run typecheck`                         | **clean**, exit 0                                    |
+| Lint                | `npm run lint`                              | **clean**, exit 0                                    |
+| Format              | `npm run format:check`                      | **clean**                                            |
+| Combined            | `npm run verify`                            | **exit 0**                                           |
+| Production build    | `npm run build`                             | **PASS** — 3 static routes, no warnings              |
+| Browser E2E         | `npm run test:e2e`                          | **23 / 23 pass** (chromium; 8 foundation + 15 shell) |
+| Python tests        | `python -m pytest`                          | **191 passed, 1 skipped**                            |
+| Python lint / types | `ruff check .` / `mypy src`                 | **clean** / **no issues in 11 files**                |
 
 The 15 shell tests cover: the named `nav` landmark and one link per registered
 section; every `href` resolving to an element that exists; nav links as the tab
@@ -1719,12 +2451,12 @@ an assertion, which is the argument for looking.
 
 Analytical integrity after step 3 — tree hashes identical to the baseline:
 
-| Path | Tree hash | vs baseline |
-| --- | --- | --- |
-| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
-| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| Path                      | Tree hash                                  | vs baseline   |
+| ------------------------- | ------------------------------------------ | ------------- |
+| `pipeline/src`            | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/`                   | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
 | `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
-| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+| `reports/`                | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
 
 `git diff` over `pipeline/ data/ reports/ web/src/data/generated/ METHODOLOGY.md`
 is empty, and `git diff -- web/src/data/` is empty: the whole data layer, not just
@@ -1736,19 +2468,19 @@ Every gate below was re-run on the committed tree after `validate.ts` was
 replaced. `tests/validator.test.ts` and `tests/analytical-safety.test.ts` were
 **not edited**.
 
-| Gate | Command | Result |
-| --- | --- | --- |
-| Acceptance: validator | `node --test tests/validator.test.ts` | **46 / 46 pass** |
-| Acceptance: analytical safety | `node --test tests/analytical-safety.test.ts` | **13 / 13 pass** |
-| Full frontend suite | `npm test` | **109 / 109 pass**, 0 fail, 0 skipped |
-| Types | `npm run typecheck` | **clean**, exit 0 |
-| Lint | `npm run lint` | **clean**, exit 0 |
-| Format | `npm run format:check` | **clean** |
-| Combined | `npm run verify` | **exit 0** |
-| Production build | `npm run build` | **PASS** — 3 static routes, no warnings |
-| Browser E2E | `npm run test:e2e` | **8 / 8 pass** (chromium) |
-| Python tests | `python -m pytest` | **191 passed, 1 skipped** |
-| Python lint / types | `ruff check .` / `mypy src` | **clean** / **no issues in 11 files** |
+| Gate                          | Command                                       | Result                                  |
+| ----------------------------- | --------------------------------------------- | --------------------------------------- |
+| Acceptance: validator         | `node --test tests/validator.test.ts`         | **46 / 46 pass**                        |
+| Acceptance: analytical safety | `node --test tests/analytical-safety.test.ts` | **13 / 13 pass**                        |
+| Full frontend suite           | `npm test`                                    | **109 / 109 pass**, 0 fail, 0 skipped   |
+| Types                         | `npm run typecheck`                           | **clean**, exit 0                       |
+| Lint                          | `npm run lint`                                | **clean**, exit 0                       |
+| Format                        | `npm run format:check`                        | **clean**                               |
+| Combined                      | `npm run verify`                              | **exit 0**                              |
+| Production build              | `npm run build`                               | **PASS** — 3 static routes, no warnings |
+| Browser E2E                   | `npm run test:e2e`                            | **8 / 8 pass** (chromium)               |
+| Python tests                  | `python -m pytest`                            | **191 passed, 1 skipped**               |
+| Python lint / types           | `ruff check .` / `mypy src`                   | **clean** / **no issues in 11 files**   |
 
 The build and E2E runs matter more than usual here: they are what proves the new
 validator works inside the Next/Turbopack module graph. `app/page.tsx` renders
@@ -1759,19 +2491,19 @@ these schemas, so a Zod boundary that only worked under `node --test` would fail
 Two additional checks were run beyond the gate set, both with scratch files that
 were deleted afterwards:
 
-| Check | Method | Result |
-| --- | --- | --- |
+| Check             | Method                                                                                                  | Result                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Error-path parity | old implementation restored from git to a scratch file; both validators run over 52 identical mutations | **52 / 52 identical `ContractError.path`**, 0 different |
-| Schema coverage | scratch copy with every `z.object` → `z.strictObject`, run against all five real artifacts | **complete** — no artifact field is left unvalidated |
+| Schema coverage   | scratch copy with every `z.object` → `z.strictObject`, run against all five real artifacts              | **complete** — no artifact field is left unvalidated    |
 
 Analytical integrity after step 2 — tree hashes identical to the baseline in §4:
 
-| Path | Tree hash | vs baseline |
-| --- | --- | --- |
-| `pipeline/src` | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
-| `data/` | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
+| Path                      | Tree hash                                  | vs baseline   |
+| ------------------------- | ------------------------------------------ | ------------- |
+| `pipeline/src`            | `0d4e1273a1e4b46561015b59d09fbb8b12115e8e` | **identical** |
+| `data/`                   | `e3b3ea39e6de7ca091a321e48eb45e1601588a11` | **identical** |
 | `web/src/data/generated/` | `0b4db970dfbc032f67d63f975d168d7ff2ad7838` | **identical** |
-| `reports/` | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
+| `reports/`                | `78aebdc94b36462502b516771caa2d5bdebbaf83` | **identical** |
 
 `git diff` over `pipeline/ data/ reports/ web/src/data/generated/ METHODOLOGY.md`
 is empty, and the four artifact digests still match the values recorded below.
@@ -1798,21 +2530,51 @@ relaxed; no analytical file was modified to make a frontend gate pass.
 
 ### Commits
 
-| Phase | Commit | Subject |
-| --- | --- | --- |
-| 3B baseline | **`f950e2b`** | chore: restore frontend foundation and bootstrap dependencies |
-| 3B docs | `f1786fe`, `8705377` | record the 3B baseline hash and push status |
-| Protocol | **`76db6f5`** | docs: record the Universal Kiro Protocol operating rules in KIRO.md |
-| 3C step 1 | **`94bf7cf`** | feat: scaffold the Next.js App Router and wire design tokens into Tailwind |
-| 3C step 1 docs | **`64d904f`** | docs: record the Phase 3C step 1 commit hash in KIRO.md |
-| Reconciliation | `f002259` | docs: correct the KIRO.md push status and phase header after reconciliation |
-| 3C step 2 | **`0131f74`** | feat: replace the hand-rolled validator with a Zod runtime schema boundary |
-| 3C step 2 docs | `97b69f1` | docs: record the Phase 3C step 2 commit hash in KIRO.md |
-| 3C step 3 | **`6acb553`** | feat: build the application shell and layout primitives |
-| 3C step 3 fix | **`ee03249`** | fix: decide the scrollspy from geometry rather than observer entries |
-| Windows transition | **`94a9998`** | fix: make the checkout and the type contract deterministic across machines |
-| 3C step 4 | **`5fd07f7`** | feat: build the content components and make §16 a compile error |
-| Refinement | **`ad87a20`** | refine: give the layout one shared frame and stop relying on weight 500 |
+| Phase              | Commit               | Subject                                                                     |
+| ------------------ | -------------------- | --------------------------------------------------------------------------- |
+| 3B baseline        | **`f950e2b`**        | chore: restore frontend foundation and bootstrap dependencies               |
+| 3B docs            | `f1786fe`, `8705377` | record the 3B baseline hash and push status                                 |
+| Protocol           | **`76db6f5`**        | docs: record the Universal Kiro Protocol operating rules in KIRO.md         |
+| 3C step 1          | **`94bf7cf`**        | feat: scaffold the Next.js App Router and wire design tokens into Tailwind  |
+| 3C step 1 docs     | **`64d904f`**        | docs: record the Phase 3C step 1 commit hash in KIRO.md                     |
+| Reconciliation     | `f002259`            | docs: correct the KIRO.md push status and phase header after reconciliation |
+| 3C step 2          | **`0131f74`**        | feat: replace the hand-rolled validator with a Zod runtime schema boundary  |
+| 3C step 2 docs     | `97b69f1`            | docs: record the Phase 3C step 2 commit hash in KIRO.md                     |
+| 3C step 3          | **`6acb553`**        | feat: build the application shell and layout primitives                     |
+| 3C step 3 fix      | **`ee03249`**        | fix: decide the scrollspy from geometry rather than observer entries        |
+| Windows transition | **`94a9998`**        | fix: make the checkout and the type contract deterministic across machines  |
+| 3C step 4          | **`5fd07f7`**        | feat: build the content components and make §16 a compile error             |
+| Refinement         | **`ad87a20`**        | refine: give the layout one shared frame and stop relying on weight 500     |
+| SF Pro pass        | `211f5c9`            | "update" — see §4; left two gates red and no KIRO.md entry                  |
+| SF Pro close-out   | `e4374a8`            | feat: adopt SF Pro typography for local web app — **on `origin/main` only**, superseded by Geist; see "Divergence" above |
+| **Sync checkpoint** | **child of `211f5c9`** | **feat: add chart prototype and latest web refinements** — **local only, push blocked** |
+
+**The sync checkpoint (2026-09-17).** One commit carrying the Geist typography
+migration, the editorial title-case polish and the step 5 chart prototype — everything
+this file previously recorded as uncommitted. **34 files: 23 modified, 11 created.**
+
+```text
+created   web/src/components/chart/{contract.ts,echarts-option.ts,EChart.tsx,
+                                    ChartFrame.tsx,ChartControls.tsx,ChartLegend.tsx,
+                                    ChartTableFallback.tsx,OilVsWorldwideInterestChart.tsx}
+created   web/src/lib/oil-vs-interest.ts
+created   web/tests/chart-contract.test.ts   web/e2e/chart.e2e.ts
+modified  web/app/{layout.tsx,page.tsx,globals.css}
+modified  web/src/styles/tokens.css   web/src/content/sections.ts
+modified  web/src/components/layout/{Header.tsx,SectionHeader.tsx}
+modified  web/src/components/content/{MetricCard.tsx,StatHighlight.tsx,contract.ts}
+modified  web/tests/{typography-contract,layout-contract,content-contract}.test.ts
+modified  web/e2e/{typography,content,shell,foundation}.e2e.ts
+modified  web/package.json   web/package-lock.json
+modified  KIRO.md   README.md   docs/design-system.md   web/README.md
+```
+
+**Nothing under `pipeline/`, `data/`, `reports/` or `web/src/data/` was touched**, and
+no colour, radius, motion or spacing token changed. The only dependency change is
+`geist` 1.7.2, exact-pinned, with no transitive dependencies. It is identified here by
+its parent rather than by its own hash because it is a single commit that also carries
+this documentation — recording a hash inside the commit that produces it is not
+possible. Resolve it with `git log --oneline 211f5c9..HEAD`.
 
 `ad87a20` changed 14 files (+922/−66): `tokens.css`, `globals.css`, `page.tsx`,
 `SectionHeader.tsx`, `Container.tsx`, `Header.tsx`, `StatHighlight.tsx`, the two E2E
@@ -1846,20 +2608,76 @@ and `web/README.md`. Nothing else in `web/src/data/` was touched.
 `next-env.d.ts`, `*.tsbuildinfo` and Playwright output are all ignored and untracked;
 `web/package-lock.json` is tracked.
 
-**Push status.** Kiro has performed **no push** in this session. `main` is **2
-commits ahead of `origin/main`** — `94a9998` (Windows transition) and `5fd07f7`
-(step 4) are local only. Everything up to and including `d670830` is on the remote.
-Re-check with `git status -sb` / `git log --oneline origin/main..main`.
+**Push status — 2026-09-17. PUSH REJECTED. `main` and `origin/main` have DIVERGED.**
 
-**Push status — corrected 2026-09-15 during post-reset reconciliation.** Kiro
-performed no push; the user subsequently synchronised the branch. `git ls-remote
-origin refs/heads/main` returns `64d904f`, so `main` and `origin/main` are
-**identical** and `git rev-list --left-right --count origin/main...main` is `0 0`.
-Phase 3A (`97d1a5c`), the 3B baseline (`f950e2b`) and the 3C step 1 scaffold
-(`94bf7cf`) are all on the remote. The earlier statement in this section — that
-`origin/main` was still at `d19a7c7` and the work existed only locally — was true
-when written and is now superseded. Re-check with `git status -sb` /
-`git log --oneline origin/main..main`.
+```text
+git push origin main
+ ! [rejected]  main -> main (fetch first)
+
+git rev-list --left-right --count origin/main...HEAD   →   1   1
+git merge-base HEAD origin/main                        →   211f5c9
+```
+
+`git fetch` (read-only — it updates remote-tracking refs and never the working tree)
+resolved it: `origin/main` moved `211f5c9..e4374a8` while this tree was on Linux.
+
+### Divergence — `e4374a8` (SF Pro, remote) vs the checkpoint (Geist, local)
+
+|                   | `origin/main` → `e4374a8`                     | `HEAD` → the checkpoint                       |
+| ----------------- | --------------------------------------------- | --------------------------------------------- |
+| Subject           | feat: adopt SF Pro typography for local web app | feat: add chart prototype and latest web refinements |
+| Authored          | 2026-09-16 01:19 +0700, Windows               | 2026-09-17, Linux                             |
+| Parent            | `211f5c9`                                     | `211f5c9`                                     |
+| Files             | 8                                             | 34                                            |
+| Typeface strategy | **name an OS-installed face**                 | **ship the face as a dependency**             |
+
+**They are competing resolutions of the same problem, not a sequence.** `211f5c9`
+("update") introduced the raw SF Pro pass with two gates red and no KIRO.md entry. Two
+sessions then closed it out independently: the Windows session formalised SF Pro
+(`e4374a8` — per-role weights, `--weight-bold: 700`, headings at 400, a semibold nav
+rail, the missing documentation, the `format:check` fix), and the Linux session replaced
+it with Geist. §4 already records the outcome of that comparison as a **taken decision**:
+SF Pro is *superseded rather than corrected*, because naming a face you do not ship
+trades one per-machine outcome for another — SF Pro is absent on this Linux box, and
+where it *was* installed the family had no upright Semibold, so 600 resolved to Bold.
+`e4374a8`'s own message documents that same measurement (600 and 700 both rendering an
+identical 845.3px advance at 48px), which is part of the evidence *for* Geist.
+
+**Six files overlap and would conflict:** `KIRO.md`, `docs/design-system.md`,
+`web/README.md`, `web/src/styles/tokens.css`, `web/e2e/typography.e2e.ts`,
+`web/tests/typography-contract.test.ts`.
+
+**Two files are `e4374a8`-only, and both are SF Pro-specific and incompatible with the
+current tree — verified, not assumed:**
+
+| File                                     | `e4374a8` change                                                              | Effect if kept                                                                                                                                                                       |
+| ---------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `web/src/components/layout/Navigation.tsx` | adds `font-semibold` to **every** nav link                                    | **Breaks two E2E tests.** The role table asserts `nav[aria-label="Sections"] a` computes **400** (`--text-small-weight: var(--weight-regular)`), and a second rule forbids anything above 500 at ≤20px — the rail is 15px |
+| `docs/product-architecture.md`            | a paragraph stating the product requests SF Pro Display, hero 700, headings 400 | **All three are false under Geist** — the hero is 500, headings are 600, and no face is requested by name outside `tokens.css` §4                                                     |
+
+### Options, none of them taken
+
+| # | Action                                                                                                                        | Preserves `e4374a8` | Commits | Matches the brief                             |
+| - | ----------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------- | --------------------------------------------- |
+| A | `git merge origin/main`, resolve all six in favour of Geist, drop the two SF Pro-only changes                                  | **yes**, as a parent | 2       | breaks "one commit" and "do not pull"         |
+| B | `git rebase origin/main`, same resolution, replay the checkpoint on top                                                        | **yes**, in history  | 1       | keeps "one commit"; still integrates the remote |
+| C | `git push --force`                                                                                                            | **no** — destructive | 1       | matches literally; destroys a documented commit |
+
+**Recommendation: B, then A.** B satisfies "one clean checkpoint commit" and
+`HEAD == origin/main` without destroying anything, and the project has precedent for
+preferring a non-destructive integration (Phase 3A was restored by `git merge --no-ff`
+for exactly this reason). C is not recommended: `e4374a8` carries the measured SF Pro
+evidence that the Geist decision rests on, and losing it from `main` would leave §4
+citing a commit unreachable from the branch.
+
+Whichever is chosen, the full gate set must be re-run on the integrated result — the
+206/86 counts below were measured on the un-integrated checkpoint.
+
+Two earlier push-status notes in this section are **superseded** and kept only as a
+record: one said `main` was 2 commits ahead of `origin/main` (true when written,
+resolved when the user synchronised the branch), and its 2026-09-15 correction reported
+both refs at `64d904f`. Always re-check with `git status -sb` /
+`git log --oneline origin/main..main` rather than trusting any of these lines.
 
 Artifact hashes verified identical before and after the merge:
 
@@ -1877,39 +2695,74 @@ Every number in §15–§17 was reconciled against `metrics.json` and
 
 ## 10. Next step
 
-**Phase 3C step 5 — `EChart`, `ChartFrame`, `ChartControls`, `ChartTableFallback`
-and the ECharts theme adapter.**
+**Phase 3C step 5 proper — the rest of the chart system, starting from a visual review
+of the committed prototype.**
 
-`docs/product-architecture.md` §10 step 5, with each component's responsibility in
-§4 of the same document, the accessibility requirements for charts in §5, and the
-typed visual contract in `web/src/styles/chart-language.ts` (whose `CHART_TOKENS`
-are already asserted against `tokens.css` by `tests/chart-language.test.ts`).
+The checkpoint is a hard stop. Do **not** continue into additional chart or UI features
+without a fresh explicit instruction — that is §1's phase-boundary rule, and this
+checkpoint exists to synchronise two machines, not to open the next step.
 
-Where step 5 starts from what step 4 built:
+**Step 0 of the next session: look at the prototype on the Windows machine.** That is
+the whole reason this checkpoint was pushed. Sequence:
 
-1. **`ChartFrame` is a `Card` with slots**, not a new surface. Eyebrow, title, a
-   one-line "what to look for", the chart slot, controls, a `SourceNote` and the
-   fallback toggle. It must not float either.
-2. **`EChart` is the only client component in the chart layer.** Lazy mount via
-   `IntersectionObserver`, `ResizeObserver` → debounced `resize()`, `dispose()` on
-   unmount, theme resolved once per theme change. `reactStrictMode` is on precisely
-   because this is the class of code it catches.
-3. **The theme adapter reads CSS custom properties at runtime**, so charts inherit
-   light/dark from `tokens.css` with no second palette. `chart-language.ts` already
-   defines the DOM-free resolver contract.
-4. **`ChartTableFallback` is first-class**, never `display:none`-only. Every chart
-   has a tabular twin.
-5. **`echarts` 6.1.0 is already installed and unused.** `echarts-for-react` is
-   deliberately absent — the project builds its own wrapper over the `ChartTheme`
-   contract.
-6. **Still no statistic is computed.** A chart series is artifact data passed
-   through; axis ranges and tick formatting are presentation, but any derived
-   figure must already exist in the artifacts.
+```bash
+git pull                 # fast-forward to the checkpoint
+cd web && npm ci         # REQUIRED: package.json gained geist 1.7.2
+npm run verify           # typecheck + lint + test + format:check
+npm run build && npm run start -- --port 3100
+```
 
-### Chart direction — decided, to be implemented in step 5
+The prototype is at `#oil-vs-interest` on `/`. What to judge, in the order it matters:
+the dual-axis treatment and whether either unit can be misread; the tooltip and
+crosshair while moving across weeks; the dashed provisional segment and the gap where
+the oil series ends a week early; the HTML legend's toggles; Ctrl-wheel zoom versus
+plain-wheel page scroll; the fallback table; and the whole thing at 375px, where the
+chart becomes two stacked single-axis panels.
 
-Recorded here so the visual language is not re-litigated when the adapter is
-written. These are constraints on step 5, not work for any earlier step.
+**Then, and only on a fresh instruction, step 5 proper.** What remains after the
+prototype:
+
+1. **The second and subsequent charts.** The prototype deliberately built no generic
+   series abstraction — `contract.ts` says so explicitly. The right time to decide what
+   is shared is when a second chart exists to compare against, not before.
+2. **Country charts, the lag chart and the scatter.** None exists. Each needs its own
+   accessibility contract and its own fallback table.
+3. **`ChartFrame`'s loading and empty states** stay absent by decision, not omission:
+   the artifacts are imported at build time and validated before render, so there is no
+   fetch to be pending.
+4. **The prototype's position is temporary.** It sits after the comparability guardrail
+   because that constraint must be read before any interest line is shown.
+   `product-architecture.md` §1 places the global relationship at narrative section 04,
+   which is where it moves once steps 6–7 exist. Nothing depends on its current
+   position, and `src/content/sections.ts` is where the move is registered.
+
+What the prototype already settled, so it is not re-litigated:
+
+- **`ChartFrame` is a `Card` with slots**, not a new surface, and it does not float.
+- **`EChart` is the only stateful part**, and it mounts the ECharts instance in an
+  absolutely-positioned child — otherwise the inline width ECharts writes feeds back
+  into layout and the chart can grow but never shrink (§4, measured).
+- **The theme adapter reads CSS custom properties at runtime**, and `rem`-valued tokens
+  must be converted to pixels before they reach canvas. `--chart-axis-label-size` is
+  `0.8125rem`, and `parseFloat` on it gives a font size of 0.8125 **pixels** (§4).
+- **The legend is HTML**, because a shape painted into a canvas cannot be tabbed to,
+  focused or announced. Visibility is filtered in the option builder, not dispatched via
+  `legendToggleSelect`.
+- **`ChartTableFallback` is first-class** and unmounted when closed, never
+  `display:none`.
+- **Neither series is ever rescaled**, and the interest axis is the measure's own 0-100
+  domain rather than the sample's range.
+- **The chart layer has its own analytical-safety scan** in
+  `tests/chart-contract.test.ts`, and it must stay green as charts are added.
+- **The provisional-week disclosure is closed.** `app/page.tsx`'s "What that means for
+  the charts" panel now *describes* the treatment the chart applies rather than stating
+  a requirement for charts that do not exist. Any new chart of a series with partial
+  weeks must keep that description true.
+
+### Chart direction — decided, and the prototype is the reference implementation
+
+Recorded so the visual language is not re-litigated. These were constraints on the
+prototype and remain constraints on every chart after it.
 
 **Appearance**
 
@@ -1948,9 +2801,11 @@ Still binding for every remaining step:
 
 - The frontend **must not compute a statistic**. `analytical-safety.test.ts`
   enforces it over `src/data/`, `layout-contract.test.ts` over the layout
-  components, and `content-contract.test.ts` over the content components —
-  including `toFixed(` and `toPrecision(`, because formatting a coefficient is the
-  pipeline's job. The chart layer must join that check in step 5.
+  components, `content-contract.test.ts` over the content components and
+  `chart-contract.test.ts` over the chart layer — including `toFixed(` and
+  `toPrecision(`, because formatting a coefficient is the pipeline's job. The chart
+  scan also forbids `Math.sqrt`, `Math.pow`, `Math.log`, `Math.exp`, `Math.hypot`,
+  `pearson` and `.reduce(`; every chart added after the prototype stays inside it.
 - §16 binds anything that renders a statistic: use `MetricContent`'s
   `kind: "inferential"` variant, which cannot be constructed without the
   specification comparison and at least one caveat.
@@ -1963,35 +2818,59 @@ Still binding for every remaining step:
   lacks a level association.
 - Register new sections in `src/content/sections.ts` as they are built, so
   navigation and anchors cannot drift.
-- Typography is OS-supplied by design (§4). Do not "fix" a per-machine typeface
-  difference; chart label sizes come from `--chart-*-size` tokens, which are
-  deterministic, while the face is not.
+- **Typography ships with the application** (§4). Geist Sans and Geist Mono come from
+  the `geist` npm package and are self-hosted from `/_next/static/media/`. Do not add
+  a font file to the repository, do not install a font at the OS level, do not add
+  `next/font/google` or a remote font URL, and do not name a face outside
+  `tokens.css` §4 — a unit test asserts exactly one declaration site. Chart label
+  sizes come from `--chart-*-size` tokens; chart label _families_ must come from
+  `--font-sans` / `--font-numeric`, never a literal.
+- **Not every number is monospace.** `.tabular` is a figure a reader reads and stays
+  in Geist Sans; `.numeric` is an identifier a reader copies and takes Geist Mono.
+  Both carry `tabular-nums`. Chart axis ticks and tooltips are technical readouts and
+  may use `--font-numeric`; a figure inside prose may not.
+- **Every type role's weight must be a declared step on the scale** — 400/500/600/700
+  (`--weight-regular|medium|semibold|bold`). The old rule that no role may use 500 is
+  **retired**: its premise was an OS-supplied face, and Geist's `100 900` variable
+  axis interpolates every step from the same bytes everywhere (§4). The rules that
+  replace it are stricter and bind the chart layer too: every sized role declares a
+  weight, every declared weight is mapped in `globals.css`, no element computes a
+  weight off the scale, nothing above 500 at 20px or below, and each step must render
+  as a distinct face. Do not reach for a raw number.
 - **The shell and the page body share one frame** (`Container width="page"`,
   `--width-page`, banded 1120px → 1280px at `2xl`). A chart may take the full frame;
   prose stays at `--width-reading`. Do not introduce a second centred width at page
   level — a unit test asserts `Header`, `Footer` and `page.tsx` all request `page`,
   and an E2E test asserts they share one left edge at 375/1280/1440/1920. This is
   the concrete meaning of "prose stays readable, analytical visuals can breathe".
-- **No type role or component may request weight 500.** It is not a distinct face in
-  these system stacks (§4). Use `--weight-semibold` / `font-semibold`. A unit test
-  rejects the declaration and the utility; an E2E test rejects the computed value.
-  Chart label weights are subject to the same rule.
+- **No type role or component may request weight 500.** — **RETIRED.** See the weight
+  rules above; they are what binds now.
 - Prose measures go on the element that carries the role, never on a wrapper:
   `--width-reading` and `--width-title` are in `ch`, which resolves against the
   element's own font size.
+- **Editorial titles are Title Case; prose and controls are sentence case.** Section
+  eyebrows, section titles and metric-card labels take Title Case (Chicago-style:
+  articles, coordinating conjunctions and prepositions stay lowercase unless they
+  lead or close the title; both halves of a hyphenated compound are capitalised).
+  Leads, body copy, caveat sentences and control labels — "Read more", "What that
+  means for the charts", "Skip to content" — stay sentence case. The case lives in
+  the **content string**; there is no runtime title-caser, because one would have to
+  guess at "vs", "EV", "Cross-Market" and every future proper noun. Three unit tests
+  in `layout-contract.test.ts` enforce it, including one asserting leads are _not_
+  title-cased. This binds the ten narrative section titles in steps 6–7.
 
 ---
 
 ## 11. Phase history
 
-| Phase | Description | Status |
-| --- | --- | --- |
-| Phase 1 | Repository/project audit | **COMPLETE** |
-| Phase 2 | Analytical remediation and reproducibility | **COMPLETE** — merged to `main` as `d19a7c7` |
-| Phase 3 | Product transformation direction | **COMPLETE** — direction locked |
-| Phase 3A | Frontend/data/design foundations | **COMPLETE** — authored on `phase-3a-frontend-foundation`, restored to `main` as `97d1a5c` |
-| Phase 3B | Dependency bootstrap (environment baseline) | **COMPLETE** — all 10 steps; validated baseline committed |
-| Phase 3C | Frontend/UI implementation | **IN PROGRESS** — steps 1–4 of 8 complete |
+| Phase    | Description                                 | Status                                                                                     |
+| -------- | ------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Phase 1  | Repository/project audit                    | **COMPLETE**                                                                               |
+| Phase 2  | Analytical remediation and reproducibility  | **COMPLETE** — merged to `main` as `d19a7c7`                                               |
+| Phase 3  | Product transformation direction            | **COMPLETE** — direction locked                                                            |
+| Phase 3A | Frontend/data/design foundations            | **COMPLETE** — authored on `phase-3a-frontend-foundation`, restored to `main` as `97d1a5c` |
+| Phase 3B | Dependency bootstrap (environment baseline) | **COMPLETE** — all 10 steps; validated baseline committed                                  |
+| Phase 3C | Frontend/UI implementation                  | **IN PROGRESS** — steps 1–4 of 8 complete, plus a committed step 5 chart prototype         |
 
 ### Phase 2 validation record
 
@@ -2075,14 +2954,14 @@ Established ground truth — every figure below was re-verified against
 
 ### Level Pearson correlations
 
-| Series | Pearson r | p-value | Spearman rho | Bootstrap CI |
-|---|---:|---:|---:|---:|
-| Worldwide | 0.7269 | 0.000005 | 0.7212 | [0.545, 0.887] |
-| United States | 0.7466 | 0.000002 | 0.5274 | [0.507, 0.865] |
-| Singapore | 0.5796 | 0.00079 | 0.5102 | [0.284, 0.756] |
-| Malaysia | 0.2203 | 0.242 | 0.2017 | [-0.001, 0.471] |
-| Norway | 0.1460 | 0.441 | 0.1449 | [-0.156, 0.443] |
-| Indonesia | -0.0191 | 0.920 | 0.1152 | [-0.181, 0.270] |
+| Series        | Pearson r |  p-value | Spearman rho |    Bootstrap CI |
+| ------------- | --------: | -------: | -----------: | --------------: |
+| Worldwide     |    0.7269 | 0.000005 |       0.7212 |  [0.545, 0.887] |
+| United States |    0.7466 | 0.000002 |       0.5274 |  [0.507, 0.865] |
+| Singapore     |    0.5796 |  0.00079 |       0.5102 |  [0.284, 0.756] |
+| Malaysia      |    0.2203 |    0.242 |       0.2017 | [-0.001, 0.471] |
+| Norway        |    0.1460 |    0.441 |       0.1449 | [-0.156, 0.443] |
+| Indonesia     |   -0.0191 |    0.920 |       0.1152 | [-0.181, 0.270] |
 
 ### Oil shock
 
@@ -2109,14 +2988,14 @@ and must never be restored.
 
 One of the most important analytical conclusions in the project.
 
-| Series | Level Pearson | First-difference | Detrended |
-| --- | ---: | ---: | ---: |
-| Worldwide | 0.727 | -0.116 | 0.527 |
-| United States | 0.747 | 0.133 | 0.541 |
-| Singapore | 0.580 | 0.089 | 0.164 |
-| Malaysia | 0.220 | -0.148 | -0.283 |
-| Norway | 0.146 | 0.143 | -0.505 |
-| Indonesia | -0.019 | -0.087 | -0.448 |
+| Series        | Level Pearson | First-difference | Detrended |
+| ------------- | ------------: | ---------------: | --------: |
+| Worldwide     |         0.727 |           -0.116 |     0.527 |
+| United States |         0.747 |            0.133 |     0.541 |
+| Singapore     |         0.580 |            0.089 |     0.164 |
+| Malaysia      |         0.220 |           -0.148 |    -0.283 |
+| Norway        |         0.146 |            0.143 |    -0.505 |
+| Indonesia     |        -0.019 |           -0.087 |    -0.448 |
 
 **Zero of six series survive first differencing as a positive relationship.**
 
@@ -2129,13 +3008,13 @@ methodology footnote.
 
 ## 17. Country classifications
 
-| Country | Classification | Robustness | Key detail |
-| --- | --- | --- | --- |
-| Indonesia | `no_detectable_association` | fragile, regime-sensitive | baseline-only r = 0.453, p = 0.020 |
-| Norway | `no_detectable_association` | fragile | detrended r = -0.505, p = 0.004 |
-| Malaysia | `inconclusive` | fragile | EV peak precedes oil elevated-regime onset by ≈4 weeks |
-| Singapore | `level_only_association` | moderate | baseline-only r = 0.304, p = 0.132 |
-| United States | `level_only_association` | moderate | survives elevated-regime removal (r = 0.408, p = 0.038); does NOT survive first differencing |
+| Country       | Classification              | Robustness                | Key detail                                                                                   |
+| ------------- | --------------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
+| Indonesia     | `no_detectable_association` | fragile, regime-sensitive | baseline-only r = 0.453, p = 0.020                                                           |
+| Norway        | `no_detectable_association` | fragile                   | detrended r = -0.505, p = 0.004                                                              |
+| Malaysia      | `inconclusive`              | fragile                   | EV peak precedes oil elevated-regime onset by ≈4 weeks                                       |
+| Singapore     | `level_only_association`    | moderate                  | baseline-only r = 0.304, p = 0.132                                                           |
+| United States | `level_only_association`    | moderate                  | survives elevated-regime removal (r = 0.408, p = 0.038); does NOT survive first differencing |
 
 **No country reaches a robust positive association.**
 
@@ -2172,7 +3051,7 @@ are interpretive groupings layered on top of the machine classifications, and al
 three named panels carry `requires_external_evidence: true`.
 
 - **Subsidized Buffer** — Indonesia
-- **Maturity Gap** — Norway + Singapore *(editorial grouping — see below)*
+- **Maturity Gap** — Norway + Singapore _(editorial grouping — see below)_
 - **Co-Movement Case** — United States + Worldwide
 - **Separate Inconclusive Case** — Malaysia
 
@@ -2184,10 +3063,10 @@ or reuse it as an analytical conclusion.
 The editorial and statistical groupings genuinely disagree about Singapore, and
 that is permitted **only** because they are different kinds of object:
 
-| | Grouping | Status |
-| --- | --- | --- |
+|                 | Grouping                                                        | Status                                                                   |
+| --------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | **Statistical** | `level_only_association` — Singapore with the **United States** | **Authoritative.** From `metrics.json` → `classification.evidence_group` |
-| **Editorial** | **Maturity Gap** — Singapore with **Norway** | Interpretive. From `docs/analytical-decision-memo.md` §6 |
+| **Editorial**   | **Maturity Gap** — Singapore with **Norway**                    | Interpretive. From `docs/analytical-decision-memo.md` §6                 |
 
 Rules, now binding (mirrored as hard rule 5 in `docs/product-architecture.md` §3):
 

@@ -69,7 +69,7 @@ test.describe("artifact-driven content", () => {
   test("shows the cross-market comparability constraint", async ({ page }) => {
     await page.goto("/");
     // The guardrail against the original project's invalid cross-market ranking.
-    await expect(page.getByRole("heading", { name: "Comparability constraint" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Comparability Constraint" })).toBeVisible();
   });
 
   test("renders no correlation coefficient or p-value on the foundation page", async ({

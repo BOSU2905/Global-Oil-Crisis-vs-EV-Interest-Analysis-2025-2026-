@@ -95,7 +95,7 @@ test("a descriptive metric needs no specification and no caveat", () => {
   // on them would train readers to ignore caveats.
   const descriptive: MetricContent = {
     kind: "descriptive",
-    label: "Weekly observations",
+    label: "Weekly Observations",
     value: "31",
   };
   assert.doesNotThrow(() => assertMetricDisplayable(descriptive));

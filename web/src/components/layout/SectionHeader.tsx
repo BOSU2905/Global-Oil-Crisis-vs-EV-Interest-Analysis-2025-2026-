@@ -10,10 +10,11 @@ interface SectionHeaderProps {
    * not a numbered section.
    */
   readonly index?: number;
-  /** Eyebrow text. Uppercased by CSS, never in the string. */
+  /** Eyebrow text. Title Case. Uppercased by CSS, never in the string. */
   readonly eyebrow: string;
+  /** Title Case, like every editorial heading in the product. */
   readonly title: ReactNode;
-  /** The analytical thesis for the section. One or two sentences. */
+  /** The analytical thesis for the section. One or two sentences, sentence case. */
   readonly lead?: ReactNode;
   /**
    * Heading level. `1` is for the page's single top-level heading; everything
@@ -26,9 +27,22 @@ interface SectionHeaderProps {
 /**
  * Eyebrow + title + optional lead, per docs/product-architecture.md §4.
  *
+ * THE EDITORIAL CASE CONVENTION
+ * `eyebrow` and `title` are **Title Case**; `lead` is prose and is sentence case.
+ * That split is the whole convention, and it is worth stating because the eyebrow
+ * hides one half of it: the eyebrow renders uppercase, so its source casing has no
+ * visible effect and would drift unnoticed. It still matters, because CSS
+ * `text-transform` does not change the accessible name — a screen reader reads the
+ * DOM text, so "Analytical Foundation" is what is announced.
+ *
+ * Case is fixed in the CONTENT STRING, never computed. A runtime title-caser would
+ * have to guess at "vs", "EV", "Cross-Market" and every future proper noun, and it
+ * would silently mangle the one it guessed wrong. `tests/layout-contract.test.ts`
+ * asserts the convention instead.
+ *
  * The eyebrow is the ONLY uppercase in the product (design-system.md §3), and it
  * is uppercased with the `uppercase` utility rather than in the string, so a
- * screen reader reads "Observation scope" instead of spelling out capitals.
+ * screen reader reads "Observation Scope" instead of spelling out capitals.
  *
  * The heading carries `sectionTitleId(sectionId)` because `Section` points
  * `aria-labelledby` at exactly that id.
@@ -71,7 +85,7 @@ export function SectionHeader({
       <p className="text-label uppercase text-fg-muted">
         {index === undefined ? null : (
           <>
-            <span className="numeric">{sectionOrdinal(index)}</span>
+            <span className="tabular">{sectionOrdinal(index)}</span>
             <span aria-hidden="true"> — </span>
           </>
         )}

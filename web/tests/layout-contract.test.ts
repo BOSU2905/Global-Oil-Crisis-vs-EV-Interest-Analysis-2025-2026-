@@ -105,6 +105,152 @@ test("every Section on the page is reachable from the navigation", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Editorial titles are Title Case, and the case lives in the string
+// ---------------------------------------------------------------------------
+
+/**
+ * Words that stay lowercase inside a title unless they lead it.
+ *
+ * Chicago-style rather than AP: articles, coordinating conjunctions and
+ * prepositions of ANY length are lowercase. "vs" is here because Chicago lowercases
+ * versus, and the hero renders it that way deliberately.
+ */
+const LOWERCASE_IN_TITLE = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "but",
+  "by",
+  "for",
+  "from",
+  "in",
+  "nor",
+  "of",
+  "on",
+  "or",
+  "per",
+  "the",
+  "to",
+  "v",
+  "vs",
+  "with",
+]);
+
+/**
+ * Is this token capitalised acceptably for an editorial title?
+ *
+ * Deliberately permissive about what "capitalised" means, because the alternative
+ * is a test that fights the content. `EV`, `US`, `Cross-Market` and `2025–2026` are
+ * all correct and none of them is plain `Xxxxx`. The rule enforced is narrow and is
+ * the one that actually drifts: **a principal word must not start lowercase.**
+ */
+const startsCapitalised = (token: string): boolean => {
+  // Hyphenated compounds: every significant element is capitalised, so check each.
+  if (token.includes("-")) {
+    return token
+      .split("-")
+      .filter((part) => part.length > 0)
+      .every((part) => startsCapitalised(part) || LOWERCASE_IN_TITLE.has(part.toLowerCase()));
+  }
+  const first = token.replace(/^[^\p{L}\p{N}]+/u, "").charAt(0);
+  // A token that is entirely punctuation or a numeral carries no case to check.
+  if (first === "" || /\p{N}/u.test(first)) return true;
+  return first === first.toUpperCase();
+};
+
+/** Offending tokens in a title, or an empty array. */
+const titleCaseOffenders = (title: string): string[] => {
+  const tokens = title.split(/\s+/).filter((token) => token.length > 0);
+  return tokens.filter((token, index) => {
+    const bare = token.replace(/[^\p{L}\p{N}-]/gu, "").toLowerCase();
+    // First and last words are always capitalised, even a preposition.
+    const isEdge = index === 0 || index === tokens.length - 1;
+    if (!isEdge && LOWERCASE_IN_TITLE.has(bare)) return false;
+    return !startsCapitalised(token);
+  });
+};
+
+test("the title-case helper accepts the product's real titles and rejects drift", () => {
+  // The helper is the thing the next two tests trust, so it is checked first
+  // against strings whose correctness is not in question.
+  for (const good of [
+    "Observation Scope",
+    "Comparability Constraint",
+    "Narrative Structure",
+    "Cross-Market Comparison",
+    "Global Oil Crisis vs EV Interest Analysis",
+    "Oil Prices vs EV Interest",
+    "Country Deep Dives",
+    "EV Interest",
+    "Sources",
+    "Robustness",
+  ]) {
+    assert.deepEqual(titleCaseOffenders(good), [], `rejected a correct title: "${good}"`);
+  }
+
+  for (const [bad, expected] of [
+    ["Observation scope", ["scope"]],
+    ["Narrative structure", ["structure"]],
+    ["Cross-market comparison", ["Cross-market", "comparison"]],
+    // A trailing preposition is still capitalised.
+    ["Data to Look at", ["at"]],
+  ] as const) {
+    assert.deepEqual(titleCaseOffenders(bad), [...expected], `accepted a sentence-case title`);
+  }
+});
+
+test("every SectionHeader eyebrow and title on the page is Title Case", () => {
+  // The eyebrow renders uppercase, so its source casing is invisible and would
+  // drift unnoticed — but CSS `text-transform` does not change the accessible name,
+  // so it is what a screen reader announces. Both props are checked.
+  //
+  // This exists because steps 6-7 add ten more section headers. Case fixed in the
+  // content string cannot be enforced by `tsc` or by the browser, and a runtime
+  // title-caser would have to guess at "vs", "EV" and every future proper noun.
+  const props = [...pageSource.matchAll(/\b(eyebrow|title)="([^"]+)"/g)].map((match) => ({
+    prop: match[1] ?? "",
+    value: match[2] ?? "",
+  }));
+
+  assert.ok(props.length > 0, "no eyebrow/title props found — did the page structure change?");
+
+  const violations = props
+    .map((entry) => ({ ...entry, offenders: titleCaseOffenders(entry.value) }))
+    .filter((entry) => entry.offenders.length > 0)
+    .map((entry) => `${entry.prop}="${entry.value}" → ${entry.offenders.join(", ")}`);
+
+  assert.deepEqual(
+    violations,
+    [],
+    "an editorial title is not Title Case. Fix the content string, not with a runtime transform",
+  );
+});
+
+test("metric-card labels are Title Case, and leads are left alone", () => {
+  // A metric label is the card's title, so it follows the heading convention. A
+  // `lead` is prose and must NOT be title-cased — asserting that keeps a future
+  // over-correction from turning the section thesis into a headline.
+  const labels = [...pageSource.matchAll(/\blabel:\s*"([^"]+)"/g)].map((m) => m[1] ?? "");
+  assert.ok(labels.length > 0, "no metric labels found");
+
+  const violations = labels
+    .map((label) => ({ label, offenders: titleCaseOffenders(label) }))
+    .filter((entry) => entry.offenders.length > 0)
+    .map((entry) => `label: "${entry.label}" → ${entry.offenders.join(", ")}`);
+  assert.deepEqual(violations, [], "a metric-card label is not Title Case");
+
+  const leads = [...pageSource.matchAll(/\blead="([^"]+)"/g)].map((m) => m[1] ?? "");
+  for (const lead of leads) {
+    assert.ok(
+      titleCaseOffenders(lead).length > 0,
+      `a lead reads as Title Case: "${lead.slice(0, 48)}…". Leads are sentence-case prose`,
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
 // The anchor offset depends on a token, not a magic number
 // ---------------------------------------------------------------------------
 

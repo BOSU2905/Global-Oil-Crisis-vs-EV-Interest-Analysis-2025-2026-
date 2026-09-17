@@ -39,15 +39,15 @@
  *
  * `--font-display` is the exception: Tailwind has no default of that name, so it is
  * mapped explicitly below to make `font-display` available. It is also applied to
- * `h1`-`h4` in the base layer, so a heading gets the display cut of SF Pro without
- * every component having to remember the utility.
+ * `h1`-`h4` in the base layer, so a heading takes the display role of the type family
+ * without every component having to remember the utility.
  *
  * And three families coincide with Tailwind's defaults by design:
  *
  *   spacing      Tailwind's `--spacing` base is 0.25rem, so `p-4` is exactly
  *                `--space-4` (1rem). The 4px scale is shared, not duplicated.
- *   weights      `font-normal|medium|semibold` are 400/500/600, matching
- *                `--weight-regular|medium|semibold`.
+ *   weights      `font-normal|medium|semibold|bold` are 400/500/600/700, matching
+ *                `--weight-regular|medium|semibold|bold`.
  *   breakpoints  sm/md/lg/xl/2xl are 640/768/1024/1280/1536 in both. Breakpoints
  *                MUST come from `@theme`, not `:root`, because media queries
  *                cannot read a custom property -- they agree already, so nothing
@@ -161,8 +161,10 @@
    ========================================================================== */
 
 @theme inline {
-  /* The display cut of SF Pro, requested by name. Applied to `h1`-`h4` in the base
-     layer; the utility exists for display type that is not a heading element. */
+  /* Geist Sans, self-hosted from the `geist` npm package. Applied to `h1`-`h4` in
+     the base layer; the utility exists for display type that is not a heading
+     element. It resolves to the same family as `--font-sans` because Geist ships one
+     optical size — the token split is kept because the ROLES differ, not the face. */
   --font-display: var(--font-display);
 
   --text-display: var(--text-display-size);
@@ -200,9 +202,11 @@
 
   --text-small: var(--text-small-size);
   --text-small--line-height: var(--text-small-line);
+  --text-small--font-weight: var(--text-small-weight);
 
   --text-meta: var(--text-meta-size);
   --text-meta--line-height: var(--text-meta-line);
+  --text-meta--font-weight: var(--text-meta-weight);
 
   --text-label: var(--text-label-size);
   --text-label--line-height: var(--text-label-line);
@@ -296,20 +300,21 @@
   }
 
   /*
-   * Headings take the DISPLAY cut of the type family, and prose takes the text cut.
+   * Headings take the DISPLAY role of the type family, and prose takes the text role.
    *
-   * SF Pro ships two optical sizes and they are not interchangeable: Display is
-   * spaced for large type, Text is spaced for reading. Putting the choice here means
-   * a heading element is correct by default and no component has to remember a
-   * utility. It sits in the base layer, so a component that genuinely needs another
-   * face (`font-mono` on a code heading, say) still wins.
+   * Geist ships ONE optical size, so both tokens currently resolve to the same
+   * family and this rule is not changing the face today. It stays for two reasons:
+   * it is the single place the display/prose split is decided, so giving display type
+   * its own face later is a one-line token change rather than an edit to every
+   * heading; and it sits in the base layer, so a component that genuinely needs
+   * another face (`font-mono` on a code heading, say) still wins.
    *
    * Headings also wrap into balanced lines rather than filling each line greedily.
-   * The face is still supplied by the machine when SF Pro is absent, so the same
-   * heading occupies a different number of pixels per machine and a greedy break
-   * lands in a different place — the h1 broke after "EV" on Segoe UI, leaving a
-   * two-word second line. `balance` makes the break a function of the line count
-   * rather than of the face's advance widths.
+   * With Geist the face is now identical on every machine, so a greedy break would at
+   * least be *consistent* — but `balance` is still the right rule: it makes the break
+   * a function of the line count rather than of the advance widths, which is what
+   * keeps the h1 from leaving a two-word orphan line when the fluid display size
+   * changes across the clamp range.
    *
    * It is safe to apply unconditionally: browsers without support ignore it, and
    * Chromium limits balancing to short blocks, so it cannot affect prose.

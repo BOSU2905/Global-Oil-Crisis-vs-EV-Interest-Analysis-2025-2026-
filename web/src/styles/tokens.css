@@ -12,8 +12,11 @@
  * 3. Light-first with a complete dark theme. Both are first-class: a dark-only
  *    analytics template is a cliché, and a light-only one is not credible for a
  *    2026 product.
- * 4. No build-time network dependency. System font stacks only -- no
- *    `next/font/google`, no downloaded webfonts.
+ * 4. The typeface is a dependency, not an environment. Geist Sans and Geist Mono
+ *    arrive through the `geist` npm package and are self-hosted out of the build
+ *    (§4). No font file is committed here, no font is installed at the OS level,
+ *    and no request leaves this origin -- so there is still no build-time or
+ *    runtime *network* dependency, which is what the original rule was protecting.
  *
  * THEMING
  * Defaults are light. Dark applies automatically via `prefers-color-scheme` and
@@ -260,115 +263,173 @@
 
 /* ========================================================================== */
 /* 4. Typography                                                              */
-/*    Locally installed faces requested by name, with a system fallback chain. */
+/*    Geist, self-hosted from the `geist` npm package via `next/font/local`.   */
 /*    `--font-numeric` exists because statistics must align in columns:        */
 /*    tabular figures are non-negotiable for a data product.                   */
 /* ========================================================================== */
 
 :root {
   /*
-   * SF PRO IS REQUESTED BY NAME, AND NOTHING IS DOWNLOADED TO GET IT.
+   * GEIST, SHIPPED WITH THE APPLICATION AND OWNED BY THE DEPENDENCY TREE.
    *
-   * This is a decided change from the original "generic system stack only" rule.
-   * The product's display typography now names its intended face first instead of
-   * delegating the choice to `system-ui`, because `system-ui` resolves to a
-   * different typeface on every operating system and that made the page's identity
-   * a property of the machine viewing it.
+   * This replaces two earlier strategies in turn: a generic `system-ui` stack (the
+   * face was whatever the machine supplied) and then SF Pro requested by name (the
+   * face was whatever the machine had *installed*). Both made the product's identity
+   * a property of the viewing machine. Geist ends that: the typeface is a dependency.
    *
-   * The mechanism is unchanged in the way that matters: **no font is downloaded and
-   * no font is bundled.** There is no `@font-face`, no `next/font`, no Google Fonts
-   * and no `.woff2` in this repository — a page load still makes ZERO font
-   * requests. SF Pro is used only if it is already installed on the machine, which
-   * is what makes naming it compatible with a local, offline product.
+   * HOW IT ARRIVES, AND WHAT IS NOT IN THIS REPOSITORY.
+   * `geist` 1.7.2 is an exact-pinned npm dependency. It calls `next/font/local` on
+   * two variable `.woff2` files inside `node_modules/geist/dist/fonts/`, and Next
+   * emits an `@font-face` per family plus a metric-adjusted fallback, copies the
+   * files into `/_next/static/media/` at build time, and serves them from this
+   * origin. Consequently:
    *
-   * TWO STACKS, BECAUSE SF HAS TWO OPTICAL SIZES.
-   * Apple ships SF Pro as two cuts: Text for prose and Display for headings, with
-   * tighter spacing and smaller apertures in Display. Naming them per role gets the
-   * correct cut automatically on a machine that has both, and degrades to the other
-   * cut on a machine that has one:
+   *   - NO font file is committed here. No `.woff2`, `.woff`, `.ttf` or `.otf`.
+   *   - NO font is installed at the operating-system level, and none is required.
+   *   - NO remote font URL, no Google Fonts, no `fonts.gstatic.com`.
+   *   - There ARE `@font-face` rules and there ARE font requests now, and both are
+   *     same-origin and served out of the build. That is the deliberate change from
+   *     the previous "zero font requests" position, and `e2e/typography.e2e.ts`
+   *     asserts the distinction rather than the old absolute.
    *
-   *   --font-display   headings and other display type  (Display cut first)
-   *   --font-sans      prose, labels, UI text           (Text cut first)
+   * `--font-geist-sans` / `--font-geist-mono` are declared by the class names
+   * `GeistSans.variable` / `GeistMono.variable`, applied to `<html>` in
+   * `app/layout.tsx`. `<html>` is `:root`, so they are in scope for the `var()`
+   * calls below; on `<body>` they would not be.
    *
-   * FALLBACK, AND THE CROSS-MACHINE CONSEQUENCE.
-   * Where SF Pro is absent the chain falls through `-apple-system` /
-   * `BlinkMacSystemFont` (the macOS system face), then the `ui-sans-serif` /
-   * `system-ui` keywords, then `"Segoe UI"` on Windows, and finally to explicit
-   * families. So a machine without SF Pro renders exactly what this product
-   * rendered before this change — it is a graceful downgrade, not a broken page,
-   * and it is the documented limitation of a local-font strategy
-   * (docs/design-system.md §3).
+   * TWO STACKS, ONE FAMILY — AND THIS IS A REAL SIMPLIFICATION.
+   * SF Pro ships two optical sizes (Text for prose, Display for headings) and the
+   * previous stacks named them separately. Geist ships ONE optical size, so
+   * `--font-display` and `--font-sans` resolve to the same family. The token split
+   * is kept rather than collapsed because the ROLES are still distinct: headings
+   * consume `--font-display` and prose consumes `--font-sans` (see `globals.css`),
+   * so a later decision to give display type its own face is a one-line change here
+   * instead of an edit to every heading. Nothing in the product names a family.
+   *
+   * FALLBACK, AND A REAL GAP IN THE PACKAGE THAT THIS CLOSES.
+   * Measured in the build, not assumed: `--font-geist-sans` resolves to exactly
+   * `"GeistSans", "GeistSans Fallback"` — it does NOT terminate in a generic family.
+   * `GeistSans Fallback` is `next/font`'s metric-adjusted local face, built on Arial,
+   * and on this Linux machine it reports `status: "error"` because Arial is absent. So
+   * if the bundled `.woff2` ever failed to load, the sans chain would run out and the
+   * page would take the UA default serif. The explicit tail below is what terminates
+   * it. Geist Mono needs no tail: the package already ships a full monospace chain in
+   * `--font-geist-mono`, ending in `monospace`.
+   *
+   * The second argument to each `var()` is a different fallback again — it covers the
+   * case where the layout class is missing from `<html>` entirely, which would
+   * otherwise make the declaration invalid at computed-value time.
    */
   --font-display:
-    "SF Pro Display", "SF Pro", -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  --font-sans:
-    "SF Pro Text", "SF Pro Display", "SF Pro", -apple-system, BlinkMacSystemFont,
-    ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
-    sans-serif;
-  /* Unchanged, and deliberately so: statistics and identifiers stay monospaced.
-     SF Pro is a proportional face and must never reach a column of figures. */
-  --font-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New",
-    monospace;
+    var(--font-geist-sans, "GeistSans"), ui-sans-serif, system-ui, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-sans: var(--font-display);
+  /* Statistics and identifiers stay monospaced, and Geist Mono is a design sibling
+     of Geist Sans rather than a borrowed face — the two share proportions, so a
+     series id beside prose no longer looks like a different product. Geist Sans is
+     proportional and must never reach a column of figures. */
+  --font-mono: var(
+    --font-geist-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace
+  );
   --font-numeric: var(--font-mono);
 
   /*
-   * Few weights. More weights is the fastest route to looking generic.
+   * FOUR WEIGHTS, ON A REAL VARIABLE AXIS. THIS IS THE SUBSTANTIVE CHANGE.
    *
-   * NO TYPE ROLE MAY DEPEND ON `--weight-medium`, and that is a portability rule
-   * rather than a taste one. 500 is not a dependable step in the faces this product
-   * requests, and it fails differently on each of them:
+   * Both Geist files are variable fonts with a `100 900` weight axis, so every
+   * integer in that range is an INSTANCE THE FILE INTERPOLATES — not a face the
+   * platform has to find, and not a synthetic emboldening the browser fakes. That
+   * removes the constraint the previous two font strategies lived under.
    *
-   *   Segoe UI (Windows fallback)  measured by drawing one string to a canvas at
-   *                                each weight and hashing the pixels: it renders
-   *                                500 and 600 IDENTICALLY (same digest, same
-   *                                707.06px advance), so 500 buys nothing
-   *   a 400/700-only Linux face    renders 500 as 400, i.e. as body text
-   *   SF Pro Display, as installed measured on this machine: upright cuts exist for
-   *                                400, 500 and 700, so 500 IS distinct here — but
-   *                                relying on it would make emphasis appear on this
-   *                                machine and vanish on the two cases above
+   * The rule that no role may use 500 is therefore RETIRED, and it is worth being
+   * precise about why, because it was a measured rule and not a preference. It
+   * existed because 500 was not a dependable STEP in an OS-supplied face:
    *
-   * So a role set to 500 reads as emphasised on one machine and as body text on
-   * another — a hierarchy decided by the operating system rather than by the design
-   * system. Emphasis therefore uses `--weight-semibold`, which is Semibold on Segoe
-   * UI and on a complete SF Pro family, and maps to the Bold cut where no 600 exists
-   * — emphasised everywhere, differing only in degree. `--weight-medium` is retained
-   * as a scale value because the scale is documented in three steps, but
-   * `tests/typography-contract.test.ts` asserts no `--text-*-weight` role resolves
-   * to it.
+   *   Segoe UI (Windows)          500 and 600 rendered to an identical pixel digest
+   *                               and an identical 707.06px advance — 500 bought
+   *                               nothing
+   *   a 400/700-only Linux face   rendered 500 as 400, i.e. as body text
+   *   SF Pro Display, as installed had no upright Semibold cut, so 600 resolved to
+   *                               the Bold cut and 600/700 were indistinguishable
    *
-   * KNOWN CONSEQUENCE ON THIS MACHINE, MEASURED NOT ASSUMED: the locally installed
-   * SF Pro Display has no upright Semibold cut (only Regular, Medium and Bold are
-   * upright; Thin/Light/Semibold/Heavy/Black are italic-only files), so a 600 request
-   * resolves to the Bold cut and 600/700 are indistinguishable here. That is the same
-   * class of OS-decided collapse the rule above exists to contain, and 600 remains
-   * the portable choice. Installing the upright SF Pro Display Semibold — or SF Pro
-   * Text, which also carries prose cuts — would restore the intended lighter
-   * emphasis without any change to this repository.
+   * Every one of those is a property of a font the machine supplied. None of them
+   * can happen now: the file is the same file everywhere. Verified in Chromium
+   * against the actual build rather than assumed — 400/500/600/700 produce four
+   * distinct pixel digests and four distinct advance widths on Geist Sans and on
+   * Geist Mono, and `font-synthesis-weight` is not engaged at any of them. The
+   * measurements are recorded in KIRO.md §4.
+   *
+   * So 500 is now the working emphasis weight. That is not a relaxation of the old
+   * rule — the old rule's premise is gone, and `tests/typography-contract.test.ts`
+   * replaces it with a stricter one: every `--text-*-weight` must resolve to a
+   * declared step on this scale, and `e2e/typography.e2e.ts` asserts each declared
+   * step renders as a distinct face.
+   *
+   * 700 exists as a scale value and is deliberately UNUSED by every role. It is what
+   * the audit called the "excessively bold" end: 34.71% ink coverage on the hero
+   * string against 23.72% for prose weight.
    */
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+  --weight-bold: 700;
 
-  /* Scale. Display and headings use clamp() so the hero adapts without a
-     media query; body sizes stay fixed because readable prose should not
-     grow with the viewport.
-
-     EVERY ROLE DECLARES ITS OWN WEIGHT. Until this pass only display, label and
-     stat did; h1-h4 inherited the body weight, so a section heading rendered at
-     400 by accident rather than by decision. Two steps are used — 400 for prose
-     and 600 for display and emphasis — and the hierarchy is carried by size,
-     tracking and colour rather than by a third weight. */
+  /*
+   * Scale. Display and headings use clamp() so the hero adapts without a
+   * media query; body sizes stay fixed because readable prose should not
+   * grow with the viewport.
+   *
+   * EVERY ROLE DECLARES ITS OWN WEIGHT. Until the refinement pass only display,
+   * label and stat did; h1-h4 inherited the body weight, so a section heading
+   * rendered at 400 by accident rather than by decision.
+   *
+   * THE MAPPING IS AUDITED, NOT INHERITED. Geist's variable axis is not SF Pro's cut
+   * list, so every weight below was re-decided against the rendered build. The
+   * measurement is INK COVERAGE — the share of a string's bounding box that is ink,
+   * at the role's real size — because that is what "looks bold" actually means, and
+   * a weight number does not carry it: 600 at 12px uppercase is denser per area
+   * (40.32%) than 600 at 60px display (31.73%).
+   *
+   * Measured on Geist Sans in Chromium 153, at each role's own size:
+   *
+   *   role      size   w400     w500     w600     w700    chosen
+   *   display   60px   23.72%   28.27%   31.73%   34.71%   500
+   *   label     12px   30.60%   35.53%   40.32%     -      500
+   *   h4        17px   27.42%   30.24%   34.43%     -      500
+   *   stat-sm   17px   27.91%   32.21%   35.62%     -      500
+   *   small     15px   26.88%   32.77%     -        -      400   (300 = 22.20%)
+   *
+   * THE LARGER THE TYPE, THE LIGHTER THE WEIGHT IT NEEDS. That is why `display`
+   * (60px) is a step LIGHTER than `h2` (32px) rather than heavier, and it is optical
+   * sizing rather than an inverted hierarchy: the hero is nearly twice the size of
+   * the section heading, so it does not also need to be darker to dominate. The
+   * hierarchy is carried by size, tracking and colour; weight only separates
+   * emphasis from prose.
+   */
   --text-display-size: clamp(2.25rem, 1.25rem + 3.6vw, 3.75rem);
   --text-display-line: 1.06;
   --text-display-tracking: -0.028em;
-  --text-display-weight: var(--weight-semibold);
+  /* The hero. Medium, and this is the most consequential decision in the migration.
+     600 measured 31.73% ink at 60px and 700 measured 34.71% — the second is the
+     "excessively bold" outcome the visual direction forbids and the first was close
+     enough to it to read as a marketing headline rather than an analytical title.
+     500 (28.27%) with -0.028em tracking keeps the density that weight was supplying
+     while letting 60px of size do the dominating. One token to revert if the
+     rendered page argues otherwise. */
+  --text-display-weight: var(--weight-medium);
 
   --text-h1-size: clamp(1.875rem, 1.25rem + 2vw, 2.75rem);
   --text-h1-line: 1.12;
   --text-h1-tracking: -0.022em;
+  /* Semibold. `h1` is the heading role, not the hero role — it tops out at 44px
+     where 600 is still precise rather than heavy. `display` is the 60px role above. */
   --text-h1-weight: var(--weight-semibold);
 
   --text-h2-size: clamp(1.5rem, 1.15rem + 1.1vw, 2rem);
@@ -384,16 +445,20 @@
   --text-h3-tracking: -0.012em;
   --text-h3-weight: var(--weight-semibold);
 
+  /* h4 is the smallest heading and the header wordmark's role. Medium: 600 measured
+     34.43% ink at 17px against the hero's 31.73% at 60px, so a semibold wordmark was
+     literally denser than the page title. 500 (30.24%) identifies the product without
+     competing with it. */
   --text-h4-size: 1.0625rem;
   --text-h4-line: 1.4;
   --text-h4-tracking: -0.006em;
-  --text-h4-weight: var(--weight-semibold);
+  --text-h4-weight: var(--weight-medium);
 
   /* Lead paragraph: the analytical thesis under a section heading. */
   --text-lead-size: 1.1875rem;
   --text-lead-line: 1.62;
   /* Regular, stated explicitly. A lead is prose at a larger size, not a heading,
-     and SF Pro Display at 19px semibold reads as a subheading. */
+     and any sans at 19px semibold reads as a subheading. */
   --text-lead-weight: var(--weight-regular);
 
   --text-body-size: 1rem;
@@ -402,47 +467,88 @@
 
   --text-small-size: 0.9375rem;
   --text-small-line: 1.6;
+  /* Navigation links and disclosure copy. Regular, stated rather than inherited.
+     300 was measured (22.20% ink vs 26.88% at 400) and rejected: a thinner stroke at
+     15px on `--color-fg-muted` degrades perceived legibility even where the computed
+     contrast ratio still passes, and the nav rail must stay readable at a glance. The
+     rail was already at prose weight before this migration — what got lighter beside
+     it is the wordmark, from 600 to 500. */
+  --text-small-weight: var(--weight-regular);
 
-  /* Metadata: sources, footnotes, chart captions. */
+  /* Metadata: sources, footnotes, chart captions, metric-card labels. */
   --text-meta-size: 0.8125rem;
   --text-meta-line: 1.5;
+  /* Regular at 13px. A metric label at 500 competed with the figure it labels. */
+  --text-meta-weight: var(--weight-regular);
 
   /*
-   * Section eyebrow labels ("04 — GLOBAL RELATIONSHIP"). Uppercase is used
-   * ONLY here, at one size. Uppercase elsewhere is what makes a dashboard
-   * look shouty.
+   * Section eyebrow labels ("04 — GLOBAL RELATIONSHIP"), and the Badge type role.
+   * Uppercase is used ONLY here, at one size. Uppercase elsewhere is what makes a
+   * dashboard look shouty.
    */
   --text-label-size: 0.75rem;
   --text-label-line: 1.35;
   --text-label-tracking: 0.075em;
-  /* Semibold, not medium: see the weight block above. On Segoe UI this renders
-     exactly as 500 did; on a face without a 500 it no longer collapses to body
-     weight, which is what made eyebrow emphasis differ between machines. */
-  --text-label-weight: var(--weight-semibold);
+  /* Medium. Uppercase at 12px with 0.075em tracking is already the densest type on
+     the page per unit area — the letterforms are all cap-height and the tracking
+     spaces them — and 600 measured 40.32% ink against the hero's 31.73% at 60px. So
+     600 made every eyebrow and every country badge read as heavier than the title
+     above it. 500 (35.53%) keeps the eyebrow distinct from 13px metadata without
+     that inversion. This is the most visible weight change in the migration. */
+  --text-label-weight: var(--weight-medium);
   --text-label-transform: uppercase;
 
   /* Numeric display, for statistics in cards and tables. */
   --text-stat-size: clamp(1.5rem, 1.2rem + 1vw, 2.125rem);
   --text-stat-line: 1.1;
   --text-stat-tracking: -0.02em;
-  /* Semibold for the same portability reason as the label role above: a statistic
-     that reads as emphasised on Windows and as body text on Linux is a hierarchy
-     the operating system decides. */
+  /* Semibold: at 24-34px a statistic is display type and should read like one. */
   --text-stat-weight: var(--weight-semibold);
 
   --text-stat-small-size: 1.0625rem;
   --text-stat-small-line: 1.3;
-  /* The metric-card figure. It inherited 400 before this pass, which made the one
-     number on a card no more prominent than its own label. Semibold, in the mono
-     face, with tabular figures — strong but controlled. */
-  --text-stat-small-weight: var(--weight-semibold);
+  /* The metric-card figure. It inherited 400 before the refinement pass, which made
+     the one number on a card no more prominent than its own label; 600 (35.62% ink at
+     17px) then made it read as a card heading. 500 (32.21%) against a 400 label
+     (27.91%) is the step that separates figure from label without claiming to be a
+     heading — the "clearly emphasised, not a heading" requirement, measured. */
+  --text-stat-small-weight: var(--weight-medium);
 
   /* Axis ticks and inline data. */
   --text-data-size: 0.8125rem;
   --text-data-line: 1.4;
 }
 
-/* Utility: every element rendering a number should carry tabular figures. */
+/*
+ * TWO FIGURE TREATMENTS, AND THE DISTINCTION IS EDITORIAL RATHER THAN TECHNICAL.
+ *
+ * Both carry tabular figures, because statistics must align in columns and that is
+ * non-negotiable for a data product (design-system §3). They differ in FACE, and the
+ * question a caller answers is not "is this a number?" but "is this a value a reader
+ * reads, or an identifier a reader copies?":
+ *
+ *   .tabular   Geist Sans (inherited), tabular figures. HUMAN-FACING figures — the
+ *              observation period, the weekly observation count, the market count,
+ *              a metric-card figure, a confidence interval, a narrative ordinal, an
+ *              inline StatHighlight. These are prose that happens to be numeric, and
+ *              setting them in a monospace face made ordinary sentences and card
+ *              figures look like console output. It declares NO family, so it takes
+ *              whatever the surrounding role supplies.
+ *
+ *   .numeric   Geist Mono, tabular figures. TECHNICAL IDENTIFIERS — a FRED series id
+ *              (`DCOILBRENTEU`), a content hash, a pipeline version, a filename. A
+ *              monospace face is meaningful here: it marks a string as something to
+ *              be transcribed exactly, and it is the only thing on the page that
+ *              should look like code.
+ *
+ * Not every number is monospace, and that is the point of having two.
+ */
+.tabular,
+[data-tabular] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 .numeric,
 [data-numeric] {
   font-family: var(--font-numeric);

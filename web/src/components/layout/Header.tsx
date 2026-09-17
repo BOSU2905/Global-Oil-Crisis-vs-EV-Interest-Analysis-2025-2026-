@@ -30,6 +30,14 @@ interface HeaderProps {
  * client state, persistence and an inline script to avoid a wrong-theme flash on
  * first paint. `tokens.css` already implements both themes through
  * `prefers-color-scheme`, so the product is fully themed without it.
+ *
+ * TYPE: THE ROLE DECIDES, NOT THIS COMPONENT
+ * The wordmark carries no weight utility. `--text-h4-weight` is 500, and an override
+ * here is how a component quietly opts out of the type scale — the reason this file
+ * previously pinned `font-semibold` was a portability workaround that no longer
+ * applies now the typeface ships with the application. The period is `.tabular`
+ * rather than `.numeric`: it is a date range a reader reads, not an identifier a
+ * reader copies, so it stays in Geist Sans with tabular figures.
  */
 export function Header({ items, period }: HeaderProps) {
   return (
@@ -39,10 +47,10 @@ export function Header({ items, period }: HeaderProps) {
         className="flex flex-col gap-1 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8"
       >
         <div className="flex items-baseline justify-between gap-4">
-          <span className="text-h4 font-semibold tracking-tight text-fg">
+          <span className="text-h4 tracking-tight text-fg">
             Oil Prices <span className="text-fg-subtle">vs</span> EV Interest
           </span>
-          <span className="numeric text-meta text-fg-muted">{period}</span>
+          <span className="tabular text-meta text-fg-muted">{period}</span>
         </div>
 
         <Navigation items={items} />

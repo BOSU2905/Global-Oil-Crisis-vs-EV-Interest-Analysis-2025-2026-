@@ -71,6 +71,10 @@ export interface MetricCaveat {
 }
 
 interface MetricBase {
+  /**
+   * The card's title, and therefore **Title Case** — "Observation Period", not
+   * "Observation period". A metric label is a heading, not prose.
+   */
   readonly label: string;
   /**
    * The value as it should appear, ALREADY FORMATTED.

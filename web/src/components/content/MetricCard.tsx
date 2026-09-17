@@ -35,9 +35,11 @@ interface MetricCardProps {
  * comparison — `tests/content-contract.test.ts` scans the file to keep it that
  * way.
  *
- * `.numeric` supplies `--font-numeric` and `tabular-nums`, so a column of these
+ * `.tabular` supplies `tabular-nums` without changing the face, so a column of these
  * cards aligns digit-for-digit (design-system.md §3: tabular figures are
- * non-negotiable).
+ * non-negotiable) while the figure stays in Geist Sans. Nothing on a metric card is a
+ * technical identifier — a date range, a count and a confidence interval are values a
+ * reader reads — so `.numeric`, which is Geist Mono, is deliberately not used here.
  */
 export function MetricCard({ metric, as, className }: MetricCardProps) {
   assertMetricDisplayable(metric);
@@ -49,14 +51,14 @@ export function MetricCard({ metric, as, className }: MetricCardProps) {
       <p className="text-meta text-fg-muted">{metric.label}</p>
 
       <p className="mt-2 flex items-baseline gap-1.5">
-        <span className="numeric text-stat-small text-fg">{metric.value}</span>
+        <span className="tabular text-stat-small text-fg">{metric.value}</span>
         {metric.unit === undefined ? null : (
           <span className="text-meta text-fg-muted">{metric.unit}</span>
         )}
       </p>
 
       {metric.interval === undefined ? null : (
-        <p className="numeric mt-1 text-meta text-fg-muted">{metric.interval}</p>
+        <p className="tabular mt-1 text-meta text-fg-muted">{metric.interval}</p>
       )}
 
       {metric.kind === "inferential" ? (
@@ -64,7 +66,7 @@ export function MetricCard({ metric, as, className }: MetricCardProps) {
         // there is no branch in which this line is absent.
         <p className="mt-3 border-t border-border pt-3 text-meta text-fg-secondary">
           <span className="text-fg">Other specifications.</span>{" "}
-          <span className="numeric">{metric.specification}</span>
+          <span className="tabular">{metric.specification}</span>
         </p>
       ) : null}
 

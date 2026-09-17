@@ -25,7 +25,7 @@ test.describe("Card and MetricCard", () => {
     // pipeline → JSON → validated bundle → React path is live.
     await expect(page.getByText("2025-08-31", { exact: false })).toBeVisible();
     await expect(page.getByText("2026-03-29", { exact: false })).toBeVisible();
-    await expect(page.getByText("Weekly observations")).toBeVisible();
+    await expect(page.getByText("Weekly Observations")).toBeVisible();
     await expect(page.getByText("Markets", { exact: true })).toBeVisible();
   });
 
@@ -54,8 +54,10 @@ test.describe("Card and MetricCard", () => {
 
     // A column of statistics that does not align looks careless in a data product
     // (design-system.md §3), and alignment depends on this property, not on the
-    // font alone.
-    const value = page.locator("#scope ul li .numeric").first();
+    // font alone. `.tabular` rather than `.numeric`: a coverage date and a count are
+    // values a reader reads, so they keep Geist Sans and take only the alignment —
+    // the monospace face is reserved for identifiers a reader transcribes.
+    const value = page.locator("#scope ul li .tabular").first();
     await expect(value).toHaveCSS("font-variant-numeric", "tabular-nums");
   });
 
@@ -102,7 +104,7 @@ test.describe("Callout", () => {
     const callout = page.locator("#comparability > div");
     await expect(callout).toBeVisible();
     await expect(callout.getByText("Guardrail")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Comparability constraint" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Comparability Constraint" })).toBeVisible();
   });
 
   test("both the constraint and the remedy are visible without interaction", async ({
@@ -149,7 +151,9 @@ test.describe("ReadMore", () => {
       "true",
     );
     await expect(
-      page.getByText("Charts must mark those weeks visibly", { exact: false }),
+      // Step 5 rewrote this panel: it used to state a requirement for charts that did
+      // not exist, and now describes the treatment the chart actually applies.
+      page.getByText("drawn as a dashed segment", { exact: false }),
     ).toBeVisible();
   });
 
