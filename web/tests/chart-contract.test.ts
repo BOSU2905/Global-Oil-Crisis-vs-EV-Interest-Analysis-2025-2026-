@@ -41,6 +41,7 @@ import {
   OIL_VS_INTEREST_INTERACTIONS,
   buildChartTableRows,
   formatWeek,
+  toTableCells,
 } from "../src/components/chart/contract.ts";
 import {
   buildOilVsInterestOption,
@@ -49,6 +50,10 @@ import {
   seriesName,
   type OptionObject,
 } from "../src/components/chart/echarts-option.ts";
+import {
+  AXIS_LABEL_MARGIN,
+  GRID_PADDING,
+} from "../src/components/chart/echarts-theme.ts";
 import {
   CHART_TOKENS,
   type ChartTheme,
@@ -436,9 +441,16 @@ test("no statistical or smoothing operation appears in the chart layer", () => {
   ];
 
   const violations: string[] = [];
+  // Every chart-layer file plus every selector. `src/lib/` is scanned wholesale rather
+  // than by name so a chart added later cannot bring a new selector in under the radar —
+  // which is exactly what happened when the five-market chart arrived and this list read
+  // `oil-vs-interest.ts` only.
+  const libDir = join(webRoot, "src", "lib");
   const files: readonly string[] = [
     ...readdirSync(chartDir).map((name) => join(chartDir, name)),
-    join(webRoot, "src", "lib", "oil-vs-interest.ts"),
+    ...readdirSync(libDir)
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => join(libDir, name)),
   ];
 
   for (const path of files) {
@@ -866,4 +878,211 @@ test("the interest series label is read from the registry", () => {
   const entry = bundle.countries.series.find((series) => series.id === "worldwide");
   assert.ok(entry !== undefined);
   assert.equal(data.labels.interest, entry.label);
+});
+
+// ---------------------------------------------------------------------------
+// Axis spacing — the crowding that was reported, now a number a test can hold
+// ---------------------------------------------------------------------------
+
+test("axis labels keep their documented distance from the axis line", () => {
+  const built = option(1280);
+  const xAxis = asArray(built["xAxis"], "xAxis")[0];
+  const yAxes = asArray(built["yAxis"], "yAxis");
+  assert.ok(xAxis !== undefined);
+
+  assert.equal((xAxis["axisLabel"] as OptionObject)["margin"], AXIS_LABEL_MARGIN.category);
+  for (const axis of yAxes) {
+    assert.equal((axis["axisLabel"] as OptionObject)["margin"], AXIS_LABEL_MARGIN.value);
+  }
+
+  // ECharts defaults both to 8, which is what put the first week label against the dollar
+  // column: with `boundaryGap: false` that label is centred on the y-axis line.
+  assert.ok(AXIS_LABEL_MARGIN.category > 8, "the week labels need more room than the default");
+  assert.ok(AXIS_LABEL_MARGIN.value > 8, "the value labels need more room than the default");
+});
+
+test("the grid leaves room for the axis titles and the edge labels", () => {
+  const grid = option(1280)["grid"] as OptionObject;
+  assert.equal(grid["containLabel"], true);
+  assert.equal(grid["top"], GRID_PADDING.top);
+  assert.equal(grid["left"], GRID_PADDING.left);
+  assert.equal(grid["right"], GRID_PADDING.right);
+  // `containLabel` reserves the label box; these are the gap around it, and the left and
+  // right values are what stop the first and last week labels touching the card's edge.
+  assert.ok(Number(grid["left"]) >= 8 && Number(grid["right"]) >= 8);
+});
+
+test("each axis title is anchored to the side its axis sits on", () => {
+  const dual = asArray(option(1280)["yAxis"], "yAxis");
+  const [left, right] = dual;
+  assert.ok(left !== undefined && right !== undefined);
+  assert.equal((left["nameTextStyle"] as OptionObject)["align"], "left");
+  // Measured: centred on the axis, "Search interest index" rendered as "Search interest
+  // inde" — half the title sat outside the canvas.
+  assert.equal((right["nameTextStyle"] as OptionObject)["align"], "right");
+
+  // In the stacked layout both panels have a left-hand axis, so both anchor left.
+  for (const axis of asArray(option(375)["yAxis"], "yAxis")) {
+    assert.equal((axis["nameTextStyle"] as OptionObject)["align"], "left");
+  }
+});
+
+test("annotation labels are withheld below md, but the annotations still draw", () => {
+  const narrow = seriesById(option(375), "oil");
+  const wide = seriesById(option(1280), "oil");
+
+  for (const key of ["markArea", "markLine"]) {
+    const narrowAnnotation = narrow[key] as OptionObject | undefined;
+    const wideAnnotation = wide[key] as OptionObject | undefined;
+    assert.ok(narrowAnnotation !== undefined, `${key} must still draw at 375px`);
+    assert.ok(wideAnnotation !== undefined);
+    assert.equal((narrowAnnotation["label"] as OptionObject)["show"], false);
+    assert.equal((wideAnnotation["label"] as OptionObject)["show"], true);
+    // Same position at both widths: only the text is withheld.
+    assert.deepEqual(narrowAnnotation["data"], wideAnnotation["data"]);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Motion — an entrance, and nothing after it
+// ---------------------------------------------------------------------------
+
+test("the entrance animates, and every update after it is instant", () => {
+  const entering = buildOilVsInterestOption({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+    animate: true,
+  });
+  assert.equal(entering["animation"], true);
+  assert.ok(Number(entering["animationDuration"]) > 0);
+  // The data must not move once drawn. A legend toggle or a resize updates in place.
+  assert.equal(entering["animationDurationUpdate"], 0);
+});
+
+test("reduced motion switches animation off rather than speeding it up", () => {
+  const still = buildOilVsInterestOption({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+    animate: false,
+  });
+  assert.equal(still["animation"], false);
+  assert.equal(seriesById(still, "oil")["animation"], false);
+  assert.equal(seriesById(still, "interest")["animation"], false);
+  // A zero-duration animation still schedules a frame per element; `false` does not.
+  assert.equal(still["animationDuration"], undefined);
+});
+
+test("the interest line enters after the price line, so the pair reads as a sequence", () => {
+  const built = buildOilVsInterestOption({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+    animate: true,
+  });
+  assert.ok(
+    Number(seriesById(built, "interest")["animationDelay"]) >
+      Number(seriesById(built, "oil")["animationDelay"]),
+  );
+});
+
+test("no chart module declares a repeating or scroll-linked animation", () => {
+  // design-system §6 forbids continuous motion. The cheapest guarantee is that no
+  // mechanism capable of it exists in the layer.
+  const forbidden = [
+    "animationLoop",
+    "setInterval",
+    "requestAnimationFrame(function",
+    "iterationCount",
+    "infinite",
+    "onscroll",
+    "scrollY",
+    "parallax",
+  ];
+  const violations: string[] = [];
+  for (const file of readdirSync(chartDir)) {
+    const code = readFileSync(join(chartDir, file), "utf8")
+      .split("\n")
+      .filter((line) => {
+        const trimmed = line.trim();
+        return (
+          !trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*")
+        );
+      })
+      .join("\n");
+    for (const needle of forbidden) {
+      if (code.includes(needle)) violations.push(`${file}: ${needle}`);
+    }
+  }
+  assert.deepEqual(violations, []);
+});
+
+// ---------------------------------------------------------------------------
+// Reset — the parts that are decidable without a browser
+// ---------------------------------------------------------------------------
+
+test("the reset transition is owned by the component, not left to ECharts", () => {
+  /*
+    The behaviour is asserted in `chart.e2e.ts`; what is asserted here is the three
+    decisions that made it deterministic, because each one is a single token that a
+    refactor could silently drop.
+
+    1. `dataZoomIndex` is explicit. Without it the payload matches every dataZoom
+       component by accident — which happens to work with one and is ambiguous with two,
+       and the five-market chart declares both an inside zoom and a slider.
+    2. Each frame is applied with `animation: { duration: 0 }`. ECharts gives the update
+       payload's animation the highest priority, above the option's own
+       `animationDurationUpdate`, so this is what stops a nested animation fighting the
+       frame loop.
+    3. The duration is read from `--duration-slow` rather than typed. That is also how
+       `prefers-reduced-motion` is honoured: tokens.css collapses the token to 1ms, so the
+       loop finishes on its first frame with no branch.
+  */
+  const source = readFileSync(join(chartDir, "EChart.tsx"), "utf8");
+  assert.match(source, /dataZoomIndex: 0/, "the reset payload must name its dataZoom");
+  assert.match(source, /animation: \{ duration: 0 \}/, "each frame must suppress animation");
+  assert.match(source, /--duration-slow/, "the duration must come from the motion token");
+  assert.match(source, /cancelAnimationFrame/, "a second reset must cancel the first");
+});
+
+test("the keyboard can reach the zoom the canvas slider cannot offer it", () => {
+  // ECharts paints the slider into the canvas, so its handles cannot be focused — the
+  // same limitation that made the legend HTML. §5 rule 6 requires a keyboard equivalent.
+  const source = readFileSync(join(chartDir, "EChart.tsx"), "utf8");
+  assert.match(source, /event\.key === "\+"/);
+  assert.match(source, /event\.key === "-"/);
+  assert.match(source, /ArrowRight/);
+  assert.match(source, /"Escape"/);
+});
+
+// ---------------------------------------------------------------------------
+// The shared table shape
+// ---------------------------------------------------------------------------
+
+test("the positional table rows line up with the declared column headers", () => {
+  const cells = toTableCells(buildChartTableRows(data));
+  assert.equal(cells.length, data.points.length);
+
+  // Week + two measures + note.
+  assert.equal(OIL_VS_INTEREST_A11Y.tableColumns.length, 4);
+  const first = cells[0];
+  assert.ok(first !== undefined);
+  assert.equal(first.values.length, OIL_VS_INTEREST_A11Y.tableColumns.length - 2);
+
+  // And the values are the same strings the named rows carried.
+  const named = buildChartTableRows(data);
+  named.forEach((row, index) => {
+    const cell = cells[index];
+    assert.ok(cell !== undefined);
+    assert.equal(cell.header, row.week);
+    assert.deepEqual([...cell.values], [row.oil, row.interest]);
+    assert.equal(cell.note, row.note);
+  });
 });

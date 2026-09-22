@@ -7,8 +7,31 @@ interface LegendItem<Key extends string> {
   readonly label: string;
   /** Resolved colour for the swatch. */
   readonly colour: string;
-  /** Which axis this series is read against, named for the reader. */
-  readonly unit: string;
+  /**
+   * Which axis this series is read against, named for the reader.
+   *
+   * Optional, because it only makes sense where there is more than one axis. On the
+   * five-market chart all five series share one axis and one unit, so repeating it
+   * five times would add noise and no information — the axis title carries it once.
+   */
+  readonly unit?: string;
+  /**
+   * A second fact about the series, shown beside the label without any hover.
+   *
+   * It exists for the five-market chart's peak weeks. §5 rule 5 forbids critical
+   * information being hover-only, and "when did this market turn" is the chart's whole
+   * question — so each market's peak date is stated in the legend, not only in the
+   * tooltip and the table.
+   */
+  readonly detail?: string;
+  /**
+   * Dashed rather than solid swatch.
+   *
+   * Redundant encoding: the five markets are distinguished by colour AND dash, and a
+   * legend that showed five identical solid rules would drop the cue the palette's
+   * closest pair depends on.
+   */
+  readonly dashed?: boolean;
   readonly visible: boolean;
 }
 
@@ -60,14 +83,26 @@ export function ChartLegend<Key extends string>({
             ].join(" ")}
           >
             {/* A short line, because the series are lines. Dimmed rather than hidden
-                when the series is off, so the control still reads as a toggle. */}
+                when the series is off, so the control still reads as a toggle. The
+                dash is copied from the series' own identity, so the swatch cannot
+                claim a solid line where the plot draws a dashed one. */}
             <span
               aria-hidden="true"
-              className="h-0.5 w-3 shrink-0 rounded-full transition-opacity duration-(--duration-fast)"
-              style={{ backgroundColor: item.colour, opacity: item.visible ? 1 : 0.3 }}
+              className="h-0 w-3 shrink-0 transition-opacity duration-(--duration-fast)"
+              style={{
+                borderTopWidth: 2,
+                borderTopStyle: item.dashed === true ? "dashed" : "solid",
+                borderTopColor: item.colour,
+                opacity: item.visible ? 1 : 0.3,
+              }}
             />
             <span className={item.visible ? "" : "line-through"}>{item.label}</span>
-            <span className="text-fg-muted">{item.unit}</span>
+            {item.unit === undefined ? null : (
+              <span className="text-fg-muted">{item.unit}</span>
+            )}
+            {item.detail === undefined ? null : (
+              <span className="tabular text-fg-muted">{item.detail}</span>
+            )}
           </button>
         </li>
       ))}

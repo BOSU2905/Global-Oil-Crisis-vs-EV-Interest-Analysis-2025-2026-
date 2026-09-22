@@ -327,3 +327,56 @@
     text-wrap: balance;
   }
 }
+
+/* ==========================================================================
+   Chart entrance motion
+   --------------------------------------------------------------------------
+   An entrance, not an ambience. Every rule below runs ONCE, on the
+   pending -> entered transition that `ChartReveal` performs when the frame
+   scrolls into view, and nothing here can run again: there is no animation,
+   no iteration count and no scroll-linked property. design-system.md §6
+   permits section reveal, chart entrance, line draw and legend transition,
+   and forbids parallax, pulsing data lines, glow, particles and continuous
+   background motion — none of which has a rule here to accidentally enable.
+
+   Durations come from the motion tokens, which means
+   `prefers-reduced-motion` is already honoured: tokens.css collapses
+   --duration-slow to 1ms and --reveal-offset to 0, so a reduced-motion
+   reader gets the same final state with no travel. The end state is the
+   visible one, so a browser that ignores these rules entirely shows the
+   chart rather than hiding it.
+   ========================================================================== */
+
+@layer components {
+  [data-chart-reveal] {
+    transition:
+      opacity var(--duration-slow) var(--ease-out),
+      transform var(--duration-slow) var(--ease-out);
+  }
+
+  [data-chart-reveal="pending"] {
+    opacity: 0;
+    transform: translateY(var(--reveal-offset));
+  }
+
+  [data-chart-reveal="entered"] {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /*
+   * Step 3 of the entrance: the legend and the interaction controls settle after
+   * the line has started drawing, so the reader's eye goes to the data first.
+   * The delay is the frame's own duration -- a value that already exists rather
+   * than a number invented to feel right.
+   */
+  [data-chart-reveal] [data-chart-settle] {
+    opacity: 0;
+    transition: opacity var(--duration-medium) var(--ease-out);
+    transition-delay: var(--duration-slow);
+  }
+
+  [data-chart-reveal="entered"] [data-chart-settle] {
+    opacity: 1;
+  }
+}

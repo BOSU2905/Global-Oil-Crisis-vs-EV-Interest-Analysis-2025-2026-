@@ -43,11 +43,16 @@ interface NavigationProps {
  * one row to two.
  *
  * MOBILE, DELIBERATELY UNDER-ENGINEERED
- * The rail scrolls horizontally below `lg`, where the header is two rows. No
- * drawer, no sheet, no focus trap, no JavaScript for layout. §7's drawer applies
- * to the ten-section narrative; with three links a drawer would be more moving
- * parts than content, and a focus trap is a real accessibility liability to get
- * wrong. Revisit when the narrative sections land in steps 6–7.
+ * The rail scrolls horizontally, at every width. It used to switch to
+ * `overflow-visible` at `lg`, which was correct while there were four sections and
+ * wrong at eight: on a 1120px frame the identity block leaves roughly 840px, and eight
+ * labels do not fit it. A rail that scrolls cannot overflow the page, and an
+ * overflowing header would break the shared left edge the whole layout depends on.
+ *
+ * Still no drawer, no sheet, no focus trap and no JavaScript for layout. §7's drawer
+ * applies to the finished ten-section narrative; a focus trap is a real accessibility
+ * liability to get wrong, and a scrolling rail has none of that risk. Revisit when the
+ * narrative is complete.
  */
 export function Navigation({ items }: NavigationProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -109,12 +114,12 @@ export function Navigation({ items }: NavigationProps) {
   }, [items]);
 
   return (
-    <nav aria-label="Sections">
-      <ul className="-mx-1 flex items-center gap-1 overflow-x-auto lg:mx-0 lg:overflow-visible">
+    <nav aria-label="Sections" className="min-w-0">
+      <ul className="-mx-1 flex items-center gap-1 overflow-x-auto lg:mx-0">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
-            <li key={item.id}>
+            <li key={item.id} className="shrink-0">
               <a
                 href={`#${item.id}`}
                 aria-current={isActive ? "true" : undefined}

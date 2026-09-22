@@ -25,6 +25,25 @@ const TOOLTIP = ".oil-ev-chart-tooltip";
 const chartRegion = (page: Page) => page.getByRole("img", { name: CHART_NAME });
 
 /**
+ * The prototype's own frame.
+ *
+ * The page now carries two charts, so every control name — "Reset view", "View data
+ * table" — appears twice and an unscoped `getByRole` is ambiguous under Playwright's
+ * strict mode. Scoping to the figure that contains THIS chart's region is what keeps each
+ * suite testing its own chart.
+ */
+const chartFigure = (page: Page) => page.locator("figure", { has: chartRegion(page) });
+
+/**
+ * DOM selector for the prototype's canvas wrapper.
+ *
+ * Qualified by `aria-describedby` rather than by document order: the five-market chart
+ * appears earlier in the page, so `[data-chart-canvas]` alone matches the wrong one.
+ */
+const CHART_WRAPPER =
+  '[data-chart-canvas="true"][aria-describedby="oil-vs-interest-chart-description"]';
+
+/**
  * Text of the ECharts tooltip, or `""` when it is not showing.
  *
  * Reads the named tooltip element rather than scanning the page for text. An earlier
@@ -34,13 +53,17 @@ const chartRegion = (page: Page) => page.getByRole("img", { name: CHART_NAME });
  */
 async function tooltipText(page: Page): Promise<string> {
   return page.evaluate((selector) => {
-    const element = document.querySelector<HTMLElement>(selector);
-    if (element === null) return "";
-    const style = getComputedStyle(element);
-    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
-      return "";
+    // Every chart on the page creates its own tooltip element with this class, and all but
+    // one are hidden at any moment — so the VISIBLE one is the readout being asked about.
+    // Taking the first match would return whichever chart mounted earliest.
+    for (const element of document.querySelectorAll<HTMLElement>(selector)) {
+      const style = getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
+        continue;
+      }
+      return element.textContent ?? "";
     }
-    return element.textContent ?? "";
+    return "";
   }, TOOLTIP);
 }
 
@@ -227,7 +250,7 @@ test.describe("legend, zoom and reset", () => {
 
     // Real buttons, not canvas shapes: `aria-pressed` carries the state and the
     // control is keyboard-operable, which a painted legend is not.
-    const oilToggle = page.getByRole("button", { name: /Brent crude/ });
+    const oilToggle = chartFigure(page).getByRole("button", { name: /Brent crude/ });
     await expect(oilToggle).toHaveAttribute("aria-pressed", "true");
 
     const box = await region.boundingBox();
@@ -265,7 +288,7 @@ test.describe("legend, zoom and reset", () => {
 
     // §5 rule 6: every control reachable and operable by keyboard. This is the reason
     // the legend is HTML rather than ECharts' canvas legend.
-    const oilToggle = page.getByRole("button", { name: /Brent crude/ });
+    const oilToggle = chartFigure(page).getByRole("button", { name: /Brent crude/ });
     const interestToggle = page.getByRole("button", { name: /Worldwide/ });
 
     // The unit travels with the label, so which axis a series is read against never
@@ -287,7 +310,7 @@ test.describe("legend, zoom and reset", () => {
     // `assertInteractionsCoherent` makes this structural, but the control has to
     // actually exist and be operable — a reader who pinch-zooms on a phone with no
     // way back is stranded in a four-week window.
-    const reset = page.getByRole("button", { name: "Reset view" });
+    const reset = chartFigure(page).getByRole("button", { name: "Reset view" });
     await expect(reset).toBeVisible();
     await expect(reset).toBeEnabled();
     const box = await reset.boundingBox();
@@ -319,7 +342,7 @@ test.describe("legend, zoom and reset", () => {
       .poll(async () => (await tooltipText(page)) !== before, { timeout: 4000 })
       .toBe(true);
 
-    await page.getByRole("button", { name: "Reset view" }).click();
+    await chartFigure(page).getByRole("button", { name: "Reset view" }).click();
     await region.hover({ position: { x: box!.width * 0.3, y: box!.height / 2 } });
     await expect
       .poll(async () => (await tooltipText(page)) === before, { timeout: 4000 })
@@ -386,14 +409,14 @@ test.describe("the tabular fallback", () => {
     // "collapsed" would be a lie.
     await expect(page.locator(TABLE_ID)).toHaveCount(0);
 
-    const toggle = page.getByRole("button", { name: "View data table" });
+    const toggle = chartFigure(page).getByRole("button", { name: "View data table" });
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(toggle).toHaveAttribute("aria-controls", "oil-vs-interest-chart-table");
 
     await toggle.click();
     await expect(page.locator(TABLE_ID)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Hide data table" })).toHaveAttribute(
+    await expect(chartFigure(page).getByRole("button", { name: "Hide data table" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
@@ -403,7 +426,7 @@ test.describe("the tabular fallback", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "View data table" }).click();
+    await chartFigure(page).getByRole("button", { name: "View data table" }).click();
 
     const table = page.locator(TABLE_ID);
     // 31 Trends weeks. The count comes from the artifact, so a mismatch means the
@@ -427,7 +450,7 @@ test.describe("the tabular fallback", () => {
 
   test("the missing observation and the partial week are marked in words", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "View data table" }).click();
+    await chartFigure(page).getByRole("button", { name: "View data table" }).click();
 
     const table = page.locator(TABLE_ID);
     // §5 rule 7: a table has no encoding other than text, so the flags must be text.
@@ -438,7 +461,7 @@ test.describe("the tabular fallback", () => {
   test("it is keyboard reachable and scrollable without a pointer", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 });
     await page.goto("/");
-    await page.getByRole("button", { name: "View data table" }).click();
+    await chartFigure(page).getByRole("button", { name: "View data table" }).click();
 
     // A scroll container has to be focusable, or a keyboard user cannot reach the
     // columns that overflow at 375px.
@@ -560,5 +583,333 @@ test.describe("the chart states its caveats without interaction", () => {
     expect(body).not.toMatch(/\br\s*=\s*[-\d.]/);
     expect(body).not.toMatch(/\bp\s*[=<]\s*[\d.]/);
     expect(body).not.toContain("pearson");
+  });
+});
+
+/**
+ * Reset determinism.
+ *
+ * THE BUG THESE EXIST FOR
+ * Reset used to feel smooth after some gestures and snap after others. Two mechanisms in
+ * ECharts 6 produced that, both read in the library source rather than guessed at:
+ *
+ *   1. roam actions are pushed through a `fixRate` throttle whose interval defaults to
+ *      100ms while animation is on, so the last increment of a gesture is SCHEDULED, not
+ *      sent — and a reset issued inside that window was overwritten by a roam that
+ *      arrived after it;
+ *   2. roam actions carry `animation: { easing: "cubicOut", duration: 100 }`, and
+ *      `getAnimationConfig()` treats the update payload as the highest-priority source, so
+ *      a reset sent without one fell back to a different duration depending on what the
+ *      reader had just done.
+ *
+ * `EChart` therefore drives the transition itself. These tests assert the observable
+ * consequence: every sequence ends at exactly the full domain, and every reset passes
+ * through intermediate states rather than jumping.
+ *
+ * The window is read from `data-zoom-start` / `data-zoom-end`, which the wrapper publishes
+ * on every ECharts `dataZoom` event. No pixel assertions and no reaching into the library.
+ */
+
+/** The published x-domain window, as percentages. */
+async function zoomWindow(page: Page): Promise<{ start: number; end: number }> {
+  return page.evaluate((selector) => {
+    const element = document.querySelector<HTMLElement>(selector);
+    return {
+      start: Number(element?.dataset["zoomStart"] ?? "0"),
+      end: Number(element?.dataset["zoomEnd"] ?? "100"),
+    };
+  }, CHART_WRAPPER);
+}
+
+/**
+ * Click Reset and record every window the chart passes through.
+ *
+ * A `MutationObserver` rather than a sampling loop: it records every change the component
+ * makes, so the count is a property of the transition rather than of how fast the polling
+ * happened to be. The observation window is generous — several times `--duration-slow` —
+ * so a slow machine records fewer frames rather than a failure.
+ */
+async function resetAndRecord(page: Page): Promise<{ samples: string[]; resetting: boolean }> {
+  await page.evaluate((selector) => {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (element === null) return;
+    const recorded: string[] = [];
+    let sawResetting = false;
+    const observer = new MutationObserver(() => {
+      const current = `${element.dataset["zoomStart"] ?? ""}-${element.dataset["zoomEnd"] ?? ""}`;
+      if (recorded[recorded.length - 1] !== current) recorded.push(current);
+      if (element.dataset["resetting"] === "true") sawResetting = true;
+    });
+    observer.observe(element, { attributes: true });
+    const store = window as unknown as {
+      __reset?: { samples: string[]; resetting: () => boolean; stop: () => void };
+    };
+    store.__reset = {
+      samples: recorded,
+      resetting: () => sawResetting,
+      stop: () => observer.disconnect(),
+    };
+  }, CHART_WRAPPER);
+
+  await chartFigure(page).getByRole("button", { name: "Reset view" }).click();
+  await expect.poll(async () => (await zoomWindow(page)).start, { timeout: 4000 }).toBe(0);
+  await expect.poll(async () => (await zoomWindow(page)).end, { timeout: 4000 }).toBe(100);
+
+  return page.evaluate(() => {
+    const store = window as unknown as {
+      __reset?: { samples: string[]; resetting: () => boolean; stop: () => void };
+    };
+    const state = store.__reset;
+    if (state === undefined) return { samples: [], resetting: false };
+    state.stop();
+    return { samples: [...state.samples], resetting: state.resetting() };
+  });
+}
+
+/** Ctrl + wheel over the plot centre, which is the chart's zoom accelerator. */
+async function zoomIn(page: Page, steps = 6): Promise<void> {
+  const region = chartRegion(page);
+  const box = await region.boundingBox();
+  expect(box).not.toBeNull();
+  await page.keyboard.down("Control");
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  for (let i = 0; i < steps; i += 1) await page.mouse.wheel(0, -120);
+  await page.keyboard.up("Control");
+  await expect.poll(async () => (await zoomWindow(page)).end < 100, { timeout: 4000 }).toBe(true);
+}
+
+/** Drag inside the plot, which pans the x-domain. */
+async function pan(page: Page, dx: number): Promise<void> {
+  const box = await chartRegion(page).boundingBox();
+  expect(box).not.toBeNull();
+  const y = box!.y + box!.height / 2;
+  await page.mouse.move(box!.x + box!.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2 + dx, y, { steps: 8 });
+  await page.mouse.up();
+}
+
+test.describe("reset is deterministic", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+    await chartRegion(page).scrollIntoViewIfNeeded();
+    await expect.poll(async () => (await zoomWindow(page)).end).toBe(100);
+  });
+
+  test("the initial view is the full domain", async ({ page }) => {
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+  });
+
+  test("zoom in, reset: returns to the full domain, and animates getting there", async ({
+    page,
+  }) => {
+    await zoomIn(page);
+    const before = await zoomWindow(page);
+    expect(before.end - before.start).toBeLessThan(100);
+
+    const { samples, resetting } = await resetAndRecord(page);
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+    expect(resetting).toBe(true);
+    // More than one step: a snap would produce a single change straight to 0-100.
+    expect(samples.length).toBeGreaterThan(2);
+  });
+
+  test("pan, reset: returns to the full domain and animates", async ({ page }) => {
+    await zoomIn(page);
+    await pan(page, -160);
+    const { samples } = await resetAndRecord(page);
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+    expect(samples.length).toBeGreaterThan(2);
+  });
+
+  test("zoom and pan repeatedly, reset: still the full domain, still animated", async ({
+    page,
+  }) => {
+    for (let round = 0; round < 3; round += 1) {
+      await zoomIn(page, 3);
+      await pan(page, round % 2 === 0 ? -120 : 140);
+    }
+    const { samples } = await resetAndRecord(page);
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+    expect(samples.length).toBeGreaterThan(2);
+  });
+
+  test("reset immediately after a gesture is not undone by a trailing roam", async ({
+    page,
+  }) => {
+    // The throttled roam dispatch can land up to ~100ms after the last wheel event. The
+    // frame loop re-asserts the window for the whole transition, so a late roam is
+    // overwritten rather than winning. Clicking with no settling pause is the case that
+    // used to fail.
+    await zoomIn(page, 8);
+    await chartFigure(page).getByRole("button", { name: "Reset view" }).click();
+    await expect.poll(async () => (await zoomWindow(page)).start, { timeout: 4000 }).toBe(0);
+    await expect.poll(async () => (await zoomWindow(page)).end, { timeout: 4000 }).toBe(100);
+    // And it stays there: nothing arrives afterwards to move it.
+    await page.waitForTimeout(400);
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+  });
+
+  test("repeated resets behave identically", async ({ page }) => {
+    for (let round = 0; round < 3; round += 1) {
+      await zoomIn(page, 4);
+      const { samples } = await resetAndRecord(page);
+      expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+      expect(samples.length).toBeGreaterThan(2);
+    }
+  });
+
+  test("two resets in a row, with no zoom between, leave the domain intact", async ({
+    page,
+  }) => {
+    const reset = chartFigure(page).getByRole("button", { name: "Reset view" });
+    await reset.click();
+    await reset.click();
+    await page.waitForTimeout(300);
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+  });
+
+  test("resize while zoomed keeps the window, and reset still returns it", async ({ page }) => {
+    await zoomIn(page);
+    const zoomed = await zoomWindow(page);
+    expect(zoomed.end).toBeLessThan(100);
+
+    // Across the md boundary, which rebuilds the option rather than resizing it.
+    await page.setViewportSize({ width: 375, height: 900 });
+    await expect.poll(async () => chartRegion(page).getAttribute("data-layout")).toBe(
+      "stacked-panels",
+    );
+    // The reader's zoom survives the rebuild: `notMerge` would otherwise reset it silently.
+    const afterResize = await zoomWindow(page);
+    expect(afterResize.end).toBeLessThan(100);
+
+    await chartFigure(page).getByRole("button", { name: "Reset view" }).click();
+    await expect.poll(async () => (await zoomWindow(page)).end, { timeout: 4000 }).toBe(100);
+    expect(await zoomWindow(page)).toEqual({ start: 0, end: 100 });
+  });
+
+  test("the keyboard can zoom, because the canvas slider cannot be focused", async ({
+    page,
+  }) => {
+    const region = chartRegion(page);
+    await region.focus();
+    await page.keyboard.press("+");
+    await expect.poll(async () => (await zoomWindow(page)).end < 100, { timeout: 4000 }).toBe(
+      true,
+    );
+
+    await page.keyboard.press("-");
+    await page.keyboard.press("-");
+    await expect.poll(async () => (await zoomWindow(page)).end, { timeout: 4000 }).toBe(100);
+  });
+});
+
+test.describe("entrance motion", () => {
+  test("the chart animates in once and then stops", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+
+    const region = chartRegion(page);
+    // Before the frame is in view the canvas has not mounted: the entrance is meant to be
+    // seen, so the observer no longer pre-mounts 200px early.
+    await region.scrollIntoViewIfNeeded();
+
+    await expect.poll(async () => region.getAttribute("data-entrance"), {
+      timeout: 6000,
+    }).toBe("done");
+
+    // And it stays done. A second entrance would mean the option was rebuilt with
+    // animation on, which is what a legend toggle or a resize must not do.
+    await page.waitForTimeout(500);
+    await expect(region).toHaveAttribute("data-entrance", "done");
+  });
+
+  test("the frame settles before the line draws, and both end still", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+
+    // Scoped to the prototype's own reveal wrapper: the page carries two.
+    const reveal = page.locator("[data-chart-reveal]", { has: chartRegion(page) });
+    await reveal.scrollIntoViewIfNeeded();
+    await expect.poll(async () => reveal.getAttribute("data-chart-reveal"), {
+      timeout: 6000,
+    }).toBe("entered");
+
+    // Fully opaque and untranslated once entered — the end state is the readable one.
+    const settled = await reveal.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { opacity: style.opacity, transform: style.transform };
+    });
+    expect(Number(settled.opacity)).toBeGreaterThan(0.99);
+    expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(settled.transform);
+  });
+
+  test("a legend toggle does not restart the entrance", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+    const region = chartRegion(page);
+    await region.scrollIntoViewIfNeeded();
+    await expect.poll(async () => region.getAttribute("data-entrance"), {
+      timeout: 6000,
+    }).toBe("done");
+
+    await chartFigure(page).getByRole("button", { name: /Brent crude/ }).click();
+    await page.waitForTimeout(300);
+    await expect(region).toHaveAttribute("data-entrance", "done");
+  });
+
+  test("reduced motion skips the entrance and keeps every interaction", async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+
+    const region = page.getByRole("img", { name: CHART_NAME });
+    await region.scrollIntoViewIfNeeded();
+
+    // "reduced", not "done": the chart was never animated in.
+    await expect.poll(async () => region.getAttribute("data-entrance"), {
+      timeout: 6000,
+    }).toBe("reduced");
+
+    // Usability is untouched. Hover still opens the readout...
+    const box = await region.boundingBox();
+    await region.hover({ position: { x: box!.width * 0.4, y: box!.height / 2 } });
+    await expect
+      .poll(async () =>
+        page.evaluate((selector) => {
+          for (const element of document.querySelectorAll<HTMLElement>(selector)) {
+            if (getComputedStyle(element).display === "none") continue;
+            return element.textContent ?? "";
+          }
+          return "";
+        }, TOOLTIP),
+      )
+      .toContain("Week of");
+
+    // ...and zoom and reset still work, arriving instantly instead of over 360ms.
+    await region.focus();
+    await page.keyboard.press("+");
+    await expect
+      .poll(async () =>
+        page.evaluate((selector) => {
+          const element = document.querySelector<HTMLElement>(selector);
+          return Number(element?.dataset["zoomEnd"] ?? "100");
+        }, CHART_WRAPPER),
+      )
+      .toBeLessThan(100);
+
+    await chartFigure(page).getByRole("button", { name: "Reset view" }).click();
+    await expect
+      .poll(async () =>
+        page.evaluate((selector) => {
+          const element = document.querySelector<HTMLElement>(selector);
+          return Number(element?.dataset["zoomEnd"] ?? "0");
+        }, CHART_WRAPPER),
+      )
+      .toBe(100);
+
+    await context.close();
   });
 });

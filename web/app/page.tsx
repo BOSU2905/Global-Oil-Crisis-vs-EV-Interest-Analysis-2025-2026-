@@ -1,45 +1,55 @@
 import { Badge } from "../src/components/content/Badge.tsx";
 import { Callout } from "../src/components/content/Callout.tsx";
 import type { MetricContent } from "../src/components/content/contract.ts";
+import { HowToRead } from "../src/components/content/HowToRead.tsx";
 import { MetricCard } from "../src/components/content/MetricCard.tsx";
 import { ReadMore } from "../src/components/content/ReadMore.tsx";
 import { StatHighlight } from "../src/components/content/StatHighlight.tsx";
+import { InterestAcrossMarketsChart } from "../src/components/chart/InterestAcrossMarketsChart.tsx";
+import { NORMALISATION_CAVEAT } from "../src/components/chart/markets-contract.ts";
 import { OilVsWorldwideInterestChart } from "../src/components/chart/OilVsWorldwideInterestChart.tsx";
+import { CountryDeepDivePanel } from "../src/components/market/CountryDeepDivePanel.tsx";
+import { MarketSynthesisList } from "../src/components/market/MarketSynthesisList.tsx";
 import { Container } from "../src/components/layout/Container.tsx";
 import { Section } from "../src/components/layout/Section.tsx";
 import { SectionHeader } from "../src/components/layout/SectionHeader.tsx";
+import { HOW_TO_READ_ENTRIES } from "../src/content/how-to-read.ts";
 import { COUNTRY_IDS, getComparability, getSeriesLabel } from "../src/data/index.ts";
 import { getArtifacts } from "../src/lib/artifacts.ts";
+import { selectInterestAcrossMarkets } from "../src/lib/interest-across-markets.ts";
+import { selectMarketSynthesis } from "../src/lib/market-synthesis.ts";
 import { selectOilVsWorldwideInterest } from "../src/lib/oil-vs-interest.ts";
 
 /**
- * Foundation page — Phase 3C steps 1, 3 and 4 of docs/product-architecture.md §10.
+ * The report page, as far as it is built.
  *
- * SCOPE, STATED EXPLICITLY
- * This is the application shell standing up, not the product. The narrative
- * sections (§1), the hero (§2), the interpretation framework (§3) and every chart
- * are later steps in the §10 order and are deliberately absent. What this page
- * does do is prove the architecture end to end:
+ * WHAT IS HERE NOW
+ * Two charts, the cross-market synthesis and the country deep-dive foundation, on top of
+ * the shell, the scope block and the comparability guardrail. Everything rendered is READ
+ * from the artifacts through the accessors in `src/data/index.ts` and the selectors in
+ * `src/lib/`. No statistic is computed here.
  *
- *     Python pipeline → generated JSON → validated bundle → React
+ *     Python pipeline → generated JSON → validated bundle → selector → React
  *
- * Everything rendered below is READ from the artifacts through the accessors in
- * `src/data/index.ts`. No statistic is computed here.
+ * WHAT IS DELIBERATELY NOT HERE
+ * The hero, the Oil Shock section, the Robustness section, Interpretation, Limitations,
+ * About and Creator. Their order is recorded in the `structure` section at the foot of the
+ * page, and the reason each is absent is recorded there too — a reader of a report in
+ * progress is entitled to know what is missing.
  *
- * WHAT STEP 4 CHANGED, AND WHAT IT DELIBERATELY DID NOT
- * Composition again, plus the content components. The three scope figures are now
- * `MetricCard`s, the comparability block is a real `Callout` instead of the inline
- * warning surface step 1 left as a placeholder, the partial-week note uses
- * `StatHighlight` and `ReadMore`, and the footer's source list is a `SourceNote`.
+ * **Still no coefficient, p-value or interval appears.** The Robustness section is the
+ * one that can carry the specification comparison beside a coefficient, and until it
+ * exists a coefficient on this page would have nowhere to be qualified — which is the
+ * original project's error. `MetricCard` makes that a compile error rather than a habit:
+ * every metric below is `kind: "descriptive"`, and rendering an inferential one requires
+ * the specification string and at least one caveat. The deep dives render the
+ * specification COMPARISON, in words, with no coefficient.
  *
- * **Still no coefficient, p-value, interval or classification appears.** The
- * `MetricCard`s here are all `kind: "descriptive"` — coverage dates and counts the
- * pipeline observed, not statistics it inferred. Rendering an inferential metric
- * requires the specification comparison beside it (KIRO.md §16), and the sections
- * that can carry that comparison are steps 6–7. `MetricCard` now makes that a
- * compile error rather than a matter of discipline, which was the point of
- * building it before the sections that will use it. An E2E test asserts the page
- * still shows no coefficient.
+ * SECTION ORDER, AND THE ONE DEVIATION FROM THE NARRATIVE
+ * Context → EV Interest → Global Relationship → Market Synthesis → Country Deep Dives is
+ * the narrative order. `comparability` sits ahead of all of it because the constraint that
+ * interest levels are series-local must be read before a reader sees five interest lines
+ * side by side.
  */
 export default function Home() {
   const bundle = getArtifacts();
@@ -47,23 +57,14 @@ export default function Home() {
   const comparability = getComparability(bundle);
   const partialWeeks = coverage.partial_weeks.length;
   const one = partialWeeks === 1;
-  const chartData = selectOilVsWorldwideInterest(bundle);
+
+  const oilVsInterest = selectOilVsWorldwideInterest(bundle);
+  const markets = selectInterestAcrossMarkets(bundle);
+  const synthesis = selectMarketSynthesis(bundle);
+
   // Read, not scanned for: `metrics.global.oil.last_week`. The provisional-week
   // note needs the last week the price series actually covers.
-  const lastOilWeek = chartData.annotations.lastOilWeek;
-
-  const narrative = [
-    "Overview",
-    "Oil Shock",
-    "EV Interest",
-    "Global Relationship",
-    "Robustness",
-    "Country Divergence",
-    "Country Deep Dives",
-    "Interpretation",
-    "Limitations",
-    "Conclusion",
-  ];
+  const lastOilWeek = oilVsInterest.annotations.lastOilWeek;
 
   /*
     Descriptive, every one of them: two dates, a row count and a market count,
@@ -105,18 +106,61 @@ export default function Home() {
     },
   ];
 
+  /**
+   * The sections still to come, and why each is absent.
+   *
+   * Rendered rather than left in a document: the page is a report in progress, and a
+   * reader who can see what is missing can judge what is here. `built` is not a promise
+   * about a date — it is a statement about which of the twelve conceptual sections have
+   * evidence behind them today.
+   */
+  const structure: readonly {
+    readonly label: string;
+    readonly built: boolean;
+    readonly note: string;
+  }[] = [
+    { label: "Hero", built: false, note: "Opens with the question and the tension." },
+    { label: "Context", built: true, note: "Scope, comparability and how to read this." },
+    { label: "Oil Shock", built: false, note: "What the crude price series did." },
+    { label: "EV Interest", built: true, note: "Five markets, one chart." },
+    { label: "Global Relationship", built: true, note: "Crude against worldwide interest." },
+    {
+      label: "Robustness",
+      built: false,
+      note: "The specification comparison. Needs the components that render a coefficient with its caveat.",
+    },
+    {
+      label: "Market Synthesis",
+      built: true,
+      note: "What the shock revealed across the five.",
+    },
+    {
+      label: "Country Deep Dives",
+      built: true,
+      note: "One market at a time; chart slot still empty.",
+    },
+    {
+      label: "Interpretation",
+      built: false,
+      note: "The editorial framework, argued rather than listed.",
+    },
+    { label: "Limitations", built: false, note: "What this analysis cannot support." },
+    { label: "About the Project", built: false, note: "Method, sources and reproducibility." },
+    { label: "Creator", built: false, note: "Attribution. Copy is the owner's to write." },
+  ];
+
   return (
     <Container width="page" className="pb-(--section-spacing)">
       {/*
-        The page's single h1. A plain block rather than a Section: section 01
-        (Overview) and the hero contract in §2 are step 6, and claiming that id
+        The page's single h1. A plain block rather than a Section: the hero contract in
+        product-architecture.md §2 is its own piece of work, and claiming a section id
         now would put a navigation link on a section that does not exist.
       */}
       <div className="pt-(--section-spacing)">
         <SectionHeader
           sectionId="page"
           headingLevel={1}
-          eyebrow="Analytical Foundation"
+          eyebrow="Interactive Analysis"
           title={
             <>
               Global Oil Crisis <span className="text-fg-subtle">vs</span> EV Interest Analysis
@@ -146,15 +190,19 @@ export default function Home() {
 
         {partialWeeks > 0 ? (
           /*
-            The finding stays visible; only the charting instruction is behind the
-            disclosure. §6 forbids a critical conclusion living inside a ReadMore,
-            and "one week is provisional" is exactly that kind of statement -- so it
-            is in the summary, with the figure as a StatHighlight.
+            The finding stays visible; only the drawing convention is behind the
+            disclosure. §6 forbids a critical conclusion living inside a ReadMore, and
+            "one week is provisional" is exactly that kind of statement -- so it is in
+            the summary, with the figure as a StatHighlight.
+
+            The label used to read "What that means for the charts", which promised a
+            reading guide and delivered one data caveat. The guide is now its own
+            section, and this control is named for what it actually explains.
           */
           <ReadMore
             id="provisional-weeks"
             className="mt-6"
-            label="What that means for the charts"
+            label="How the charts draw that week"
             summary={
               <p>
                 <span className="text-fg">Provisional data.</span>{" "}
@@ -167,19 +215,11 @@ export default function Home() {
               </p>
             }
           >
-            {/*
-              Step 5 note: this panel used to state a REQUIREMENT for charts that did
-              not exist ("charts must mark those weeks visibly"). A chart exists now
-              and does mark them, so the copy describes the treatment instead of
-              promising it. Every fact below is read from the artifacts by the chart's
-              own selector — the dash, the gap and the week labels are the rendering
-              of `coverage.partial_weeks` and `coverage.weeks_without_oil`.
-            */}
             <p>
-              In the chart below, that week is drawn as a dashed segment rather than a solid
-              one, and the tooltip names it as a partial week. It is not dropped and not
-              smoothed — a weekly mean over fewer days is still the best estimate for the week,
-              it just carries more uncertainty than its neighbours.
+              That week is drawn as a dashed segment rather than a solid one, and the tooltip
+              names it as a partial week. It is not dropped and not smoothed — a weekly mean
+              over fewer days is still the best estimate for the week, it just carries more
+              uncertainty than its neighbours.
             </p>
             <p>
               A second gap sits at the end of the period. Google Trends reaches{" "}
@@ -193,14 +233,27 @@ export default function Home() {
       </Section>
 
       {/*
+        The reading guide. It sits this early because every question in it is one a reader
+        has BEFORE the first chart, and a guide placed after the evidence is a guide that
+        arrives too late to prevent a misreading.
+      */}
+      <Section id="how-to-read">
+        <SectionHeader
+          sectionId="how-to-read"
+          eyebrow="Orientation"
+          title="How to Read This Analysis"
+          lead="Seven questions this report answers about itself. The short version: the analysis measures co-movement and timing, it establishes no cause, the five market series cannot be compared by height, and the level correlations do not survive comparing week-to-week changes."
+        />
+        <div className="mt-(--section-header-gap) max-w-reading">
+          <HowToRead entries={HOW_TO_READ_ENTRIES} />
+        </div>
+      </Section>
+
+      {/*
         The normalisation constraint is rendered from countries.json, not retyped.
         It is the guardrail most easily lost in a redesign, and the original
         project's worst analytical error was a cross-market comparison this rule
-        forbids -- so it is present from the first page that exists.
-
-        Step 4 replaced the inline warning surface with `Callout`, which is the
-        component product-architecture.md §4 names for exactly this block. Both the
-        constraint and the remedy stay visible: neither is behind a disclosure.
+        forbids -- so it is present before any chart.
       */}
       <Section id="comparability">
         <Callout
@@ -225,58 +278,117 @@ export default function Home() {
       </Section>
 
       {/*
-        THE STEP 5 CHART PROTOTYPE — one chart, not the chart system.
+        EV INTEREST — the five-market chart.
 
-        It sits after the comparability guardrail on purpose: the constraint that
-        interest levels are series-local has to be read before a chart puts an
-        interest line next to anything. `product-architecture.md` §1 places the
-        global relationship at section 04, which is where this will move once the
-        narrative sections exist; here it is a prototype for evaluating the visual
-        language and the interactions, and nothing downstream depends on its
-        position.
+        One chart rather than five country charts, because the question is a comparison of
+        timing and five stacked panels would make the reader hold four shapes in memory.
+        The guardrail above is repeated here in the reader's words, because a constraint
+        read three sections ago is a constraint that has been forgotten.
 
-        The data is selected on the SERVER. `selectOilVsWorldwideInterest()` runs
-        during the build, so no artifact JSON and no validation code reaches the
-        client — only the ~31 selected points do.
+        The data is selected on the SERVER, so no artifact JSON and no validation code
+        reaches the client — only the selected points do.
       */}
-      <Section id="oil-vs-interest">
+      <Section id="ev-interest-markets">
         <SectionHeader
-          sectionId="oil-vs-interest"
-          eyebrow="Prototype"
-          title="Oil Price and Worldwide EV Interest"
-          lead="One chart, built to evaluate the visual language and the interactions before the rest of the chart system is written. Two measures, two units, two axes — and a caveat that travels with them."
+          sectionId="ev-interest-markets"
+          eyebrow="EV Interest"
+          title="EV Interest Across Five Markets"
+          lead="When did EV search interest rise in each market, and how did the timing differ? The five peaks are spread across three calendar months, which is the finding this chart exists to show."
         />
         <div className="mt-(--section-header-gap)">
-          <OilVsWorldwideInterestChart data={chartData} sources={bundle.manifest.sources} />
+          <Callout tone="info" kind="Read This First" className="max-w-reading">
+            <p className="mt-3 text-small text-fg-secondary">{NORMALISATION_CAVEAT}</p>
+          </Callout>
+        </div>
+        <div className="mt-(--grid-gap)">
+          <InterestAcrossMarketsChart data={markets} sources={bundle.manifest.sources} />
         </div>
       </Section>
 
       {/*
-        The information architecture, listed as intent. Not navigation yet.
+        GLOBAL RELATIONSHIP — crude against the worldwide interest series.
 
-        None of the three blocks on this page carries an eyebrow ordinal. The
-        numbered sequence `01 — OVERVIEW` … `10 — CONCLUSION` belongs to the
-        narrative sections listed below, which do not exist yet; numbering these
-        scaffold blocks 01–03 would read as though they were the first three.
-        `SectionHeader` supports the ordinal for when those sections arrive.
+        It follows the five-market chart because the narrative order is EV Interest then
+        Global Relationship, and because a reader who has just seen five divergent series
+        is better placed to judge what one aggregate line is worth.
+      */}
+      <Section id="oil-vs-interest">
+        <SectionHeader
+          sectionId="oil-vs-interest"
+          eyebrow="Global Relationship"
+          title="Oil Price and Worldwide EV Interest"
+          lead="Two measures, two units, two axes — and the caveat that travels with them. The lines rise together, and that co-movement does not survive comparing week-to-week changes."
+        />
+        <div className="mt-(--section-header-gap)">
+          <OilVsWorldwideInterestChart data={oilVsInterest} sources={bundle.manifest.sources} />
+        </div>
+      </Section>
+
+      {/*
+        MARKET SYNTHESIS — the five markets as evidence rows.
+
+        Descriptive, not evaluative: no score, no rank, no ordering by a measured value.
+        Each row is a direction within one market, a date, and two classification codes
+        turned into phrases, all read from metrics.json.
+      */}
+      <Section id="market-synthesis">
+        <SectionHeader
+          sectionId="market-synthesis"
+          eyebrow="Market Synthesis"
+          title="What the Shock Revealed"
+          lead="Five markets, the same weeks, and five different patterns. The rows below are evidence rather than a ranking: each Google Trends series is scaled to its own maximum, so there is no measure on which one market sits above another."
+        />
+        <div className="mt-(--section-header-gap)">
+          <MarketSynthesisList synthesis={synthesis} />
+        </div>
+      </Section>
+
+      {/*
+        COUNTRY DEEP DIVES — one market at a time, from one component.
+
+        No separate country routes: product-architecture.md §1 rules them out because a
+        country page lets a reader reach a country conclusion without the evidence that
+        qualifies it. Selection is reflected in the URL hash instead, so a deep dive is
+        still shareable.
+      */}
+      <Section id="country-deep-dives">
+        <SectionHeader
+          sectionId="country-deep-dives"
+          eyebrow="Country Deep Dives"
+          title="One Market at a Time"
+          lead="The same evidence at more depth: the editorial reading, the specification comparison, and the caveats the pipeline attached. A per-market chart is the next thing to land here."
+        />
+        <div className="mt-(--section-header-gap)">
+          <CountryDeepDivePanel synthesis={synthesis} />
+        </div>
+      </Section>
+
+      {/*
+        The information architecture, with what is built marked as built. Not navigation:
+        the unbuilt sections have no anchors, and a link that scrolls nowhere is worse
+        than a list that is honest about being a list.
       */}
       <Section id="structure">
         <SectionHeader
           sectionId="structure"
           eyebrow="Information Architecture"
           title="Narrative Structure"
-          lead="The finished product is one long-scroll argument in ten sections, read in order. None of them is implemented yet — this page is the shell they will be built into."
+          lead="The finished report is one long-scroll argument, read in order. Five of its twelve sections have evidence behind them today; the rest are named here so nothing looks missing by accident."
         />
-        <ol className="mt-(--section-header-gap) flex max-w-reading flex-col gap-px overflow-hidden rounded-lg border border-border">
-          {narrative.map((label, index) => (
+        <ol className="mt-(--section-header-gap) flex max-w-reading list-none flex-col gap-px overflow-hidden rounded-lg border border-border">
+          {structure.map((entry, index) => (
             <li
-              key={label}
-              className="flex items-baseline gap-3 bg-surface px-4 py-3 text-small text-fg-secondary"
+              key={entry.label}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 bg-surface px-4 py-3 text-small text-fg-secondary"
             >
               <span className="tabular text-fg-subtle">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              {label}
+              <span className={entry.built ? "text-fg" : ""}>{entry.label}</span>
+              {entry.built ? <Badge tone="positive">Built</Badge> : <Badge>To Come</Badge>}
+              <span className="w-full text-meta text-fg-muted sm:w-auto sm:flex-1">
+                {entry.note}
+              </span>
             </li>
           ))}
         </ol>

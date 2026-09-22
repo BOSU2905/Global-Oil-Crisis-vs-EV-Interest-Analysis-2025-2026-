@@ -16,7 +16,25 @@ import { expect, test, type Page } from "@playwright/test";
  * Nothing in a type check or a build would notice.
  */
 
-const NAV_LABELS = ["Scope", "Comparability", "Oil vs Interest", "Structure"] as const;
+/**
+ * Nav labels, mirroring `src/content/sections.ts`.
+ *
+ * Duplicated rather than imported: this file runs under Playwright against a built
+ * server, and importing application source into it would couple the browser suite to the
+ * module graph. `tests/layout-contract.test.ts` already asserts the registry against the
+ * page, so the risk this duplication carries is a stale list here — which shows up
+ * immediately as a failing count.
+ */
+const NAV_LABELS = [
+  "Scope",
+  "How to Read",
+  "Comparability",
+  "Markets",
+  "Oil vs Interest",
+  "Synthesis",
+  "Deep Dives",
+  "Structure",
+] as const;
 
 const DESKTOP = { width: 1280, height: 900 };
 const MOBILE = { width: 375, height: 720 };

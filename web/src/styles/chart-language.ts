@@ -83,6 +83,16 @@ export const CHART_TOKENS = {
 
   provisionalColor: "--chart-provisional-color",
   provisionalDash: "--chart-provisional-dash",
+
+  /**
+   * The visible zoom slider. It is a control rather than evidence, so its
+   * treatment is quieter than the plot's: a raised background, a hairline border,
+   * and a tinted selected window rather than an accent fill.
+   */
+  sliderBg: "--chart-slider-bg",
+  sliderBorder: "--chart-slider-border",
+  sliderHandle: "--chart-slider-handle",
+  sliderSelectedFill: "--chart-slider-selected-fill",
 } as const satisfies Record<string, `--${string}`>;
 
 export type ChartTokenName = keyof typeof CHART_TOKENS;

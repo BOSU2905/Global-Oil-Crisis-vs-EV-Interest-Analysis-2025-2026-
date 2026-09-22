@@ -827,6 +827,17 @@
   --chart-provisional-color: var(--color-provisional);
   --chart-provisional-dash: 5 4;
 
+  /*
+   * zoom slider: the visible x-domain control below a long time series.
+   * Deliberately quieter than the plot -- it is a control, not evidence, so the
+   * selected window is a background tint rather than an accent fill. All four are
+   * aliases of semantic tokens, so dark mode needs no separate declaration.
+   */
+  --chart-slider-bg: var(--color-surface-raised);
+  --chart-slider-border: var(--color-border);
+  --chart-slider-handle: var(--color-fg-subtle);
+  --chart-slider-selected-fill: color-mix(in srgb, var(--color-fg) 7%, transparent);
+
   /* responsive heights: charts change height by breakpoint, not just width */
   --chart-height-hero: 420px;
   --chart-height-standard: 360px;

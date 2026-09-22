@@ -1,13 +1,5 @@
 /**
- * The ECharts theme adapter and option builder.
- *
- * WHY AN ADAPTER RATHER THAN AN ECHARTS THEME FILE
- * ECharts themes are JSON blobs of hex literals. This product's colour lives in
- * `tokens.css` and changes under `prefers-color-scheme`, so a static theme file
- * would be a second palette that silently disagrees with the first in dark mode.
- * `resolveChartTheme()` reads the tokens at runtime — canvas cannot consume
- * `var()`, so values must be concrete strings before an option is built — and this
- * module turns them into the option ECharts understands.
+ * The option builder for the oil-price / worldwide-interest chart.
  *
  * WHY THIS IS A `.ts` MODULE AND NOT PART OF A COMPONENT
  * Because it is where the chart's honesty lives, and honesty should be testable
@@ -16,6 +8,13 @@
  * right axis on a fixed 0-100 domain, that neither series' values were touched on
  * the way in, and that every annotation position equals an artifact field. None of
  * that needs a canvas, and all of it is the kind of thing that breaks silently.
+ *
+ * WHAT MOVED OUT OF HERE
+ * The token-to-option translation shared with the five-market chart now lives in
+ * `echarts-theme.ts`: length conversion, text styles, axis/grid treatment, the zoom
+ * components and the motion switches. This file kept everything specific to *this*
+ * chart's argument. `lengthToPx` is re-exported because it is part of the tested
+ * surface and its home is now the shared module.
  *
  * THE DUAL-AXIS OBLIGATION
  * Two measures with different units on one chart can manufacture a relationship out
@@ -57,41 +56,28 @@ import {
   formatWeek,
   formatWeekShort,
 } from "./contract.ts";
+import {
+  AXIS_LABEL_MARGIN,
+  GRID_PADDING,
+  animationOptions,
+  annotationLabelsFit,
+  axisCommon,
+  dashArray,
+  figureText,
+  insideZoom,
+  lengthToPx,
+  proseText,
+  pxFor,
+  seriesAnimation,
+  splitLine,
+  type ColourResolver,
+  type OptionObject,
+  type OptionValue,
+  type PxConverter,
+} from "./echarts-theme.ts";
 
-/**
- * Structural type for the option object.
- *
- * Deliberately loose rather than ECharts' `EChartsOption`: that type is a very
- * large union, and the value of typing here is that a test can read the shape back
- * and that a key cannot be misspelled silently in this file. The library validates
- * its own option at runtime; `EChart.tsx` is the only place the real type matters.
- *
- * Functions are part of the union because ECharts formatters *are* functions. An
- * earlier draft kept the option JSON-serialisable so tests could snapshot it; that
- * was the wrong trade — it pushed formatters into the component and left sentinel
- * keys behind. A test can read `option.yAxis[0].min` perfectly well with functions
- * present, and can call the formatters directly.
- */
-export type OptionValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | ((...args: never[]) => unknown)
-  | OptionObject
-  | readonly OptionValue[];
-
-export interface OptionObject {
-  readonly [key: string]: OptionValue;
-}
-
-/**
- * Turns a `--color-*` variable into a concrete colour. Injected rather than read
- * here, so this module needs no DOM and a test can stub it — which is what makes
- * the series-to-colour binding assertable.
- */
-export type ColourResolver = (cssVariableName: string) => string;
+export { lengthToPx };
+export type { ColourResolver, OptionObject, OptionValue, PxConverter };
 
 export interface BuildOptionArgs {
   readonly data: OilInterestChartData;
@@ -102,15 +88,8 @@ export interface BuildOptionArgs {
   /**
    * Computed `font-size` of `:root`, in px.
    *
-   * Required, not defaulted, and it exists because of a measured bug. The type
-   * tokens are authored in `rem` — `--chart-axis-label-size` is `0.8125rem` — and a
-   * custom property resolves to that string verbatim, not to a pixel value. Canvas
-   * has no notion of `rem`, so `parseFloat` on it yielded a font size of **0.8125
-   * pixels**: axis ticks and legend labels were being drawn sub-pixel, invisible, and
-   * the legend was consequently impossible to click.
-   *
-   * Passed in rather than read here so the builder stays DOM-free and the conversion
-   * stays testable.
+   * Required, not defaulted, because the type tokens are authored in `rem` and
+   * canvas has no `rem` — see `lengthToPx` for the measured consequence.
    */
   readonly rootFontSizePx: number;
   /**
@@ -126,6 +105,15 @@ export interface BuildOptionArgs {
    * Both y-axes carry fixed domains, so removing a series cannot rescale the other.
    */
   readonly hiddenSeries?: readonly SeriesKey[];
+  /**
+   * Whether this build is the chart's entrance.
+   *
+   * `true` exactly once per mount, and `false` under `prefers-reduced-motion` and for
+   * every rebuild after the first — a legend toggle or a band change must update in
+   * place rather than redraw the line from the left edge. Defaults to `true` so a
+   * test that does not care about motion still exercises the animated option.
+   */
+  readonly animate?: boolean;
 }
 
 /** The two real series. The provisional overlay is a treatment, not a series. */
@@ -135,83 +123,6 @@ export type SeriesKey = "oil" | "interest";
 interface AxisTooltipParam {
   readonly axisValue?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Token helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Turn a length token into the number of pixels ECharts wants.
- *
- * Handles `rem` and `em` against the supplied root size, and bare numbers and `px`
- * directly. Anything unparseable becomes 0, which is visible as a missing element
- * rather than as a silently wrong one.
- */
-export function lengthToPx(value: string, rootFontSizePx: number): number {
-  const trimmed = value.trim();
-  const parsed = Number.parseFloat(trimmed);
-  if (!Number.isFinite(parsed)) return 0;
-  // `em` on a canvas has no element to inherit from, so it is treated as `rem`.
-  if (/r?em\s*$/.test(trimmed)) return parsed * rootFontSizePx;
-  return parsed;
-}
-
-/** A length token converter bound to one root font size. */
-export type PxConverter = (value: string) => number;
-
-const pxFor =
-  (rootFontSizePx: number): PxConverter =>
-  (value) =>
-    lengthToPx(value, rootFontSizePx);
-
-/** `"3 3"` (an SVG dash array) becomes `[3, 3]`; `"0"` becomes solid. */
-const dashArray = (value: string): number[] | "solid" => {
-  const parts = value
-    .trim()
-    .split(/[\s,]+/)
-    .map(Number)
-    .filter((n) => Number.isFinite(n) && n > 0);
-  return parts.length > 0 ? parts : "solid";
-};
-
-/**
- * Figure text: axis ticks and legend values, in the numeric face.
- *
- * `--chart-axis-label-font` resolves to `--font-numeric`, i.e. Geist Mono. Axis
- * ticks are a column of figures and must align, which is the same reason `.numeric`
- * and `.tabular` both carry tabular figures.
- */
-const figureText = (
-  theme: ChartTheme,
-  colour: string,
-  size: string,
-  px: PxConverter,
-): OptionObject => ({
-  color: colour,
-  fontSize: px(size),
-  fontFamily: theme.axisLabelFont,
-});
-
-/** Prose text: axis titles and annotation labels, in the sans face. */
-const proseText = (colour: string, size: string, px: PxConverter): OptionObject => ({
-  color: colour,
-  fontSize: px(size),
-});
-
-const axisCommon = (theme: ChartTheme, px: PxConverter): OptionObject => ({
-  axisLine: { show: true, lineStyle: { color: theme.axisLineColor, width: 1 } },
-  axisTick: { show: false },
-  nameTextStyle: {
-    ...proseText(theme.axisTitleColor, theme.axisTitleSize, px),
-    padding: [0, 0, 6, 0],
-  },
-});
-
-/** Horizontal gridlines only. Vertical lines add noise to a time series. */
-const splitLine = (theme: ChartTheme, px: PxConverter): OptionObject => ({
-  show: true,
-  lineStyle: { color: theme.gridColor, width: px(theme.gridWidth), type: "solid" },
-});
 
 // ---------------------------------------------------------------------------
 // Legend labels — where the unit becomes unmissable
@@ -330,6 +241,7 @@ function oilSeries(args: BuildOptionArgs, gridIndex: 0 | 1, yAxisIndex: number):
   const { data, theme, resolveColour } = args;
   const px = pxFor(args.rootFontSizePx);
   const colour = resolveColour(OIL_IDENTITY.colorVariable);
+  const motion = { animate: args.animate !== false };
 
   return {
     id: "oil",
@@ -356,10 +268,10 @@ function oilSeries(args: BuildOptionArgs, gridIndex: 0 | 1, yAxisIndex: number):
       lineStyle: { width: px(theme.lineWidthEmphasis) },
       itemStyle: { borderWidth: 0 },
     },
-    // Subtle draw-in on entry, once. KIRO §10: the data stays still, the interface
-    // breathes — so this animates the line's appearance and never its values.
-    animationDuration: 900,
-    animationEasing: "cubicOut",
+    // Entrance only: ECharts draws a line in by animating a clip rectangle from left
+    // to right. KIRO §10 — the data stays still, the interface breathes — so this
+    // animates the line's appearance and never its values.
+    ...seriesAnimation(motion, 0),
     z: 2,
   };
 }
@@ -427,6 +339,7 @@ function interestSeries(
   const { data, theme, resolveColour } = args;
   const px = pxFor(args.rootFontSizePx);
   const colour = resolveColour(SERIES_IDENTITY.worldwide.colorVariable);
+  const motion = { animate: args.animate !== false };
 
   return {
     id: "interest",
@@ -447,9 +360,7 @@ function interestSeries(
       lineStyle: { width: px(theme.lineWidthEmphasis) },
       itemStyle: { borderWidth: 0 },
     },
-    animationDuration: 900,
-    animationDelay: 120,
-    animationEasing: "cubicOut",
+    ...seriesAnimation(motion, 1),
     z: 4,
   };
 }
@@ -470,6 +381,7 @@ function oilAnnotations(args: BuildOptionArgs): OptionObject {
   const { data, theme, resolveColour } = args;
   const px = pxFor(args.rootFontSizePx);
   const { annotations } = data;
+  const showLabels = annotationLabelsFit(args.widthPx);
   const result: Record<string, OptionValue> = {};
 
   if (annotations.regimesSeparated) {
@@ -481,7 +393,9 @@ function oilAnnotations(args: BuildOptionArgs): OptionObject {
         borderWidth: 1,
       },
       label: {
-        show: true,
+        // The band still draws below `md`; only its text is withheld, because at 300px
+        // the label lands on the data. The notes under the chart carry the dates.
+        show: showLabels,
         position: "insideTop",
         formatter: "Elevated",
         ...proseText(theme.regimeLabelFg, theme.annotationSize, px),
@@ -499,7 +413,7 @@ function oilAnnotations(args: BuildOptionArgs): OptionObject {
       type: dashArray(theme.referenceLineDash),
     },
     label: {
-      show: true,
+      show: showLabels,
       position: "end",
       formatter: "Oil peak",
       ...proseText(theme.annotationFg, theme.annotationSize, px),
@@ -529,6 +443,7 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
   const names = seriesName(data);
   const formatWeekTooltip = buildTooltipFormatter(args);
   const hidden = new Set(args.hiddenSeries ?? []);
+  const motion = { animate: args.animate !== false };
   /** Drop hidden series. The axes have fixed domains, so nothing rescales. */
   const shown = (entries: readonly (OptionObject | null)[]): OptionObject[] =>
     entries.filter((entry): entry is OptionObject => entry !== null);
@@ -584,9 +499,9 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
    * untestable except by guessing pixel coordinates — measured, clicks across the
    * whole legend strip toggled nothing detectable.
    *
-   * `ChartLegend` renders real `<button>`s instead and drives the same ECharts action
-   * (`legendToggleSelect`), so the behaviour is identical and the control is a control.
-   * The canvas legend is therefore off, and the grid reclaims the space it held.
+   * `ChartLegend` renders real `<button>`s instead, and visibility is filtered in this
+   * builder rather than dispatched. The canvas legend is therefore off, and the grid
+   * reclaims the space it held.
    */
   const legend: OptionObject = {
     // Off, but still declared: ECharts needs a legend MODEL for
@@ -598,27 +513,14 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
     selectedMode: true,
   };
 
-  const dataZoom: readonly OptionValue[] = [
-    {
-      type: "inside",
-      xAxisIndex: layout === "dual-axis" ? [0] : [0, 1],
-      // Plain wheel must keep scrolling the page. Requiring a modifier is the only
-      // way a chart inside a long-scroll article can offer wheel zoom at all.
-      zoomOnMouseWheel: "ctrl",
-      moveOnMouseWheel: false,
-      moveOnMouseMove: true,
-      preventDefaultMouseMove: false,
-      // Zoom the view, keep every point. `filterMode: "filter"` would drop
-      // observations outside the window, and a series that loses points to a
-      // viewport is a different series.
-      filterMode: "none",
-      start: 0,
-      end: 100,
-    },
-  ];
+  const dataZoom: readonly OptionValue[] = [insideZoom(layout === "dual-axis" ? [0] : [0, 1])];
 
   const weekAxisLabel: OptionObject = {
     ...figureText(theme, theme.axisLabelColor, theme.axisLabelSize, px),
+    // Breathing room between the week labels and the value column beside them. With
+    // `boundaryGap: false` the first week label is centred on the y-axis line, so at
+    // ECharts' default 8px the date sat directly against the dollar figures.
+    margin: AXIS_LABEL_MARGIN.category,
     interval: tickInterval,
     hideOverlap: true,
     formatter: (value: string): string => formatWeekShort(value),
@@ -626,6 +528,7 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
 
   const usdAxisLabel: OptionObject = {
     ...figureText(theme, theme.axisLabelColor, theme.axisLabelSize, px),
+    margin: AXIS_LABEL_MARGIN.value,
     formatter: (value: number): string => `$${String(value)}`,
   };
 
@@ -639,7 +542,9 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
     min: data.oilAxis.min,
     max: data.oilAxis.max,
     interval: data.oilAxis.interval,
-    ...axisCommon(theme, px),
+    // Left-hand axis: the title's left edge is anchored to the axis, so a long title
+    // grows into the plot rather than off the canvas.
+    ...axisCommon(theme, px, "left"),
     axisLabel: usdAxisLabel,
     splitLine: splitLine(theme, px),
   });
@@ -654,8 +559,13 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
     min: INTEREST_AXIS.min,
     max: INTEREST_AXIS.max,
     interval: INTEREST_AXIS.interval,
-    ...axisCommon(theme, px),
-    axisLabel: figureText(theme, theme.axisLabelColor, theme.axisLabelSize, px),
+    // Right-hand in the dual-axis layout, left-hand in the stacked one, and the title
+    // anchors to whichever side it sits on.
+    ...axisCommon(theme, px, gridIndex === undefined ? "right" : "left"),
+    axisLabel: {
+      ...figureText(theme, theme.axisLabelColor, theme.axisLabelSize, px),
+      margin: AXIS_LABEL_MARGIN.value,
+    },
     // In the dual-axis layout the left axis already draws the grid; a second set
     // would double every line.
     splitLine: showGrid ? splitLine(theme, px) : { show: false },
@@ -666,10 +576,17 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
     const provisional = provisionalOverlay(args, 0, AXIS_INDEX.oil);
 
     return {
-      animation: true,
+      ...animationOptions(motion),
       backgroundColor: "transparent",
-      // Room for both axis titles and the legend, and no more.
-      grid: { top: 26, left: 4, right: 4, bottom: 4, containLabel: true },
+      // Room for both axis titles, and enough left/right padding that the first and
+      // last week labels are not clipped at the frame edge.
+      grid: {
+        top: GRID_PADDING.top,
+        left: GRID_PADDING.left,
+        right: GRID_PADDING.right,
+        bottom: GRID_PADDING.bottom,
+        containLabel: true,
+      },
       legend,
       tooltip,
       dataZoom,
@@ -698,11 +615,23 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
   const provisional = provisionalOverlay(args, 0, 0);
 
   return {
-    animation: true,
+    ...animationOptions(motion),
     backgroundColor: "transparent",
     grid: [
-      { top: 24, left: 2, right: 2, height: "34%", containLabel: true },
-      { top: "60%", left: 2, right: 2, bottom: 2, containLabel: true },
+      {
+        top: GRID_PADDING.top - 6,
+        left: GRID_PADDING.left - 4,
+        right: GRID_PADDING.right - 4,
+        height: "34%",
+        containLabel: true,
+      },
+      {
+        top: "60%",
+        left: GRID_PADDING.left - 4,
+        right: GRID_PADDING.right - 4,
+        bottom: GRID_PADDING.bottom,
+        containLabel: true,
+      },
     ],
     legend,
     tooltip,

@@ -129,7 +129,7 @@ test.describe("ReadMore", () => {
 
     await expect(page.getByText("Provisional data.")).toBeVisible();
 
-    const toggle = page.getByRole("button", { name: "What that means for the charts" });
+    const toggle = page.getByRole("button", { name: "How the charts draw that week" });
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(toggle).toHaveAttribute("aria-controls", "provisional-weeks-detail");
@@ -142,7 +142,7 @@ test.describe("ReadMore", () => {
   test("clicking expands it, changes the label, and reveals the panel", async ({ page }) => {
     await page.goto("/");
 
-    const toggle = page.getByRole("button", { name: "What that means for the charts" });
+    const toggle = page.getByRole("button", { name: "How the charts draw that week" });
     await toggle.click();
 
     await expect(page.locator("#provisional-weeks-detail")).toBeVisible();
@@ -160,7 +160,7 @@ test.describe("ReadMore", () => {
   test("Escape closes it and returns focus to the toggle", async ({ page }) => {
     await page.goto("/");
 
-    const toggle = page.getByRole("button", { name: "What that means for the charts" });
+    const toggle = page.getByRole("button", { name: "How the charts draw that week" });
     await toggle.click();
     await expect(page.locator("#provisional-weeks-detail")).toBeVisible();
 
@@ -177,7 +177,7 @@ test.describe("ReadMore", () => {
     await page.goto("/");
 
     const box = await page
-      .getByRole("button", { name: "What that means for the charts" })
+      .getByRole("button", { name: "How the charts draw that week" })
       .boundingBox();
     expect(box).not.toBeNull();
     expect(box!.height).toBeGreaterThanOrEqual(44);

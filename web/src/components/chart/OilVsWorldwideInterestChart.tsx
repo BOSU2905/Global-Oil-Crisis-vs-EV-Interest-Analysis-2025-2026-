@@ -9,6 +9,7 @@ import { OIL_IDENTITY, SERIES_IDENTITY } from "../../styles/chart-language.ts";
 import { ChartControls } from "./ChartControls.tsx";
 import { ChartFrame } from "./ChartFrame.tsx";
 import { ChartLegend } from "./ChartLegend.tsx";
+import { ChartReveal } from "./ChartReveal.tsx";
 import { ChartTableFallback } from "./ChartTableFallback.tsx";
 import { EChart, type EChartHandle } from "./EChart.tsx";
 import {
@@ -18,6 +19,7 @@ import {
   OIL_VS_INTEREST_INTERACTIONS,
   buildChartTableRows,
   formatWeek,
+  toTableCells,
 } from "./contract.ts";
 import { buildOilVsInterestOption, type SeriesKey } from "./echarts-option.ts";
 
@@ -78,7 +80,7 @@ export function OilVsWorldwideInterestChart({
   const tableId = `${OIL_VS_INTEREST_CHART_ID}-table`;
   const descriptionId = `${OIL_VS_INTEREST_CHART_ID}-description`;
 
-  const rows = useMemo(() => buildChartTableRows(data), [data]);
+  const rows = useMemo(() => toTableCells(buildChartTableRows(data)), [data]);
 
   const toggleSeries = (key: SeriesKey) => {
     setHidden((current) =>
@@ -87,11 +89,12 @@ export function OilVsWorldwideInterestChart({
   };
 
   const buildOption = useMemo(
-    () => (theme: ChartTheme, widthPx: number) =>
+    () => (theme: ChartTheme, widthPx: number, animate: boolean) =>
       buildOilVsInterestOption({
         data,
         theme,
         widthPx,
+        animate,
         // The type tokens are authored in `rem` and a custom property resolves to that
         // string verbatim. Canvas has no `rem`, so the root size has to travel with
         // the theme or every label is drawn sub-pixel.
@@ -106,100 +109,104 @@ export function OilVsWorldwideInterestChart({
   const { specification, coverage, annotations } = data;
 
   return (
-    <ChartFrame
-      a11y={OIL_VS_INTEREST_A11Y}
-      eyebrow="Global Relationship"
-      sources={sources}
-      descriptionId={descriptionId}
-      className={className}
-      controls={
-        <ChartControls
-          capabilities={OIL_VS_INTEREST_INTERACTIONS}
-          onReset={() => chartRef.current?.resetZoom()}
-          tableOpen={tableOpen}
-          onToggleTable={() => setTableOpen((open) => !open)}
-          tablePanelId={tableId}
-        />
-      }
-      notes={
-        <>
-          {/*
-            The §16 qualification. Conditioned on artifact flags, so the sentence
-            tracks the pipeline rather than a developer's memory of it.
-          */}
-          {specification.levelsSignificant && !specification.firstDifferencesSignificant ? (
-            <p className="max-w-reading text-meta text-fg-secondary">
-              <span className="text-fg">Levels only.</span> The two lines rise together across
-              the period, and that co-movement does not survive comparing week-to-week{" "}
-              <em>changes</em> instead of levels
-              {specification.bothSeriesTrendSameDirection
-                ? " — both series also trend upward over time, which alone can produce the pattern"
-                : ""}
-              . The chart shows observed co-movement in shape, not evidence that one measure
-              moved the other.
-            </p>
-          ) : null}
+    <ChartReveal>
+      <ChartFrame
+        a11y={OIL_VS_INTEREST_A11Y}
+        eyebrow="Global Relationship"
+        sources={sources}
+        descriptionId={descriptionId}
+        className={className}
+        controls={
+          <div data-chart-settle>
+            <ChartControls
+              capabilities={OIL_VS_INTEREST_INTERACTIONS}
+              onReset={() => chartRef.current?.resetZoom()}
+              tableOpen={tableOpen}
+              onToggleTable={() => setTableOpen((open) => !open)}
+              tablePanelId={tableId}
+            />
+          </div>
+        }
+        notes={
+          <>
+            {/*
+              The §16 qualification. Conditioned on artifact flags, so the sentence
+              tracks the pipeline rather than a developer's memory of it.
+            */}
+            {specification.levelsSignificant && !specification.firstDifferencesSignificant ? (
+              <p className="max-w-reading text-meta text-fg-secondary">
+                <span className="text-fg">Levels only.</span> The two lines rise together across
+                the period, and that co-movement does not survive comparing week-to-week{" "}
+                <em>changes</em> instead of levels
+                {specification.bothSeriesTrendSameDirection
+                  ? " — both series also trend upward over time, which alone can produce the pattern"
+                  : ""}
+                . The chart shows observed co-movement in shape, not evidence that one measure
+                moved the other.
+              </p>
+            ) : null}
 
-          <p className="max-w-reading text-meta text-fg-muted">
-            Interest is a Google Trends index scaled to its own maximum, so its level is not
-            comparable with any other market&rsquo;s. Brent crude is a benchmark spot price per
-            barrel of crude, not a retail pump price.
-          </p>
-
-          {coverage.partialWeeks.length > 0 ? (
             <p className="max-w-reading text-meta text-fg-muted">
-              <span className="tabular">{formatWeek(coverage.partialWeeks[0] ?? "")}</span>{" "}
-              rests on fewer than five trading days and is drawn dashed.
+              Interest is a Google Trends index scaled to its own maximum, so its level is not
+              comparable with any other market&rsquo;s. Brent crude is a benchmark spot price
+              per barrel of crude, not a retail pump price.
             </p>
-          ) : null}
 
-          {coverage.weeksWithoutOil.length > 0 ? (
-            <p className="max-w-reading text-meta text-fg-muted">
-              The price line stops at{" "}
-              <span className="tabular">{formatWeek(annotations.lastOilWeek)}</span>: the Brent
-              extract has no observation for{" "}
-              <span className="tabular">{formatWeek(coverage.weeksWithoutOil[0] ?? "")}</span>,
-              so the series is broken rather than joined across the gap.
-            </p>
-          ) : null}
-        </>
-      }
-      fallback={
-        tableOpen ? (
-          <ChartTableFallback rows={rows} a11y={OIL_VS_INTEREST_A11Y} id={tableId} />
-        ) : null
-      }
-    >
-      <div className="mt-4">
-        <ChartLegend
-          items={[
-            {
-              name: "oil",
-              label: data.labels.oil,
-              unit: AXIS_TITLE.oil,
-              colour: `var(${OIL_IDENTITY.colorVariable})`,
-              visible: !hidden.includes("oil"),
-            },
-            {
-              name: "interest",
-              label: data.labels.interest,
-              unit: AXIS_TITLE.interest,
-              colour: `var(${SERIES_IDENTITY.worldwide.colorVariable})`,
-              visible: !hidden.includes("interest"),
-            },
-          ]}
-          onToggle={toggleSeries}
+            {coverage.partialWeeks.length > 0 ? (
+              <p className="max-w-reading text-meta text-fg-muted">
+                <span className="tabular">{formatWeek(coverage.partialWeeks[0] ?? "")}</span>{" "}
+                rests on fewer than five trading days and is drawn dashed.
+              </p>
+            ) : null}
+
+            {coverage.weeksWithoutOil.length > 0 ? (
+              <p className="max-w-reading text-meta text-fg-muted">
+                The price line stops at{" "}
+                <span className="tabular">{formatWeek(annotations.lastOilWeek)}</span>: the
+                Brent extract has no observation for{" "}
+                <span className="tabular">{formatWeek(coverage.weeksWithoutOil[0] ?? "")}</span>
+                , so the series is broken rather than joined across the gap.
+              </p>
+            ) : null}
+          </>
+        }
+        fallback={
+          tableOpen ? (
+            <ChartTableFallback rows={rows} a11y={OIL_VS_INTEREST_A11Y} id={tableId} />
+          ) : null
+        }
+      >
+        <div className="mt-4" data-chart-settle>
+          <ChartLegend
+            items={[
+              {
+                name: "oil",
+                label: data.labels.oil,
+                unit: AXIS_TITLE.oil,
+                colour: `var(${OIL_IDENTITY.colorVariable})`,
+                visible: !hidden.includes("oil"),
+              },
+              {
+                name: "interest",
+                label: data.labels.interest,
+                unit: AXIS_TITLE.interest,
+                colour: `var(${SERIES_IDENTITY.worldwide.colorVariable})`,
+                visible: !hidden.includes("interest"),
+              },
+            ]}
+            onToggle={toggleSeries}
+          />
+        </div>
+
+        <EChart
+          buildOption={buildOption}
+          observationCount={data.points.length}
+          ariaLabel={`${OIL_VS_INTEREST_A11Y.title}. ${OIL_VS_INTEREST_A11Y.description}`}
+          describedById={descriptionId}
+          handleRef={chartRef}
+          className="h-(--chart-height-mobile) md:h-(--chart-height-standard)"
         />
-      </div>
-
-      <EChart
-        buildOption={buildOption}
-        observationCount={data.points.length}
-        ariaLabel={`${OIL_VS_INTEREST_A11Y.title}. ${OIL_VS_INTEREST_A11Y.description}`}
-        describedById={descriptionId}
-        handleRef={chartRef}
-        className="h-(--chart-height-mobile) md:h-(--chart-height-standard)"
-      />
-    </ChartFrame>
+      </ChartFrame>
+    </ChartReveal>
   );
 }

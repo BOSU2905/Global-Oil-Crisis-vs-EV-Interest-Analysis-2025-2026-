@@ -1,8 +1,8 @@
 import type { ChartAccessibilityContract } from "../../styles/chart-language.ts";
-import type { ChartTableRow } from "./contract.ts";
+import type { ChartTableCellRow } from "./contract.ts";
 
 interface ChartTableFallbackProps {
-  readonly rows: readonly ChartTableRow[];
+  readonly rows: readonly ChartTableCellRow[];
   /** Column headers come from the chart's accessibility contract, not from here. */
   readonly a11y: ChartAccessibilityContract;
   /** Matches the `aria-controls` on the toggle in `ChartControls`. */
@@ -20,6 +20,16 @@ interface ChartTableFallbackProps {
  * and every chart has one. The long description in `ChartFrame` states the finding;
  * this states the values.
  *
+ * ONE COMPONENT, ANY NUMBER OF MEASURES
+ * The row shape is `header` + `values` + `note` rather than four named columns,
+ * because the five-market chart needs six columns and the prototype needs four. Each
+ * chart's own contract module converts its rows into this shape in a `.ts` function a
+ * unit test can call, which keeps the conversion out of the component and keeps the
+ * table and the chart reading from one selected dataset.
+ *
+ * The split between `values` and `note` is not cosmetic: figures take `.tabular` so a
+ * column of them aligns digit-for-digit, and the note is prose that must not.
+ *
  * IT IS UNMOUNTED WHEN CLOSED, NOT `display:none`
  * §4 says the fallback must never be `display:none`-only, and the reason is the same
  * one `ReadMore` was built around: a hidden-but-present table is still reached by
@@ -36,7 +46,7 @@ interface ChartTableFallbackProps {
  *
  * SCROLL CONTAINER, NOT A SHRUNKEN TABLE
  * `overflow-x-auto` with `tabIndex={0}` on the wrapper: a scrollable region has to
- * be focusable or a keyboard user cannot scroll it. At 375px four columns do not fit
+ * be focusable or a keyboard user cannot scroll it. At 375px six columns do not fit
  * and the honest answer is a scroll, not a font size nobody can read.
  */
 export function ChartTableFallback({ rows, a11y, id, className }: ChartTableFallbackProps) {
@@ -74,7 +84,7 @@ export function ChartTableFallback({ rows, a11y, id, className }: ChartTableFall
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.week} className="border-b border-border last:border-b-0">
+            <tr key={row.header} className="border-b border-border last:border-b-0">
               {/* The week is the row's identity, so it is a header cell. A screen
                   reader then announces "31 Aug 2025, 66.85" instead of a bare pair
                   of numbers. */}
@@ -82,14 +92,18 @@ export function ChartTableFallback({ rows, a11y, id, className }: ChartTableFall
                 scope="row"
                 className="tabular px-4 py-2 text-meta font-normal whitespace-nowrap text-fg-secondary"
               >
-                {row.week}
+                {row.header}
               </th>
-              <td className="tabular px-4 py-2 text-meta whitespace-nowrap text-fg">
-                {row.oil}
-              </td>
-              <td className="tabular px-4 py-2 text-meta whitespace-nowrap text-fg">
-                {row.interest}
-              </td>
+              {row.values.map((value, index) => (
+                <td
+                  // The column header is the stable identity of a cell's position;
+                  // the value is not, because two markets can read the same number.
+                  key={a11y.tableColumns[index + 1] ?? String(index)}
+                  className="tabular px-4 py-2 text-meta whitespace-nowrap text-fg"
+                >
+                  {value}
+                </td>
+              ))}
               <td className="px-4 py-2 text-meta whitespace-nowrap text-fg-muted">
                 {row.note}
               </td>

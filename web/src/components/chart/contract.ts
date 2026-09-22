@@ -136,6 +136,27 @@ export interface ChartTableRow {
   readonly note: string;
 }
 
+/**
+ * The shape `ChartTableFallback` renders, shared by every chart.
+ *
+ * WHY A SECOND SHAPE EXISTS
+ * Because the two charts have different numbers of measures — two here, five in the
+ * five-market chart — and one table component is better than two. So each chart keeps
+ * a named row type that says what its columns MEAN, and converts to this positional
+ * shape in a pure function a unit test can call. The conversion is the only place the
+ * column order is decided, and `a11y.tableColumns` is asserted against it.
+ *
+ * `values` are figures and take `.tabular`; `note` is prose and must not.
+ */
+export interface ChartTableCellRow {
+  /** The observation's identity, rendered as a row header. */
+  readonly header: string;
+  /** Figures, in the same order as `tableColumns` after the first. */
+  readonly values: readonly string[];
+  /** Caveats in words: provisional, missing, elevated. Never colour alone. */
+  readonly note: string;
+}
+
 /** Fixed-precision display, so a column of figures reads as a column. */
 export const formatUsdPerBarrel = (value: number): string => value.toFixed(2);
 export const formatInterestIndex = (value: number): string => value.toFixed(0);
@@ -207,4 +228,20 @@ export function buildChartTableRows(data: OilInterestChartData): readonly ChartT
       note: notes.length === 0 ? "—" : notes.join(", "),
     };
   });
+}
+
+/**
+ * Positional rows for `ChartTableFallback`.
+ *
+ * The column order here is the contract: it must match `OIL_VS_INTEREST_A11Y`'s
+ * `tableColumns` after the week, and a unit test asserts exactly that. Keeping the
+ * conversion in this module rather than in the component is what makes that assertion
+ * possible without a browser.
+ */
+export function toTableCells(rows: readonly ChartTableRow[]): readonly ChartTableCellRow[] {
+  return rows.map((row) => ({
+    header: row.week,
+    values: [row.oil, row.interest],
+    note: row.note,
+  }));
 }
