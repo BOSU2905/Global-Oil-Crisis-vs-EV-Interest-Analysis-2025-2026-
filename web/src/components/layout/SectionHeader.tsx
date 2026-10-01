@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { sectionOrdinal, sectionTitleId } from "./contract.ts";
+import { EDITORIAL, sectionOrdinal, sectionTitleId } from "./contract.ts";
 
 interface SectionHeaderProps {
   /** The owning section's id. The heading id is derived from it. */
@@ -21,6 +21,14 @@ interface SectionHeaderProps {
    * else is `2`. Restricting it to these two makes a skipped level impossible.
    */
   readonly headingLevel?: 1 | 2;
+  /**
+   * `split` puts the title in the editorial label column and the lead in the reading
+   * column from `xl` (see `EDITORIAL`); `stacked` keeps them one above the other at
+   * every width. Defaults to `split` for a section heading and `stacked` for the page
+   * `h1`, and a header placed inside a narrower surface (a callout, a panel) should
+   * pass `stacked` explicitly, because a grid inside a grid would split twice.
+   */
+  readonly layout?: "split" | "stacked";
   readonly className?: string;
 }
 
@@ -72,13 +80,22 @@ export function SectionHeader({
   title,
   lead,
   headingLevel = 2,
+  layout,
   className,
 }: SectionHeaderProps) {
   const Heading = headingLevel === 1 ? "h1" : "h2";
   const titleClass = headingLevel === 1 ? "text-display text-fg" : "text-h2 text-fg";
+  const split = (layout ?? (headingLevel === 1 ? "stacked" : "split")) === "split";
 
   const classes: string[] = [];
   if (className !== undefined) classes.push(className);
+
+  // In the split the title and the lead share one grid row, aligned on their first
+  // baselines, so the lead reads as the title's argument rather than as a caption
+  // floating beside it. Below `xl` every split class is inert and nothing moves.
+  const row = split ? `${EDITORIAL.grid} xl:items-baseline` : undefined;
+  const titleColumn = split ? ` ${EDITORIAL.label}` : "";
+  const leadColumn = split ? ` ${EDITORIAL.reading} xl:mt-3` : "";
 
   return (
     <div className={classes.join(" ")}>
@@ -91,14 +108,21 @@ export function SectionHeader({
         )}
         {eyebrow}
       </p>
-      <Heading id={sectionTitleId(sectionId)} className={`mt-3 max-w-title ${titleClass}`}>
-        {title}
-      </Heading>
-      {lead === undefined ? null : (
-        <p className="mt-(--section-header-gap) max-w-reading text-lead text-fg-secondary">
-          {lead}
-        </p>
-      )}
+      <div className={row}>
+        <Heading
+          id={sectionTitleId(sectionId)}
+          className={`mt-3 max-w-title ${titleClass}${titleColumn}`}
+        >
+          {title}
+        </Heading>
+        {lead === undefined ? null : (
+          <p
+            className={`mt-(--section-header-gap) max-w-reading text-lead text-fg-secondary${leadColumn}`}
+          >
+            {lead}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

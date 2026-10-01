@@ -1,24 +1,31 @@
 import { Badge } from "../src/components/content/Badge.tsx";
 import { Callout } from "../src/components/content/Callout.tsx";
-import type { MetricContent } from "../src/components/content/contract.ts";
+import {
+  CoverageSummary,
+  type CoverageItem,
+} from "../src/components/content/CoverageSummary.tsx";
 import { HowToRead } from "../src/components/content/HowToRead.tsx";
-import { MetricCard } from "../src/components/content/MetricCard.tsx";
 import { ReadMore } from "../src/components/content/ReadMore.tsx";
 import { StatHighlight } from "../src/components/content/StatHighlight.tsx";
 import { InterestAcrossMarketsChart } from "../src/components/chart/InterestAcrossMarketsChart.tsx";
+import { formatWeek } from "../src/components/chart/contract.ts";
 import { NORMALISATION_CAVEAT } from "../src/components/chart/markets-contract.ts";
 import { OilVsWorldwideInterestChart } from "../src/components/chart/OilVsWorldwideInterestChart.tsx";
 import { CountryDeepDivePanel } from "../src/components/market/CountryDeepDivePanel.tsx";
 import { MarketSynthesisList } from "../src/components/market/MarketSynthesisList.tsx";
 import { Container } from "../src/components/layout/Container.tsx";
+import { EDITORIAL } from "../src/components/layout/contract.ts";
+import { Navigation } from "../src/components/layout/Navigation.tsx";
 import { Section } from "../src/components/layout/Section.tsx";
 import { SectionHeader } from "../src/components/layout/SectionHeader.tsx";
 import { HOW_TO_READ_ENTRIES } from "../src/content/how-to-read.ts";
+import { SHELL_SECTIONS } from "../src/content/sections.ts";
 import { COUNTRY_IDS, getComparability, getSeriesLabel } from "../src/data/index.ts";
 import { getArtifacts } from "../src/lib/artifacts.ts";
 import { selectInterestAcrossMarkets } from "../src/lib/interest-across-markets.ts";
 import { selectMarketSynthesis } from "../src/lib/market-synthesis.ts";
 import { selectOilVsWorldwideInterest } from "../src/lib/oil-vs-interest.ts";
+import { SERIES_IDENTITY } from "../src/styles/chart-language.ts";
 
 /**
  * The report page, as far as it is built.
@@ -67,42 +74,86 @@ export default function Home() {
   const lastOilWeek = oilVsInterest.annotations.lastOilWeek;
 
   /*
-    Descriptive, every one of them: two dates, a row count and a market count,
-    all read from the artifacts. The partial-week caveat is attached to the
-    observation count because that is the figure it qualifies -- a caveat that
-    sits anywhere else is decoration.
+    "What does this analysis cover?" — four descriptive cells, every value read from the
+    artifacts: when, how much, where, and from what. The partial-week caveat is attached
+    to the observation count because that is the figure it qualifies.
 
-    Labels are Title Case, like every other editorial title in the product. A
-    metric-card label IS the card's title, so it follows the heading convention
-    rather than the sentence-case convention that governs prose and controls.
+    Labels are Title Case: a cell label IS the cell's title, so it follows the heading
+    convention rather than the sentence-case convention of prose and controls.
   */
-  const scope: readonly MetricContent[] = [
+  const coverageItems: readonly CoverageItem[] = [
     {
-      kind: "descriptive",
-      label: "Observation Period",
-      value: `${coverage.first_week} → ${coverage.last_week}`,
+      metric: {
+        kind: "descriptive",
+        label: "Observation Period",
+        value: `${formatWeek(coverage.first_week)} → ${formatWeek(coverage.last_week)}`,
+      },
     },
     {
-      kind: "descriptive",
-      label: "Weekly Observations",
-      value: String(coverage.trends_weeks),
-      unit: "weeks",
-      ...(partialWeeks > 0
-        ? {
-            caveats: [
-              {
-                code: "Provisional",
-                detail: `${partialWeeks} week${one ? "" : "s"} flagged as partial in the panel.`,
-              },
-            ],
-          }
-        : {}),
+      metric: {
+        kind: "descriptive",
+        label: "Weekly Observations",
+        value: String(coverage.trends_weeks),
+        unit: "weeks",
+        ...(partialWeeks > 0
+          ? {
+              caveats: [
+                {
+                  code: "Provisional",
+                  detail: `${partialWeeks} week${one ? "" : "s"} flagged as partial in the panel.`,
+                },
+              ],
+            }
+          : {}),
+      },
     },
     {
-      kind: "descriptive",
-      label: "Markets",
-      value: String(COUNTRY_IDS.length),
-      unit: "countries",
+      metric: {
+        kind: "descriptive",
+        label: "Markets",
+        value: String(COUNTRY_IDS.length),
+        unit: "countries",
+      },
+      detail: (
+        <>
+          {/* Plain text with an identity dot — the colour of the market's line in every
+              chart. Not a pill: nothing here is clickable, so nothing looks it. */}
+          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-small text-fg-secondary">
+            {COUNTRY_IDS.map((id) => (
+              <li key={id} className="inline-flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: `var(${SERIES_IDENTITY[id].colorVariable})` }}
+                />
+                {getSeriesLabel(bundle, id)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-meta text-fg-muted">
+            Plus a {getSeriesLabel(bundle, "worldwide").toLowerCase()} series for the global
+            comparison.
+          </p>
+        </>
+      ),
+    },
+    {
+      metric: {
+        kind: "descriptive",
+        label: "Sources",
+        value: String(bundle.manifest.sources.length),
+        unit: "public datasets",
+      },
+      detail: (
+        <ul className="flex flex-col gap-2 text-meta text-fg-secondary">
+          {bundle.manifest.sources.map((source) => (
+            <li key={source.id}>
+              <span className="text-fg">{source.name}</span>
+              <span className="block text-fg-muted">{source.units}</span>
+            </li>
+          ))}
+        </ul>
+      ),
     },
   ];
 
@@ -152,6 +203,14 @@ export default function Home() {
   return (
     <Container width="page" className="pb-(--section-spacing)">
       {/*
+        The floating section indicator. Fixed-position, so where it sits in the DOM does
+        not move it on screen — it is first in `main` so a keyboard reader meets it right
+        after the skip link lands, and it belongs to this page rather than to the shell
+        because the Creator page has no sections to navigate.
+      */}
+      <Navigation items={SHELL_SECTIONS} />
+
+      {/*
         The page's single h1. A plain block rather than a Section: the hero contract in
         product-architecture.md §2 is its own piece of work, and claiming a section id
         now would put a navigation link on a section that does not exist.
@@ -170,23 +229,16 @@ export default function Home() {
         />
       </div>
 
-      {/* Scope, read from the artifacts rather than typed as literals. */}
+      {/* Scope: what this analysis covers, read from the artifacts rather than typed. */}
       <Section id="scope">
-        <SectionHeader sectionId="scope" eyebrow="Coverage" title="Observation Scope" />
+        <SectionHeader
+          sectionId="scope"
+          eyebrow="Coverage"
+          title="Observation Scope"
+          lead="One crude-price benchmark and six independent search-interest series, compared week by week."
+        />
 
-        <ul className="mt-(--section-header-gap) grid list-none gap-(--grid-gap) sm:grid-cols-3">
-          {scope.map((metric) => (
-            <MetricCard key={metric.label} metric={metric} as="li" />
-          ))}
-        </ul>
-
-        <ul className="mt-6 flex flex-wrap gap-2">
-          {COUNTRY_IDS.map((id) => (
-            <li key={id}>
-              <Badge>{getSeriesLabel(bundle, id)}</Badge>
-            </li>
-          ))}
-        </ul>
+        <CoverageSummary items={coverageItems} className="mt-(--section-header-gap)" />
 
         {partialWeeks > 0 ? (
           /*
@@ -244,8 +296,10 @@ export default function Home() {
           title="How to Read This Analysis"
           lead="Seven questions this report answers about itself. The short version: the analysis measures co-movement and timing, it establishes no cause, the five market series cannot be compared by height, and the level correlations do not survive comparing week-to-week changes."
         />
-        <div className="mt-(--section-header-gap) max-w-reading">
-          <HowToRead entries={HOW_TO_READ_ENTRIES} />
+        <div className={`mt-(--section-header-gap) ${EDITORIAL.grid}`}>
+          <div className={`max-w-reading ${EDITORIAL.reading}`}>
+            <HowToRead entries={HOW_TO_READ_ENTRIES} />
+          </div>
         </div>
       </Section>
 
@@ -256,24 +310,29 @@ export default function Home() {
         forbids -- so it is present before any chart.
       */}
       <Section id="comparability">
-        <Callout
-          tone="warning"
-          kind="Guardrail"
-          className="max-w-reading"
-          header={
+        {/*
+          A full-frame banner from `xl`: the heading in the label column and the
+          constraint itself in the reading column, so the guardrail gets the page's
+          width without its prose getting wider than the measure.
+        */}
+        <Callout tone="warning" kind="Guardrail">
+          <div className={`mt-3 ${EDITORIAL.grid}`}>
             <SectionHeader
               sectionId="comparability"
               eyebrow="Cross-Market Comparison"
               title="Comparability Constraint"
+              layout="stacked"
+              className={EDITORIAL.label}
             />
-          }
-        >
-          <p className="mt-(--section-header-gap) text-small text-fg-secondary">
-            {comparability.explanation}
-          </p>
-          <p className="mt-3 text-small text-fg-secondary">
-            <span className="text-fg">Remedy.</span> {comparability.remedy}
-          </p>
+            <div className={`max-w-reading ${EDITORIAL.reading}`}>
+              <p className="mt-(--section-header-gap) text-small text-fg-secondary xl:mt-8">
+                {comparability.explanation}
+              </p>
+              <p className="mt-3 text-small text-fg-secondary">
+                <span className="text-fg">Remedy.</span> {comparability.remedy}
+              </p>
+            </div>
+          </div>
         </Callout>
       </Section>
 
@@ -295,8 +354,12 @@ export default function Home() {
           title="EV Interest Across Five Markets"
           lead="When did EV search interest rise in each market, and how did the timing differ? The five peaks are spread across three calendar months, which is the finding this chart exists to show."
         />
-        <div className="mt-(--section-header-gap)">
-          <Callout tone="info" kind="Read This First" className="max-w-reading">
+        <div className={`mt-(--section-header-gap) ${EDITORIAL.grid}`}>
+          <Callout
+            tone="info"
+            kind="Read This First"
+            className={`max-w-reading ${EDITORIAL.reading}`}
+          >
             <p className="mt-3 text-small text-fg-secondary">{NORMALISATION_CAVEAT}</p>
           </Callout>
         </div>
@@ -375,23 +438,27 @@ export default function Home() {
           title="Narrative Structure"
           lead="The finished report is one long-scroll argument, read in order. Five of its twelve sections have evidence behind them today; the rest are named here so nothing looks missing by accident."
         />
-        <ol className="mt-(--section-header-gap) flex max-w-reading list-none flex-col gap-px overflow-hidden rounded-lg border border-border">
-          {structure.map((entry, index) => (
-            <li
-              key={entry.label}
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 bg-surface px-4 py-3 text-small text-fg-secondary"
-            >
-              <span className="tabular text-fg-subtle">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className={entry.built ? "text-fg" : ""}>{entry.label}</span>
-              {entry.built ? <Badge tone="positive">Built</Badge> : <Badge>To Come</Badge>}
-              <span className="w-full text-meta text-fg-muted sm:w-auto sm:flex-1">
-                {entry.note}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <div className={`mt-(--section-header-gap) ${EDITORIAL.grid}`}>
+          <ol
+            className={`flex max-w-reading list-none flex-col gap-px overflow-hidden rounded-lg border border-border ${EDITORIAL.reading}`}
+          >
+            {structure.map((entry, index) => (
+              <li
+                key={entry.label}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 bg-surface px-4 py-3 text-small text-fg-secondary"
+              >
+                <span className="tabular text-fg-subtle">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className={entry.built ? "text-fg" : ""}>{entry.label}</span>
+                {entry.built ? <Badge tone="positive">Built</Badge> : <Badge>To Come</Badge>}
+                <span className="w-full text-meta text-fg-muted sm:w-auto sm:flex-1">
+                  {entry.note}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
       </Section>
     </Container>
   );

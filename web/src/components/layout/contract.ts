@@ -33,6 +33,34 @@ export const CONTAINER_MAX_WIDTH: Readonly<Record<ContainerWidth, string>> = {
 };
 
 /**
+ * THE EDITORIAL SPLIT — how a section uses a wide frame without widening its prose.
+ *
+ * From `xl` (1280px) a section is a 12-column grid: a LABEL column (5) carrying the
+ * eyebrow and title, and a READING column (7) carrying the lead and any prose body.
+ * Evidence — a chart, the market map, a deep dive — spans all twelve. Below `xl` every
+ * class here is inert and the section stacks exactly as before.
+ *
+ * Why this rather than a wider prose column: the 68ch measure is what keeps prose
+ * readable, and it does not change. What the large desktop frame gains is a place for
+ * the heading to sit BESIDE its argument instead of above it, so the space beside a
+ * 700px paragraph is used by structure rather than left as a void — the defect a
+ * 1920×1080 screenshot showed on every text section.
+ *
+ * One decision, one place: `SectionHeader` and `app/page.tsx` both read these, so the
+ * label and reading columns line up across every section on the page.
+ */
+export const EDITORIAL = {
+  /** The grid itself. Only exists from `xl`. */
+  grid: "xl:grid xl:grid-cols-12 xl:gap-x-(--editorial-gap)",
+  /** Eyebrow + title. */
+  label: "xl:col-span-5",
+  /** Lead and prose bodies. Prose inside still carries `max-w-reading`. */
+  reading: "xl:col-span-7 xl:col-start-6",
+  /** Evidence that takes the whole frame. */
+  full: "xl:col-span-12",
+} as const;
+
+/**
  * Id of the heading that names a section.
  *
  * `Section` points `aria-labelledby` at this, and `SectionHeader` puts it on the

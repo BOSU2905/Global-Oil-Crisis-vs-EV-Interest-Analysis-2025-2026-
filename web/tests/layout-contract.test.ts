@@ -18,7 +18,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -254,11 +254,14 @@ test("metric-card labels are Title Case, and leads are left alone", () => {
 // The anchor offset depends on a token, not a magic number
 // ---------------------------------------------------------------------------
 
-test("the header height token exists at both breakpoint values", () => {
-  assert.ok(tokensCss.includes("--header-height:"), "--header-height is not defined");
+test("the header height is one measured token, because the header is one row", () => {
+  // The section rail left the header for a floating indicator, so the header no
+  // longer stacks into two rows below `lg` and needs no narrow value. A second value
+  // creeping back would mean a second layout the E2E height check does not cover.
+  assert.match(tokensCss, /--header-height:\s*\d+px;/, "--header-height is not a px value");
   assert.ok(
-    tokensCss.includes("--header-height-narrow:"),
-    "--header-height-narrow is not defined",
+    !tokensCss.includes("--header-height-narrow:"),
+    "--header-height-narrow is back, but the header has only one row",
   );
 });
 
@@ -299,16 +302,10 @@ test("no statistic is rendered by the layout components", () => {
     "confidenceInterval(",
     "linearRegression",
   ];
-  const files = [
-    "AppShell.tsx",
-    "Container.tsx",
-    "Footer.tsx",
-    "Header.tsx",
-    "Navigation.tsx",
-    "Section.tsx",
-    "SectionHeader.tsx",
-    "contract.ts",
-  ];
+  // Every file in the directory, not a list: CreatorLink.tsx arrived in the final-polish
+  // cycle, and a hand-kept list is how a new component escapes the scan.
+  const files = readdirSync(join(webRoot, "src", "components", "layout"));
+  assert.ok(files.includes("Navigation.tsx") && files.includes("Header.tsx"));
   const violations: string[] = [];
   for (const file of files) {
     const source = read("src", "components", "layout", file);

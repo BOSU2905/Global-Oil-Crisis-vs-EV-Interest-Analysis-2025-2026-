@@ -1,62 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { FocusEvent, KeyboardEvent } from "react";
 
 import type { NavSection } from "../../content/sections.ts";
+import { sectionOrdinal } from "./contract.ts";
 
 interface NavigationProps {
   readonly items: readonly NavSection[];
 }
 
 /**
- * Section navigation for the long-scroll page.
+ * Section navigation, as a floating indicator rather than a header rail.
  *
- * STRUCTURE
- * A `<nav>` landmark with an accessible name, containing an ordered list of
- * ordinary anchors. Anchors, not buttons: the destinations are real ids, so the
- * links are shareable, work without JavaScript, and get browser-native keyboard
- * behaviour instead of a hand-rolled key handler.
+ * WHY IT LEFT THE HEADER
+ * Eight labels in a sticky header crowded the identity and scrolled sideways on every
+ * screen narrower than ~1500px. The page is read top to bottom, so what a reader needs
+ * most of the time is WHERE they are, and only occasionally a way to jump. The indicator
+ * shows the first permanently and the second on request:
  *
- * SCROLLSPY — THE ACTIVE SECTION IS COMPUTED FROM GEOMETRY
- * The active section is the last one whose top edge has passed the reading line
- * just below the sticky header. That is read from live layout on every update
- * rather than inferred from the observer's entries, and the distinction is not
- * academic: an `IntersectionObserver` callback only carries the entries that
- * CHANGED. Deciding from those meant that when the active section merely scrolled
- * out of the observed band, the callback contained one non-intersecting entry, no
- * intersecting ones, and nothing was re-evaluated — leaving the previous section
- * highlighted. That produced a genuine ~10% flake in the E2E suite before this was
- * rewritten. Recomputing all three positions costs three `getBoundingClientRect()`
- * calls and is deterministic.
+ *   default   one dot per section on the right edge (bottom-right below `xl`). The
+ *             current section's dot is ELONGATED — a shape cue, so the state is not
+ *             carried by colour alone — and its name is the toggle's description
+ *   click     a compact menu with the section names; the current one is marked with
+ *             `aria-current`, weight and a bar. Choosing one scrolls there (smoothly,
+ *             except under reduced motion) and closes the menu
+ *   dismiss   outside pointer-down, Escape (focus returns to the toggle), or Tab past
+ *             the last entry
  *
- * TWO TRIGGERS, EACH FOR A REASON
- * `IntersectionObserver` (the mechanism docs/product-architecture.md §4 specifies)
- * fires when a section enters or leaves the region below the reading line, which
- * covers coarse transitions and costs nothing while the page is still. It cannot
- * cover everything: a section already inside that region crossing the line
- * produces no intersection change and therefore no callback. A passive,
- * frame-throttled scroll listener covers exactly that case. Both call the same
- * `sync()`, so there is one decision and two ways of being asked to make it.
+ * It is `position: fixed`, so it takes no content width. From `xl` it sits in the frame
+ * margin, which `tokens.css` sizes so it never meets the content edge.
  *
- * The reading line is re-read from `--header-height` on every sync, so the
- * highlight stays correct across the `lg` breakpoint where the header changes from
- * one row to two.
+ * THE SCROLLSPY IS THE ONE THAT ALREADY WORKED, UNCHANGED
+ * The active section is the last one whose top has passed the reading line under the
+ * sticky header, read from live geometry on every update — not from an
+ * `IntersectionObserver`'s entries, which only carry what CHANGED and once left the
+ * previous section highlighted (a ~10% E2E flake before it was rewritten). The observer
+ * and a passive, frame-throttled scroll listener are only triggers for one `sync()`.
  *
- * MOBILE, DELIBERATELY UNDER-ENGINEERED
- * The rail scrolls horizontally, at every width. It used to switch to
- * `overflow-visible` at `lg`, which was correct while there were four sections and
- * wrong at eight: on a 1120px frame the identity block leaves roughly 840px, and eight
- * labels do not fit it. A rail that scrolls cannot overflow the page, and an
- * overflowing header would break the shared left edge the whole layout depends on.
- *
- * Still no drawer, no sheet, no focus trap and no JavaScript for layout. §7's drawer
- * applies to the finished ten-section narrative; a focus trap is a real accessibility
- * liability to get wrong, and a scrolling rail has none of that risk. Revisit when the
- * narrative is complete.
+ * THE MENU STAYS MOUNTED, AND IS `inert` + `visibility: hidden` WHEN CLOSED
+ * Unlike `ReadMore`, whose panel holds prose that find-in-page must not reach, this
+ * panel holds eight links that also exist as headings. Keeping it mounted lets it fade
+ * and scale out instead of vanishing; `inert` and `visibility: hidden` take it out of
+ * the tab order and the accessibility tree exactly as unmounting would.
  */
 export function Navigation({ items }: NavigationProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const menuId = useId();
+  const currentId = `${menuId}-current`;
 
+  // --- scrollspy -------------------------------------------------------------
   useEffect(() => {
     const ids = items.map((item) => item.id);
 
@@ -113,31 +109,162 @@ export function Navigation({ items }: NavigationProps) {
     };
   }, [items]);
 
+  // --- dismissal: outside pointer-down and Escape, only while open ----------
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent): void => {
+      const root = rootRef.current;
+      if (root !== null && event.target instanceof Node && !root.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      toggleRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  // --- on open, focus the current entry (or the first) ----------------------
+  useEffect(() => {
+    if (!open) return;
+    const root = rootRef.current;
+    const target =
+      root?.querySelector<HTMLAnchorElement>('a[aria-current="true"]') ??
+      root?.querySelector<HTMLAnchorElement>("a");
+    target?.focus();
+  }, [open]);
+
+  /** Focus leaving the whole indicator — Tab past the last entry — closes it. */
+  const onBlur = (event: FocusEvent<HTMLElement>): void => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && rootRef.current?.contains(next)) return;
+    if (next !== null) setOpen(false);
+  };
+
+  /** ↑/↓/Home/End move between entries, the menu-button convention. */
+  const onMenuKeyDown = (event: KeyboardEvent<HTMLOListElement>): void => {
+    const links = [...event.currentTarget.querySelectorAll<HTMLAnchorElement>("a")];
+    const index = links.findIndex((link) => link === document.activeElement);
+    let next = index;
+    if (event.key === "ArrowDown") next = (index + 1) % links.length;
+    else if (event.key === "ArrowUp") next = (index - 1 + links.length) % links.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = links.length - 1;
+    else return;
+    event.preventDefault();
+    links[next]?.focus();
+  };
+
+  const activeIndex = items.findIndex((item) => item.id === activeId);
+  const activeLabel = activeIndex === -1 ? null : (items[activeIndex]?.navLabel ?? null);
+
   return (
-    <nav aria-label="Sections" className="min-w-0">
-      <ul className="-mx-1 flex items-center gap-1 overflow-x-auto lg:mx-0">
-        {items.map((item) => {
-          const isActive = item.id === activeId;
-          return (
-            <li key={item.id} className="shrink-0">
-              <a
-                href={`#${item.id}`}
-                aria-current={isActive ? "true" : undefined}
-                className={[
-                  // 44px minimum tap target, per the accessibility contract.
-                  "inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3",
-                  "text-small transition-colors duration-(--duration-fast) ease-out",
-                  isActive
-                    ? "text-fg aria-[current]:underline aria-[current]:decoration-accent aria-[current]:decoration-2 aria-[current]:underline-offset-[6px]"
-                    : "text-fg-muted hover:text-fg-secondary",
-                ].join(" ")}
-              >
-                {item.navLabel}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
+    <nav
+      ref={rootRef}
+      aria-label="Sections"
+      data-state={open ? "open" : "closed"}
+      data-active-section={activeId ?? ""}
+      onBlur={onBlur}
+      className="fixed right-4 bottom-4 z-30 xl:top-1/2 xl:right-5 xl:bottom-auto xl:-translate-y-1/2"
+    >
+      <button
+        ref={toggleRef}
+        type="button"
+        aria-label="Jump to section"
+        aria-expanded={open}
+        aria-controls={menuId}
+        aria-describedby={currentId}
+        onClick={() => setOpen((value) => !value)}
+        className={[
+          "group flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-3 rounded-full",
+          "border border-border bg-surface/90 px-4 shadow-overlay backdrop-blur-sm",
+          "transition-[background-color,border-color] duration-(--duration-medium) ease-out",
+          "hover:border-border-interactive",
+          "xl:flex-col xl:gap-0 xl:border-transparent xl:bg-transparent xl:px-3 xl:py-3",
+          "xl:shadow-none xl:backdrop-blur-none xl:hover:border-border xl:hover:bg-surface",
+          open ? "xl:border-border xl:bg-surface" : "",
+        ].join(" ")}
+      >
+        <span id={currentId} className="sr-only">
+          {activeLabel === null ? "Not yet in a section" : `Current section: ${activeLabel}`}
+        </span>
+        <span aria-hidden="true" className="flex items-center gap-1.5 xl:flex-col">
+          {items.map((item, index) => (
+            <span
+              key={item.id}
+              data-active={index === activeIndex ? "true" : "false"}
+              className={[
+                "block rounded-full transition-[width,height,background-color] duration-(--duration-medium) ease-out",
+                index === activeIndex
+                  ? "h-1.5 w-4 bg-fg xl:h-4 xl:w-1.5"
+                  : "h-1.5 w-1.5 bg-fg-subtle group-hover:bg-fg-muted",
+              ].join(" ")}
+            />
+          ))}
+        </span>
+      </button>
+
+      <div
+        id={menuId}
+        inert={!open}
+        className={[
+          "absolute right-0 bottom-full mb-3 w-60 origin-bottom-right",
+          "xl:top-1/2 xl:right-full xl:bottom-auto xl:mr-3 xl:mb-0 xl:-translate-y-1/2 xl:origin-right",
+          "rounded-lg border border-border bg-surface p-2 shadow-overlay",
+          // Visibility is in the transition only while CLOSING, so the panel stays
+          // visible while it fades out. Opening flips it instantly: a `visibility`
+          // transition starts at `hidden`, and focusing an entry in a hidden panel fails
+          // — measured, the first draft left focus on the toggle.
+          open
+            ? "visible scale-100 opacity-100 transition-[opacity,scale] duration-(--duration-medium) ease-out"
+            : "invisible scale-95 opacity-0 transition-[opacity,scale,visibility] duration-(--duration-medium) ease-out",
+        ].join(" ")}
+      >
+        {/* Decorative: the landmark is already named "Sections". A div, not a `p`, so
+            nothing that looks for the page's eyebrows can find a hidden one here. */}
+        <div aria-hidden="true" className="px-3 pt-2 pb-1 text-label uppercase text-fg-muted">
+          On This Page
+        </div>
+        <ol onKeyDown={onMenuKeyDown}>
+          {items.map((item, index) => {
+            const isActive = item.id === activeId;
+            return (
+              <li key={item.id}>
+                <a
+                  href={`#${item.id}`}
+                  aria-current={isActive ? "true" : undefined}
+                  onClick={() => setOpen(false)}
+                  className={[
+                    // 44px minimum tap target, per the accessibility contract.
+                    "flex min-h-11 origin-left items-center gap-3 rounded-md px-3 text-small",
+                    "transition-[color,background-color,scale] duration-(--duration-medium) ease-out",
+                    "hover:scale-[1.05] hover:bg-surface-raised motion-reduce:hover:scale-100",
+                    isActive ? "text-fg" : "text-fg-muted hover:text-fg",
+                  ].join(" ")}
+                >
+                  <span aria-hidden="true" className="tabular w-5 text-meta text-fg-subtle">
+                    {sectionOrdinal(index + 1)}
+                  </span>
+                  <span className={isActive ? "font-medium" : ""}>{item.navLabel}</span>
+                  {isActive ? (
+                    <span
+                      aria-hidden="true"
+                      className="ml-auto h-4 w-0.5 rounded-full bg-accent"
+                    />
+                  ) : null}
+                </a>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </nav>
   );
 }

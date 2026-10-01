@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { SHELL_SECTIONS } from "../../content/sections.ts";
 import { getArtifacts } from "../../lib/artifacts.ts";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
@@ -15,9 +14,10 @@ interface AppShellProps {
  * WHAT IT OWNS AND WHAT IT DOES NOT
  * Composition and the page-level accessibility contract (§5): exactly three
  * landmarks, a skip link as the first tab stop, and `#main-content` as its
- * target. It owns no copy of its own — the header's identity, the footer's
- * sources and the navigation's links all come from `Header`, `Footer` and the
- * section registry.
+ * target. It owns no copy of its own — the header's identity and the footer's
+ * sources come from `Header` and `Footer`. Section navigation is NOT part of the
+ * shell: it belongs to the report page, which renders the floating `Navigation`
+ * indicator, because the Creator page has no sections to navigate.
  *
  * The single `h1` belongs to the page, not the shell. A shell-owned `h1` would
  * make every future page's heading structure the shell's decision.
@@ -49,7 +49,7 @@ export function AppShell({ children }: AppShellProps) {
         Skip to content
       </a>
 
-      <Header items={SHELL_SECTIONS} period={period} />
+      <Header period={period} />
 
       <main id="main-content" className="flex-1">
         {children}

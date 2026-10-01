@@ -1,59 +1,43 @@
-import type { NavSection } from "../../content/sections.ts";
+import Link from "next/link";
+
 import { Container } from "./Container.tsx";
-import { Navigation } from "./Navigation.tsx";
+import { CreatorLink } from "./CreatorLink.tsx";
 
 interface HeaderProps {
-  readonly items: readonly NavSection[];
   /** Observation period, e.g. `2025–2026`. Derived from the panel coverage. */
   readonly period: string;
 }
 
 /**
- * Sticky product header: identity, observation period, section navigation.
+ * Sticky product header: identity, observation period, and the Creator entry.
  *
- * LAYOUT AND WHY THE HEIGHT IS A TOKEN
- * Two rows below `lg` (identity, then the nav rail), one row at `lg` and above.
- * That is the whole responsive behaviour — no drawer, no scroll listener, no
- * JavaScript. The consequence is that the header has two heights, which matters
- * because `Section` offsets its anchor by `--header-height`; the token is
- * therefore declared per breakpoint in `tokens.css` and checked against the
- * rendered box by an E2E test at both widths.
+ * ONE ROW AT EVERY WIDTH
+ * The section rail that used to live here is now the floating indicator the report page
+ * renders (`Navigation`), so the header no longer stacks into two rows below `lg`. That
+ * made `--header-height` — the anchor offset every `Section` depends on — a single
+ * measured value, and an E2E test still compares it with the rendered box at desktop
+ * and mobile widths.
  *
- * "Condenses on scroll" from docs/product-architecture.md §4 is deliberately NOT
- * implemented here. It would make the header height dynamic, which is exactly the
- * value every section anchor depends on; doing it correctly means driving the
- * offset from a measured height rather than a token. That belongs with the
- * responsive/performance pass in step 8, not in the step that establishes the
- * shell.
+ * The identity is a link home, which is the way back from the Creator page. The period
+ * is hidden below `sm`: at 375px the identity and the Creator pill need the whole row,
+ * and the hero states the same years in its lead.
  *
- * The theme toggle named in the same contract row is also deferred: it needs
- * client state, persistence and an inline script to avoid a wrong-theme flash on
- * first paint. `tokens.css` already implements both themes through
- * `prefers-color-scheme`, so the product is fully themed without it.
- *
- * TYPE: THE ROLE DECIDES, NOT THIS COMPONENT
- * The wordmark carries no weight utility. `--text-h4-weight` is 500, and an override
- * here is how a component quietly opts out of the type scale — the reason this file
- * previously pinned `font-semibold` was a portability workaround that no longer
- * applies now the typeface ships with the application. The period is `.tabular`
- * rather than `.numeric`: it is a date range a reader reads, not an identifier a
- * reader copies, so it stays in Geist Sans with tabular figures.
+ * TYPE: THE ROLE DECIDES, NOT THIS COMPONENT. The wordmark carries no weight utility;
+ * `--text-h4-weight` is the decision. The period is `.tabular`, a date range a reader
+ * reads rather than an identifier a reader copies.
  */
-export function Header({ items, period }: HeaderProps) {
+export function Header({ period }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-bg/95 backdrop-blur-sm">
-      <Container
-        width="page"
-        className="flex flex-col gap-1 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8"
-      >
-        <div className="flex shrink-0 items-baseline justify-between gap-4">
-          <span className="text-h4 tracking-tight text-fg">
+    <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-sm">
+      <Container width="page" className="flex items-center justify-between gap-4 py-3">
+        <Link href="/" className="group flex min-w-0 items-baseline gap-3 rounded-sm">
+          <span className="text-h4 tracking-tight whitespace-nowrap text-fg transition-colors duration-(--duration-fast) ease-out group-hover:text-fg-secondary">
             Oil Prices <span className="text-fg-subtle">vs</span> EV Interest
           </span>
-          <span className="tabular text-meta text-fg-muted">{period}</span>
-        </div>
+          <span className="tabular hidden text-meta text-fg-muted sm:inline">{period}</span>
+        </Link>
 
-        <Navigation items={items} />
+        <CreatorLink />
       </Container>
     </header>
   );

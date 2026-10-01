@@ -130,6 +130,8 @@ test.describe("the chart renders", () => {
   test("the section is reachable from the navigation", async ({ page }) => {
     await page.goto("/");
 
+    // The section menu is collapsed by default behind the floating indicator.
+    await page.getByRole("button", { name: "Jump to section" }).click();
     const link = page.getByRole("navigation", { name: "Sections" }).getByRole("link", {
       name: "Oil vs Interest",
     });

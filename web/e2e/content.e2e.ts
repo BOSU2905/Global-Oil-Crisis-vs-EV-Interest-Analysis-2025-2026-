@@ -12,36 +12,51 @@ import { expect, test } from "@playwright/test";
  * operable by keyboard and closes on Escape.
  */
 
-test.describe("Card and MetricCard", () => {
-  test("the three coverage metrics render label, value and unit from the artifacts", async ({
+test.describe("Coverage summary and Card", () => {
+  test("the coverage cells render label, value and unit from the artifacts", async ({
     page,
   }) => {
     await page.goto("/");
 
-    const cards = page.locator("#scope ul li");
-    await expect(cards.first()).toBeVisible();
+    const summary = page.locator("#scope dl");
+    await expect(summary).toBeVisible();
 
-    // Values are artifact fields, not literals: the real boundary dates prove the
-    // pipeline → JSON → validated bundle → React path is live.
-    await expect(page.getByText("2025-08-31", { exact: false })).toBeVisible();
-    await expect(page.getByText("2026-03-29", { exact: false })).toBeVisible();
-    await expect(page.getByText("Weekly Observations")).toBeVisible();
-    // Scoped: the section navigation also carries a "Markets" label.
-    await expect(page.locator("#scope").getByText("Markets", { exact: true })).toBeVisible();
+    // Values are artifact fields, not literals: the real boundary weeks prove the
+    // pipeline → JSON → validated bundle → React path is live. Formatted like every
+    // other date in the product (the charts' `formatWeek`).
+    await expect(summary.getByText("31 Aug 2025", { exact: false })).toBeVisible();
+    await expect(summary.getByText("29 Mar 2026", { exact: false })).toBeVisible();
+    for (const label of ["Observation Period", "Weekly Observations", "Markets", "Sources"]) {
+      await expect(summary.getByText(label, { exact: true })).toBeVisible();
+    }
+  });
+
+  test("the market names are text, not controls dressed as chips", async ({ page }) => {
+    await page.goto("/");
+
+    // The pills this replaced were bordered, rounded and uppercase — the shape of a
+    // filter chip — and did nothing when clicked. Nothing in the summary may look
+    // operable unless it is.
+    const summary = page.locator("#scope dl");
+    await expect(summary.locator("button, a, [role='button']")).toHaveCount(0);
+    const market = summary.locator("li", { hasText: "Singapore" });
+    await expect(market).toBeVisible();
+    await expect(market).toHaveCSS("border-top-width", "0px");
+    await expect(market).toHaveCSS("cursor", "auto");
+    await expect(market).toHaveCSS("text-transform", "none");
   });
 
   test("cards do not float — no visible shadow on any card surface", async ({ page }) => {
     await page.goto("/");
 
-    // design-system.md §1 and §4: elevation is border + background delta. This is
-    // the rule `Card` exists to hold, so it is checked on the rendered box rather
-    // than only in the class list.
+    // design-system.md §1 and §4: elevation is border + background delta. Checked on a
+    // chart frame, which is a `Card`, on the rendered box rather than the class list.
     //
     // Tailwind v4's `shadow-none` does not compute to the keyword `none`: it emits
     // the composed shadow chain with every layer fully transparent. Asserting the
     // keyword would fail for the right reason and the wrong cause, so the check is
     // that no layer has any colour.
-    const card = page.locator("#scope ul li").first();
+    const card = page.locator("figure").first();
     const shadow = await card.evaluate((el) => getComputedStyle(el).boxShadow);
     const opaqueLayer = /rgba?\((?!0, 0, 0, 0\))/;
     expect(shadow === "none" || !opaqueLayer.test(shadow)).toBe(true);
@@ -50,15 +65,12 @@ test.describe("Card and MetricCard", () => {
     await expect(card).toHaveCSS("border-top-width", "1px");
   });
 
-  test("metric values carry tabular figures", async ({ page }) => {
+  test("coverage values carry tabular figures", async ({ page }) => {
     await page.goto("/");
 
-    // A column of statistics that does not align looks careless in a data product
-    // (design-system.md §3), and alignment depends on this property, not on the
-    // font alone. `.tabular` rather than `.numeric`: a coverage date and a count are
-    // values a reader reads, so they keep Geist Sans and take only the alignment —
-    // the monospace face is reserved for identifiers a reader transcribes.
-    const value = page.locator("#scope ul li .tabular").first();
+    // `.tabular` rather than `.numeric`: a coverage date and a count are values a
+    // reader reads, so they keep Geist Sans and take only the digit alignment.
+    const value = page.locator("#scope dl dd .tabular").first();
     await expect(value).toHaveCSS("font-variant-numeric", "tabular-nums");
   });
 
@@ -90,11 +102,15 @@ test.describe("Badge", () => {
   }) => {
     await page.goto("/");
 
-    const badge = page.locator("#scope ul li span").filter({ hasText: "Indonesia" }).first();
+    // The country pills this test used to read were removed (they looked clickable and
+    // were not). The rule is the badge's, so it is checked on a badge: the guardrail's.
+    const badge = page
+      .locator("#comparability span.text-label")
+      .filter({ hasText: "Guardrail" });
     await expect(badge).toHaveCSS("text-transform", "uppercase");
     // The DOM text keeps its original case — a screen reader reads a word, not
     // letters. This is the same decision as the section eyebrows.
-    expect(await badge.textContent()).toBe("Indonesia");
+    expect(await badge.textContent()).toBe("Guardrail");
   });
 });
 

@@ -623,8 +623,10 @@
    */
   --width-title: 22ch;
   /* Charts may exceed content width; prose never may. Equal to the frame at `2xl`
-     and above, which is what "analytical visuals can breathe" resolves to. */
-  --width-chart: 1280px;
+     and above, which is what "analytical visuals can breathe" resolves to. 1440px
+     since the final-polish cycle: at 1920×1080 the old 1280px left a third of the
+     screen empty, and a chart is the one element that genuinely uses the width. */
+  --width-chart: 1440px;
   /* Narrow column for pull quotes and key-insight callouts. */
   --width-narrow: 52ch;
 
@@ -639,6 +641,10 @@
   --grid-gap: var(--space-6);
   --grid-gap-sm: var(--space-4);
   --stack-gap: var(--space-4);
+  /* Gutter between the label column and the reading column of the editorial split
+     (`EDITORIAL` in layout/contract.ts). Applies only from `xl`, where the split
+     exists, so it needs no small-screen value. */
+  --editorial-gap: var(--space-12);
 
   /* --- shell --- */
   /* Height of the sticky header, and therefore the anchor offset every section
@@ -646,17 +652,14 @@
      token because two components depend on the same number: `Header` renders it
      and `Section` offsets by it via `scroll-mt-(--header-height)`.
 
-     Two values, because the header is one row at `lg` and above and two rows
-     below it (identity, then the navigation rail). The narrow value swaps in at
-     the same 1024px boundary the layout uses.
-
-     Both values are MEASURED, not estimated: 69px = 44px nav row + 24px vertical
-     padding + the 1px bottom border; 98px adds the stacked identity row and its
-     gap. An E2E test compares the token against the rendered box at both widths,
-     so a padding change cannot silently break the anchor offset — that test
-     caught the missing border pixel in the first draft of this token. */
+     ONE value since the final-polish cycle. The header used to stack into two rows
+     below `lg` (identity, then the section rail) and needed a 98px narrow value; the
+     section navigation is now a floating indicator, so the header is one row at
+     every width: the 44px Creator control + 24px vertical padding + the 1px bottom
+     border = 69px. MEASURED, not estimated — an E2E test compares the token against
+     the rendered box at desktop and mobile widths, and that test caught the missing
+     border pixel in the first draft of this token. */
   --header-height: 69px;
-  --header-height-narrow: 98px;
 
   /* --- radius --- */
   /* Deliberately tight. Large radii read as consumer app, not analytical tool. */
@@ -878,15 +881,8 @@
   }
 }
 
-/* Below `lg` the header stacks into two rows — identity, then the navigation
-   rail — so it is taller and every section anchor must clear more. This boundary
-   is 1024px rather than the 768px used for rhythm above, because it follows the
-   header's own layout change, not the page gutters. */
-@media (max-width: 1023px) {
-  :root {
-    --header-height: var(--header-height-narrow);
-  }
-}
+/* (The `max-width: 1023px` header-height override is gone: the header no longer
+   stacks into two rows, so one measured value serves every width.) */
 
 /* Large desktop: the shared frame grows once, at the documented `2xl` boundary.
    This is the only place `--width-page` changes, and it is deliberately a step
@@ -894,9 +890,17 @@
    chart a different width at every viewport, which is the opposite of the banded
    adaptation design-system §5 requires. Above this width the frame equals
    `--width-chart`, so an analytical visual can take the full frame while prose
-   stays at `--width-reading`. */
+   stays at `--width-reading`.
+
+   1440px, measured against the reader's actual screen: at 1920×1080 the frame now
+   covers 75% of the width (was 66.7%), and the 240px margins are where the floating
+   section indicator lives, so it never takes content width. Charts also get taller
+   here, because a 1330px-wide plot at 420px is a 3.2:1 strip that flattens every
+   slope; 460px and 400px keep both charts near 3:1. */
 @media (min-width: 1536px) {
   :root {
-    --width-page: 1280px;
+    --width-page: 1440px;
+    --chart-height-hero: 460px;
+    --chart-height-standard: 400px;
   }
 }

@@ -110,7 +110,9 @@ const DESKTOP: readonly RoleExpectation[] = [
     weight: "500",
   },
   {
-    role: "label (country badge)",
+    // The country pills were removed (they looked clickable and were not); the same role
+    // is now carried in the scope section by the coverage summary's caveat code.
+    role: "label (caveat code)",
     selector: "#scope span.text-label",
     size: "12px",
     line: "16.2px",
@@ -134,8 +136,8 @@ const DESKTOP: readonly RoleExpectation[] = [
     weight: "400",
   },
   {
-    role: "stat-small (metric figure)",
-    selector: "#scope ul li .tabular",
+    role: "stat-small (coverage figure)",
+    selector: "#scope dl dd .tabular",
     size: "17px",
     line: "22.1px",
     tracking: "normal",
@@ -158,8 +160,8 @@ const DESKTOP: readonly RoleExpectation[] = [
     weight: "400",
   },
   {
-    role: "meta (metric label)",
-    selector: "#scope ul li p.text-meta",
+    role: "meta (coverage label)",
+    selector: "#scope dl dt",
     size: "13px",
     line: "19.5px",
     tracking: "normal",
@@ -268,7 +270,7 @@ test.describe("the type system is declared once, in tokens.css", () => {
     // are values a reader reads, so they keep the prose face and take only the digit
     // alignment. Tabular figures are non-negotiable regardless (design-system §3).
     for (const selector of [
-      "#scope ul li .tabular", // metric-card figure
+      "#scope dl dd .tabular", // coverage-summary figure
       "header span.tabular", // observation period in the header
       "#structure ol li span.tabular", // narrative ordinal
       "#provisional-weeks span[aria-label]", // inline StatHighlight

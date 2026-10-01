@@ -55,10 +55,12 @@ test.describe("artifact-driven content", () => {
   test("renders the observation scope read from the generated artifacts", async ({ page }) => {
     await page.goto("/");
 
-    // Coverage comes from panel.json. Asserting the real boundary dates proves the
-    // pipeline → JSON → validated bundle → React path is live, not stubbed.
-    await expect(page.getByText("2025-08-31", { exact: false })).toBeVisible();
-    await expect(page.getByText("2026-03-29", { exact: false })).toBeVisible();
+    // Coverage comes from panel.json. Asserting the real boundary weeks proves the
+    // pipeline → JSON → validated bundle → React path is live, not stubbed. They are
+    // formatted like every other date in the product — `formatWeek`, as in the charts.
+    const scope = page.locator("#scope");
+    await expect(scope.getByText("31 Aug 2025", { exact: false })).toBeVisible();
+    await expect(scope.getByText("29 Mar 2026", { exact: false })).toBeVisible();
 
     // Five markets, from the registry in countries.json.
     for (const label of ["Indonesia", "Malaysia", "Norway", "Singapore", "United States"]) {

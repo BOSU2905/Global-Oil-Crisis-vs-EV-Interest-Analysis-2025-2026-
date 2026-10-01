@@ -407,8 +407,8 @@ test("the frame is banded at the documented 2xl breakpoint, not at a new one", (
 
   assert.match(
     tokens,
-    /@media\s*\(min-width:\s*1536px\)\s*\{\s*:root\s*\{[^}]*--width-page:\s*1280px/,
-    "the frame does not grow to --width-chart at 1536px",
+    /@media\s*\(min-width:\s*1536px\)\s*\{\s*:root\s*\{[^}]*--width-page:\s*1440px/,
+    "the frame does not grow to --width-chart (1440px) at 1536px",
   );
 
   // 1536px is `--breakpoint-2xl`. A hand-picked boundary here would be a sixth
