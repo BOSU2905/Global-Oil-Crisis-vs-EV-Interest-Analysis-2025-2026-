@@ -205,6 +205,47 @@ Bold values changed in the Geist migration. `small` and `meta` previously declar
 no weight at all and inherited the body's, which meant `globals.css` never emitted a
 `font-weight` for them — a hierarchy that happened rather than one that was decided.
 
+### One family, decided (final-polish Revision 6)
+
+**Geist stays the only typeface.** Geist Sans carries every role; Geist Mono, its design
+sibling from the same package, carries only technical identifiers (series ids, hashes)
+and chart axis figures. No complementary display or serif face is introduced:
+
+- the editorial hierarchy is already carried by size, weight, measure and colour, and
+  the 1920px review found no role it fails to separate;
+- a second family is a second download and a pairing decision every future component
+  inherits — the "smallest coherent system" is the one already shipped;
+- a serif display face would push the report toward a magazine and away from an
+  analytical instrument, which is the register §1 asks for.
+
+The complementary *style* the editorial voice needs already exists without a new face:
+the tracked uppercase `label` role for eyebrows, `.tabular` figures inside prose, and
+Geist Mono for strings a reader transcribes.
+
+### Role rules
+
+| Role                  | Utility                 | Measure                      | Case          | Rule                                                                                         |
+| --------------------- | ----------------------- | ---------------------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| Section heading (h2)  | `text-h2`               | `max-w-title` (22ch)         | Title Case    | Balanced wrap; in the editorial label column from `xl`                                       |
+| Chart title (h3)      | `text-h3`               | `max-w-chart-title` (40ch)   | Title Case    | One line where it fits, otherwise two balanced lines (a third on a phone). Never shrunk, truncated or `nowrap` |
+| Chart context         | `text-small`, secondary | `max-w-reading` (68ch)       | sentence case | One or two sentences naming what to look for                                                 |
+| Lead                  | `text-lead`, secondary  | `max-w-reading`              | sentence case | The section's thesis                                                                         |
+| Body narrative        | `text-body`             | `max-w-reading`              | sentence case | Prose never exceeds the measure, at any frame width                                          |
+| Annotation (in chart) | `--chart-annotation-*`  | —                            | sentence case | Band labels and axis titles in Geist Sans at meta size; withheld below `md`, stated in notes |
+| Axis figures          | `--chart-axis-label-*`  | —                            | —             | Geist Mono, tabular                                                                          |
+| Metadata / notes      | `text-meta`, muted      | `max-w-reading`              | sentence case | Sources, footnotes, chart notes, cell labels                                                 |
+| Table text            | `text-meta`             | none (scrolls horizontally)  | sentence case | Figures `.tabular`; column headers use the `label` role; cells `nowrap` so columns align     |
+
+`ch` resolves against the element's own font size, so measures sit on the element that
+carries the role, never on a wrapper. **Measured for the chart-title rule:** at 20px,
+`1ch` in Geist is 13.42px, so the shared 22ch display measure was a 300px column that
+broke the 59-character oil-vs-interest title into three lines inside a 1392px frame;
+40ch (537px) gives one line up to roughly 50 characters and two balanced lines beyond.
+Unit tests pin the token and its use; an E2E test asserts every chart title stays 20px
+at 1920, 1280, 768 and 375px and takes at most two lines from 768px up. On a 375px phone
+the 59-character title needs a third line in a 303px column, and takes it rather than a
+smaller size.
+
 ### The weight scale, and the rule that was retired
 
 Four steps: `--weight-regular` 400, `--weight-medium` **500**, `--weight-semibold`

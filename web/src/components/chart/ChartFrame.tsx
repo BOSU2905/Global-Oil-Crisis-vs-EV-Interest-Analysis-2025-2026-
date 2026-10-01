@@ -82,7 +82,10 @@ export function ChartFrame({
     <Card as="figure" className={classes.join(" ")}>
       <p className="text-label uppercase text-fg-muted">{eyebrow}</p>
 
-      <h3 className="mt-3 max-w-title text-h3 text-fg">{a11y.title}</h3>
+      {/* The chart-title measure, not the display one: at 20px the shared 22ch was a
+          300px column that broke a 59-character title into three lines. A title wraps
+          when it must — into balanced lines — and is never shrunk to fit. */}
+      <h3 className="mt-3 max-w-chart-title text-h3 text-fg">{a11y.title}</h3>
 
       {/* What to look for. Visible, because §5 makes it a requirement rather than a
           tooltip: a reader should not have to work out why a chart is here. */}

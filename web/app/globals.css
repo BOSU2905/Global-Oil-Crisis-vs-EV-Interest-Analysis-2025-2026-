@@ -253,6 +253,8 @@
      heading's own font size, so `max-w-title` must sit on the heading element
      itself and never on a wrapper. */
   --container-title: var(--width-title);
+  /* Chart-title measure. Same rule as `title`: on the heading element, never a wrapper. */
+  --container-chart-title: var(--width-chart-title);
 
   --radius-2xl: initial;
   --radius-3xl: initial;

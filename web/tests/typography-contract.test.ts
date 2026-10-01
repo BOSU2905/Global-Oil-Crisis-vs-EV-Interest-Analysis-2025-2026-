@@ -483,3 +483,44 @@ test("headings wrap by balance rather than greedily", () => {
   // on line count instead.
   assert.match(globals, /text-wrap:\s*balance/);
 });
+
+// ---------------------------------------------------------------------------
+// Chart titles: wrap when they must, never shrink, never truncate (Revision 6)
+// ---------------------------------------------------------------------------
+
+test("chart titles have their own character measure, mapped to a utility", () => {
+  // Measured: at 20px `1ch` is 13.42px in Geist, so the shared 22ch display measure
+  // capped every chart title at 300px and broke a 59-character title into three lines.
+  assert.match(tokens, /--width-chart-title:\s*\d+ch/, "--width-chart-title must be in ch");
+  assert.match(globals, /--container-chart-title:\s*var\(--width-chart-title\)/);
+  const frame = read("src", "components", "chart", "ChartFrame.tsx");
+  assert.match(frame, /<h3 className="[^"]*\bmax-w-chart-title\b[^"]*\btext-h3\b/);
+});
+
+test("no heading opts out of wrapping, truncates, or shrinks its type to fit", () => {
+  // The rule for long titles: wrap into balanced lines (`text-wrap: balance` on h1-h4 in
+  // globals.css), never `nowrap`, never an ellipsis or line clamp, never a smaller role.
+  assert.match(globals, /h1,\s*h2,\s*h3,\s*h4\s*\{[^}]*text-wrap:\s*balance/);
+  const offenders: string[] = [];
+  const scan = (dir: string): void => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) scan(path);
+      else if (path.endsWith(".tsx")) {
+        const source = readFileSync(path, "utf8");
+        for (const match of source.matchAll(
+          /<(h[1-4]|Heading)\b[^>]*className=\{?[`"]([^`"]*)/g,
+        )) {
+          if (
+            /\b(whitespace-nowrap|truncate|line-clamp-\d|text-ellipsis)\b/.test(match[2] ?? "")
+          ) {
+            offenders.push(`${path.slice(webRoot.length)}: ${match[0].slice(0, 60)}`);
+          }
+        }
+      }
+    }
+  };
+  scan(join(webRoot, "src", "components"));
+  scan(join(webRoot, "app"));
+  assert.deepEqual(offenders, []);
+});

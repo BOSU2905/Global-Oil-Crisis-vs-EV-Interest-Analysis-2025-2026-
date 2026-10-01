@@ -570,3 +570,46 @@ test.describe("the variable weight axis is real, not synthesized", () => {
     expect(bold).toEqual([]);
   });
 });
+
+/**
+ * CHART TITLES — Revision 6. A long analytical title wraps into at most two balanced
+ * lines; it is never shrunk below the h3 role to fit, never truncated, never `nowrap`.
+ * Measured before the fix: the 59-character oil-vs-interest title took THREE lines in a
+ * 1392px frame, because the shared 22ch display measure is only 300px at 20px.
+ */
+test.describe("chart titles wrap, and are never shrunk to fit", () => {
+  for (const width of [1920, 1280, 768, 375] as const) {
+    test(`at ${String(width)}px every chart title is h3-sized and wraps instead of shrinking`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+
+      const titles = page.locator("figure > h3");
+      expect(await titles.count()).toBeGreaterThanOrEqual(2);
+      for (const title of await titles.all()) {
+        const metrics = await title.evaluate((node) => {
+          const style = getComputedStyle(node);
+          return {
+            size: style.fontSize,
+            whiteSpace: style.whiteSpace,
+            overflow: style.textOverflow,
+            lines: Math.round(
+              node.getBoundingClientRect().height / Number.parseFloat(style.lineHeight),
+            ),
+          };
+        });
+        expect(metrics.size, "a chart title keeps the h3 size").toBe("20px");
+        expect(metrics.whiteSpace).not.toBe("nowrap");
+        expect(metrics.overflow).not.toBe("ellipsis");
+        // Two lines from 768px up. On a phone a 59-character title cannot fit two 303px
+        // lines at 20px, and the rule is that it takes a third line rather than shrink.
+        const most = width < 768 ? 3 : 2;
+        expect(
+          metrics.lines,
+          `a chart title takes at most ${String(most)} lines`,
+        ).toBeLessThanOrEqual(most);
+      }
+    });
+  }
+});

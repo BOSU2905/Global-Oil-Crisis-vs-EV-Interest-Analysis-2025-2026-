@@ -182,8 +182,17 @@ test.describe("hover and keyboard inspection", () => {
     const first = await tooltipText(page);
 
     await region.hover({ position: { x: box!.width * 0.75, y: box!.height / 2 } });
+    // Non-empty AND different: while the pointer moves, the readout can be hidden for a
+    // frame, and an empty string is "different" — the earlier predicate accepted it and
+    // then failed on the empty text under parallel load.
     await expect
-      .poll(async () => (await tooltipText(page)) !== first, { timeout: 4000 })
+      .poll(
+        async () => {
+          const text = await tooltipText(page);
+          return text.includes("Week of") && text !== first;
+        },
+        { timeout: 4000 },
+      )
       .toBe(true);
     const second = await tooltipText(page);
 

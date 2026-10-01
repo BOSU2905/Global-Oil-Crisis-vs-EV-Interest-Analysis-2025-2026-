@@ -623,6 +623,17 @@
    * heading wants roughly 20-30 characters of its own size, not 68 of the body's.
    */
   --width-title: 22ch;
+  /*
+   * Chart-title measure, separate from the display measure above. MEASURED: in Geist at
+   * the h3 size (20px) `1ch` is 13.42px, so the shared 22ch capped every chart title at
+   * 300px — the 59-character oil-vs-interest title broke into THREE lines inside a
+   * 1392px frame. 40ch is ~537px: a title up to roughly 50 characters sits on one line
+   * where the frame allows it, and a longer one breaks into two balanced lines
+   * (`text-wrap: balance` on h1-h4). See "Role rules" in design-system.md §3:
+   * a chart title wraps when it must, is never shrunk to fit, never truncated and
+   * never `nowrap`.
+   */
+  --width-chart-title: 40ch;
   /* Charts may exceed content width; prose never may. Equal to the frame at `2xl`
      and above, which is what "analytical visuals can breathe" resolves to. 1440px
      since the final-polish cycle: at 1920×1080 the old 1280px left a third of the
