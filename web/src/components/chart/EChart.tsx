@@ -26,7 +26,15 @@ import { CanvasRenderer } from "echarts/renderers";
 
 import { resolveChartTheme, type ChartTheme } from "../../styles/chart-language.ts";
 import { BREAKPOINTS } from "../../styles/chart-language.ts";
-import type { OptionObject } from "./echarts-theme.ts";
+import {
+  cssTimeToMs,
+  settleWindowEdge,
+  wheelDeltaPx,
+  wheelZoomFactor,
+  zoomCategoryWindow,
+  type CategoryWindow,
+  type OptionObject,
+} from "./echarts-theme.ts";
 
 /**
  * Only the modules the charts use are registered.
@@ -62,6 +70,46 @@ const MIN_WINDOW_SPAN = 8;
 
 /** Fallback when `--duration-slow` cannot be read. Matches the token's value. */
 const RESET_DURATION_FALLBACK_MS = 360;
+
+/**
+ * Idle time after which the next wheel event starts a NEW gesture, re-reading the window
+ * from the chart. Anything that moved the window meanwhile — the slider, a drag, the
+ * keyboard, a reset — is therefore picked up rather than overwritten.
+ */
+const WHEEL_GESTURE_GAP_MS = 200;
+
+/**
+ * The glide between two whole-week windows during a wheel zoom.
+ *
+ * The same 100ms cubic-out ECharts uses for its own slider, so wheel and slider feel
+ * like one control. It is safe here where it was not before because it is dispatched
+ * only when the drawn week window actually changes, and never against the gesture.
+ * Under `prefers-reduced-motion` the option is built with `animation: false`, which
+ * disables it and leaves each step instant.
+ */
+const WHEEL_ZOOM_TWEEN = { duration: 100, easing: "cubicOut" } as const;
+
+/**
+ * One wheel gesture, held between animation frames.
+ *
+ * `intent` is where the reader's gesture has taken the window, continuously, in week
+ * units; `drawn` is the whole-week window the chart is showing. They differ by design —
+ * see `settleWindowEdge` — and keeping both is what lets a slow pinch accumulate without
+ * the axis's rounding throwing any of it away. Replaced, never mutated: the React
+ * Compiler's lint rejects writes through an object that aliases a ref.
+ */
+interface WheelGesture {
+  readonly intent: CategoryWindow;
+  readonly drawn: CategoryWindow;
+  /** Product of every event's factor since the last frame was applied. */
+  readonly factor: number;
+  /** Pointer x, relative to the chart wrapper, at the most recent event. */
+  readonly pointerX: number;
+  /** Pending `requestAnimationFrame` handle, or 0. */
+  readonly frame: number;
+  /** `performance.now()` of the most recent event. */
+  readonly last: number;
+}
 
 /**
  * `prefers-reduced-motion` as an external store.
@@ -151,6 +199,9 @@ interface EChartProps {
  *     reset and the legend all behave identically.
  *   - **Reset.** See `runReset` — the transition is driven here rather than left to
  *     ECharts, because leaving it to ECharts made it non-deterministic.
+ *   - **Wheel zoom.** See `onWheel` — ECharts' own wheel handling zoomed in fixed steps
+ *     whatever the size of the gesture, so a slow, gentle pinch lurched back and forth,
+ *     and it cancelled plain wheel events so the page could not scroll past a chart.
  *
  * WHAT IT DOES NOT OWN: any colour, size, font or series decision. Those come from
  * `buildOption`, which is a pure `.ts` function the unit tests can call.
@@ -172,6 +223,8 @@ export function EChart({
   const enteredRef = useRef(false);
   /** Handle of the in-flight reset transition, so a second reset cancels the first. */
   const resetFrameRef = useRef(0);
+  /** The wheel gesture in progress, or `null` between gestures. */
+  const wheelRef = useRef<WheelGesture | null>(null);
   const [visible, setVisible] = useState(false);
 
   /*
@@ -246,6 +299,16 @@ export function EChart({
   }, []);
 
   /**
+   * Abandon a wheel gesture: drop its pending frame and forget its window, so the next
+   * wheel event re-reads the chart. Every other control that moves the window calls it.
+   */
+  const cancelWheel = useCallback((): void => {
+    const gesture = wheelRef.current;
+    if (gesture !== null && gesture.frame !== 0) cancelAnimationFrame(gesture.frame);
+    wheelRef.current = null;
+  }, []);
+
+  /**
    * Return to the full domain, deterministically.
    *
    * WHY THIS IS NOT ONE `dispatchAction`
@@ -282,6 +345,7 @@ export function EChart({
     if (chart === null || wrapper === null) return;
 
     cancelReset();
+    cancelWheel();
 
     const from = readWindow();
     if (from.start === FULL_WINDOW.start && from.end === FULL_WINDOW.end) {
@@ -291,10 +355,11 @@ export function EChart({
       return;
     }
 
-    const rawDuration = getComputedStyle(document.documentElement).getPropertyValue(
-      "--duration-slow",
+    // `cssTimeToMs`, not `parseFloat`: the built CSS serialises the token as `.36s`, and
+    // `parseFloat` read that as 0.36ms — the reset snapped on its first frame.
+    const parsed = cssTimeToMs(
+      getComputedStyle(document.documentElement).getPropertyValue("--duration-slow"),
     );
-    const parsed = Number.parseFloat(rawDuration);
     const duration =
       Number.isFinite(parsed) && parsed > 0 ? parsed : RESET_DURATION_FALLBACK_MS;
 
@@ -325,7 +390,7 @@ export function EChart({
     };
 
     resetFrameRef.current = requestAnimationFrame(step);
-  }, [applyWindow, cancelReset, readWindow]);
+  }, [applyWindow, cancelReset, cancelWheel, readWindow]);
 
   /**
    * Keyboard zoom, because the visible slider is drawn into the canvas.
@@ -339,6 +404,7 @@ export function EChart({
   const zoomBy = useCallback(
     (factor: number): void => {
       cancelReset();
+      cancelWheel();
       const current = readWindow();
       const span = current.end - current.start;
       const centre = current.start + span / 2;
@@ -355,7 +421,122 @@ export function EChart({
       }
       applyWindow({ start: Math.max(0, start), end: Math.min(100, end) });
     },
-    [applyWindow, cancelReset, readWindow],
+    [applyWindow, cancelReset, cancelWheel, readWindow],
+  );
+
+  /**
+   * Apply the wheel gesture's accumulated zoom, once per animation frame.
+   *
+   * Coalescing is half the fix. A trackpad sends wheel events faster than the screen
+   * refreshes, and applying each one separately is what let ECharts' tweens chase each
+   * other; here every event since the last frame multiplies into one factor, and the
+   * frame applies it once.
+   *
+   * The anchor is the week under the pointer in the window AS DRAWN, read from the axis
+   * itself (`convertToPixel` on the drawn window's two ends), so the week the reader is
+   * pointing at stays under the pointer. The new window is computed on the continuous
+   * intent and then settled onto whole weeks with hysteresis, and only a change of drawn
+   * window is dispatched — so a tremor that does not move a week boundary moves nothing.
+   */
+  const applyWheelFrame = useCallback((): void => {
+    const gesture = wheelRef.current;
+    const chart = chartRef.current;
+    if (gesture === null || chart === null) return;
+
+    const intervals = observationCount - 1;
+    const left = chart.convertToPixel({ xAxisIndex: 0 }, gesture.drawn.start);
+    const right = chart.convertToPixel({ xAxisIndex: 0 }, gesture.drawn.end);
+    const width = right - left;
+    const fraction =
+      Number.isFinite(width) && width > 0
+        ? Math.min(1, Math.max(0, (gesture.pointerX - left) / width))
+        : 0.5;
+    const anchor = gesture.drawn.start + fraction * (gesture.drawn.end - gesture.drawn.start);
+
+    const intent = zoomCategoryWindow(
+      gesture.intent,
+      anchor,
+      gesture.factor,
+      intervals,
+      (MIN_WINDOW_SPAN / 100) * intervals,
+    );
+    const settled: CategoryWindow = {
+      start: settleWindowEdge(intent.start, gesture.drawn.start),
+      end: settleWindowEdge(intent.end, gesture.drawn.end),
+    };
+    const moved =
+      settled.end - settled.start >= 1 &&
+      (settled.start !== gesture.drawn.start || settled.end !== gesture.drawn.end);
+    const drawn = moved ? settled : gesture.drawn;
+
+    wheelRef.current = { ...gesture, intent, drawn, factor: 1, frame: 0 };
+    if (!moved) return;
+
+    chart.dispatchAction({
+      type: "dataZoom",
+      dataZoomIndex: 0,
+      start: (drawn.start / intervals) * 100,
+      end: (drawn.end / intervals) * 100,
+      animation: WHEEL_ZOOM_TWEEN,
+    });
+  }, [observationCount]);
+
+  /**
+   * Every wheel event over the chart, before ECharts sees it.
+   *
+   * Registered in the CAPTURE phase on the wrapper and stopped there, so ECharts' own
+   * listener — which cancels plain wheel events and zooms in fixed 10% steps (see
+   * `insideZoom`) — never runs. A plain wheel then does what a reader expects on a long
+   * page: it scrolls. Only Ctrl + wheel, which is also how browsers deliver a trackpad
+   * pinch, is claimed, and only that is `preventDefault`-ed, so the browser does not
+   * page-zoom instead.
+   */
+  const onWheel = useCallback(
+    (event: WheelEvent): void => {
+      event.stopPropagation();
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+
+      const wrapper = wrapperRef.current;
+      if (wrapper === null || chartRef.current === null || observationCount < 2) return;
+      const deltaPx = wheelDeltaPx(event.deltaY, event.deltaMode);
+      if (deltaPx === 0) return;
+
+      const now = performance.now();
+      const previous = wheelRef.current;
+      let base: WheelGesture;
+      if (previous === null || now - previous.last > WHEEL_GESTURE_GAP_MS) {
+        // A new gesture starts from wherever the window is NOW, so the slider, a drag,
+        // the keyboard or a reset since the last gesture is respected, not overwritten.
+        if (previous !== null && previous.frame !== 0) cancelAnimationFrame(previous.frame);
+        cancelReset();
+        const intervals = observationCount - 1;
+        const current = readWindow();
+        const intent: CategoryWindow = {
+          start: (current.start / 100) * intervals,
+          end: (current.end / 100) * intervals,
+        };
+        base = {
+          intent,
+          drawn: { start: Math.round(intent.start), end: Math.round(intent.end) },
+          factor: 1,
+          pointerX: 0,
+          frame: 0,
+          last: now,
+        };
+      } else {
+        base = previous;
+      }
+
+      wheelRef.current = {
+        ...base,
+        last: now,
+        factor: base.factor * wheelZoomFactor(deltaPx),
+        pointerX: event.clientX - wrapper.getBoundingClientRect().left,
+        frame: base.frame !== 0 ? base.frame : requestAnimationFrame(applyWheelFrame),
+      };
+    },
+    [applyWheelFrame, cancelReset, observationCount, readWindow],
   );
 
   /**
@@ -491,6 +672,11 @@ export function EChart({
     publishWindow();
     chart.on("dataZoom", publishWindow);
 
+    // Capture phase and non-passive: `onWheel` must run before ECharts' listener on the
+    // canvas, and must be allowed to cancel a Ctrl + wheel so the browser does not zoom
+    // the page instead of the chart.
+    wrapper.addEventListener("wheel", onWheel, { capture: true, passive: false });
+
     let frame = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onResize = () => {
@@ -527,11 +713,13 @@ export function EChart({
       resetFrameRef.current = 0;
       resizeObserver.disconnect();
       scheme.removeEventListener("change", onScheme);
+      wrapper.removeEventListener("wheel", onWheel, { capture: true });
+      cancelWheel();
       chart.off("dataZoom", publishWindow);
       chart.dispose();
       chartRef.current = null;
     };
-  }, [visible, render, readWindow]);
+  }, [visible, render, readWindow, onWheel, cancelWheel]);
 
   // --- imperative handle for the external controls --------------------------
   useImperativeHandle(

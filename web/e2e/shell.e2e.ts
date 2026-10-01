@@ -85,8 +85,9 @@ test.describe("navigation structure", () => {
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Scope" })).toBeFocused();
+    // Registry order: "How to Read" was inserted after "Scope" in 854685e.
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: "Comparability" })).toBeFocused();
+    await expect(page.getByRole("link", { name: "How to Read" })).toBeFocused();
   });
 
   test("nav links meet the 44px minimum tap target", async ({ page }) => {

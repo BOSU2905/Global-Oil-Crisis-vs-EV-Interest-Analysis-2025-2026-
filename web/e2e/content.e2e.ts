@@ -26,7 +26,8 @@ test.describe("Card and MetricCard", () => {
     await expect(page.getByText("2025-08-31", { exact: false })).toBeVisible();
     await expect(page.getByText("2026-03-29", { exact: false })).toBeVisible();
     await expect(page.getByText("Weekly Observations")).toBeVisible();
-    await expect(page.getByText("Markets", { exact: true })).toBeVisible();
+    // Scoped: the section navigation also carries a "Markets" label.
+    await expect(page.locator("#scope").getByText("Markets", { exact: true })).toBeVisible();
   });
 
   test("cards do not float — no visible shadow on any card surface", async ({ page }) => {

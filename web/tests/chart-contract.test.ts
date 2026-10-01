@@ -50,10 +50,7 @@ import {
   seriesName,
   type OptionObject,
 } from "../src/components/chart/echarts-option.ts";
-import {
-  AXIS_LABEL_MARGIN,
-  GRID_PADDING,
-} from "../src/components/chart/echarts-theme.ts";
+import { AXIS_LABEL_MARGIN, GRID_PADDING } from "../src/components/chart/echarts-theme.ts";
 import {
   CHART_TOKENS,
   type ChartTheme,
@@ -624,10 +621,13 @@ test("x-axis tick density falls with width so labels cannot collide", () => {
 // Zoom, pan and reset
 // ---------------------------------------------------------------------------
 
-test("wheel zoom requires a modifier so the page can still scroll", () => {
+test("ECharts never handles the wheel, so it can neither swallow nor quantise it", () => {
   const zoom = asArray(option(1280)["dataZoom"], "dataZoom")[0];
   assert.ok(zoom !== undefined);
-  assert.equal(zoom["zoomOnMouseWheel"], "ctrl");
+  // Was "ctrl". ECharts' controller zoomed in fixed steps whatever the gesture size and
+  // cancelled plain wheel events over the plot; `EChart.tsx` now owns the wheel, keeps
+  // Ctrl as the requirement, and the E2E suite asserts both behaviours in a browser.
+  assert.equal(zoom["zoomOnMouseWheel"], false);
   assert.equal(zoom["moveOnMouseWheel"], false);
   // A chart inside a long-scroll article that swallows the wheel is worse than one
   // that does not zoom at all.

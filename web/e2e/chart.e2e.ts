@@ -343,58 +343,56 @@ test.describe("legend, zoom and reset", () => {
       .toBe(true);
 
     await chartFigure(page).getByRole("button", { name: "Reset view" }).click();
+    // The reset now genuinely animates over `--duration-slow` (it used to snap, because
+    // `.36s` was parsed as 0.36ms). Hovering mid-transition reads a mid-transition week,
+    // and ECharts does not refresh a tooltip under a pointer that has not moved — so wait
+    // for the window to arrive home first.
+    await expect(chartRegion(page)).toHaveAttribute("data-zoom-end", "100");
+    await expect(chartRegion(page)).not.toHaveAttribute("data-resetting", "true");
     await region.hover({ position: { x: box!.width * 0.3, y: box!.height / 2 } });
     await expect
       .poll(async () => (await tooltipText(page)) === before, { timeout: 4000 })
       .toBe(true);
   });
 
-  test("plain wheel scrolls the page and does not zoom the chart", async ({ page }) => {
+  test("plain wheel over the plot scrolls the page and does not zoom the chart", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/");
 
     const region = chartRegion(page);
     await region.scrollIntoViewIfNeeded();
+    // Mounted: the wrapper publishes its window only once ECharts has initialised.
+    await expect(region).toHaveAttribute("data-zoom-end", "100");
     const box = await region.boundingBox();
     expect(box).not.toBeNull();
 
-    // Read the week at a fixed position first. If a plain wheel zoomed, the x-domain
-    // would narrow and the same pixel would afterwards point at a different week.
-    await region.hover({ position: { x: box!.width * 0.3, y: box!.height / 2 } });
-    await expect.poll(async () => (await tooltipText(page)).includes("Week of")).toBe(true);
-    const before = await tooltipText(page);
-
-    // Scroll back to the top so there is somewhere to scroll TO. Without this the
-    // assertion can fail for the wrong reason: `scrollIntoViewIfNeeded` can leave the
-    // page at its maximum offset, where no wheel event can move it further.
-    // `globals.css` sets `scroll-behavior: smooth` on `html`, so `scrollTo` animates
-    // and reading `scrollY` straight afterwards catches it mid-flight. `instant`
-    // opts out for this one call.
-    await page.evaluate(() => {
-      window.scrollTo({ top: 0, behavior: "instant" });
-    });
-    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
-    const scrollBefore = 0;
-
-    const freshBox = await region.boundingBox();
-    await page.mouse.move(
-      freshBox!.x + freshBox!.width / 2,
-      Math.min(freshBox!.y + freshBox!.height / 2, 850),
+    // The pointer must genuinely be over the plot. The previous version of this test
+    // scrolled to the top first and wheeled at a clamped y that never reached the chart,
+    // so it passed while ECharts was cancelling every plain wheel event over the plot —
+    // measured, 3 of 3 cancelled and the page unable to scroll past the chart.
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+    const underPointer = await page.evaluate(
+      ([px, py]) => document.elementFromPoint(px ?? 0, py ?? 0)?.tagName ?? "",
+      [x, y],
     );
-    await page.mouse.wheel(0, 400);
-    await page.waitForTimeout(300);
+    expect(underPointer).toBe("CANVAS");
+    await page.mouse.move(x, y);
+
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, 300);
 
     // A chart inside a long-scroll article that swallows the wheel is worse than one
     // that does not zoom at all, which is why zoom requires Ctrl.
-    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore);
-
-    // And the domain is untouched: same pixel, same week.
-    await region.scrollIntoViewIfNeeded();
-    const after = await region.boundingBox();
-    await region.hover({ position: { x: after!.width * 0.3, y: after!.height / 2 } });
     await expect
-      .poll(async () => (await tooltipText(page)) === before, { timeout: 4000 })
-      .toBe(true);
+      .poll(async () => page.evaluate(() => window.scrollY), { timeout: 4000 })
+      .toBeGreaterThan(scrollBefore);
+
+    // And the domain is untouched.
+    await expect(region).toHaveAttribute("data-zoom-start", "0");
+    await expect(region).toHaveAttribute("data-zoom-end", "100");
   });
 });
 
@@ -416,10 +414,9 @@ test.describe("the tabular fallback", () => {
 
     await toggle.click();
     await expect(page.locator(TABLE_ID)).toBeVisible();
-    await expect(chartFigure(page).getByRole("button", { name: "Hide data table" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    await expect(
+      chartFigure(page).getByRole("button", { name: "Hide data table" }),
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   test("it carries one row per observation, with both units in the headers", async ({
@@ -534,13 +531,20 @@ test.describe("responsive behaviour", () => {
     await page.goto("/");
 
     for (const name of ["Reset view", "View data table"]) {
-      const button = page.getByRole("button", { name });
-      await expect(button).toBeVisible();
-      const box = await button.boundingBox();
-      expect(box!.x).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(375);
-      // The 44px tap target still applies at the width where it matters most.
-      expect(box!.height).toBeGreaterThanOrEqual(44);
+      // Every chart on the page carries these controls, and each must fit. Since the
+      // five-market chart arrived an unscoped `getByRole` matched two buttons and failed
+      // strict mode, which tested neither.
+      const buttons = await page.getByRole("button", { name }).all();
+      expect(buttons.length).toBeGreaterThan(1);
+      for (const button of buttons) {
+        await button.scrollIntoViewIfNeeded();
+        await expect(button).toBeVisible();
+        const box = await button.boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+        // The 44px tap target still applies at the width where it matters most.
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+      }
     }
   });
 });
@@ -669,13 +673,36 @@ async function resetAndRecord(page: Page): Promise<{ samples: string[]; resettin
 /** Ctrl + wheel over the plot centre, which is the chart's zoom accelerator. */
 async function zoomIn(page: Page, steps = 6): Promise<void> {
   const region = chartRegion(page);
-  const box = await region.boundingBox();
+  // Measured fresh, and only once the page has stopped moving. Clicking Reset can make
+  // Playwright scroll the page to expose the button, and a box read while that settles
+  // put the pointer beside the chart — measured: the wheel events then reported
+  // `defaultPrevented: false`, i.e. they never reached the chart at all.
+  await region.scrollIntoViewIfNeeded();
+  let box = await region.boundingBox();
+  await expect
+    .poll(async () => {
+      const next = await region.boundingBox();
+      const settled = next !== null && box !== null && next.y === box.y;
+      box = next;
+      return settled;
+    })
+    .toBe(true);
   expect(box).not.toBeNull();
+  const x = box!.x + box!.width / 2;
+  const y = box!.y + box!.height / 2;
+  const under = await page.evaluate(
+    ([px, py]) => document.elementFromPoint(px ?? 0, py ?? 0)?.tagName ?? "",
+    [x, y],
+  );
+  expect(under, "the pointer must be over the chart's canvas").toBe("CANVAS");
+
   await page.keyboard.down("Control");
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.move(x, y);
   for (let i = 0; i < steps; i += 1) await page.mouse.wheel(0, -120);
   await page.keyboard.up("Control");
-  await expect.poll(async () => (await zoomWindow(page)).end < 100, { timeout: 4000 }).toBe(true);
+  await expect
+    .poll(async () => (await zoomWindow(page)).end < 100, { timeout: 4000 })
+    .toBe(true);
 }
 
 /** Drag inside the plot, which pans the x-domain. */
@@ -694,7 +721,10 @@ test.describe("reset is deterministic", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/");
     await chartRegion(page).scrollIntoViewIfNeeded();
-    await expect.poll(async () => (await zoomWindow(page)).end).toBe(100);
+    // The ATTRIBUTE, not `zoomWindow()`: that helper defaults to 100 when the attribute is
+    // absent, so polling it resolved before ECharts had mounted — and the keyboard test
+    // then pressed `+` into a chart that did not exist yet, on every run.
+    await expect(chartRegion(page)).toHaveAttribute("data-zoom-end", "100");
   });
 
   test("the initial view is the full domain", async ({ page }) => {
@@ -777,9 +807,9 @@ test.describe("reset is deterministic", () => {
 
     // Across the md boundary, which rebuilds the option rather than resizing it.
     await page.setViewportSize({ width: 375, height: 900 });
-    await expect.poll(async () => chartRegion(page).getAttribute("data-layout")).toBe(
-      "stacked-panels",
-    );
+    await expect
+      .poll(async () => chartRegion(page).getAttribute("data-layout"))
+      .toBe("stacked-panels");
     // The reader's zoom survives the rebuild: `notMerge` would otherwise reset it silently.
     const afterResize = await zoomWindow(page);
     expect(afterResize.end).toBeLessThan(100);
@@ -795,13 +825,149 @@ test.describe("reset is deterministic", () => {
     const region = chartRegion(page);
     await region.focus();
     await page.keyboard.press("+");
-    await expect.poll(async () => (await zoomWindow(page)).end < 100, { timeout: 4000 }).toBe(
-      true,
-    );
+    await expect
+      .poll(async () => (await zoomWindow(page)).end < 100, { timeout: 4000 })
+      .toBe(true);
 
     await page.keyboard.press("-");
     await page.keyboard.press("-");
     await expect.poll(async () => (await zoomWindow(page)).end, { timeout: 4000 }).toBe(100);
+  });
+});
+
+/**
+ * WHEEL ZOOM FOLLOWS THE GESTURE — the regression suite for the slow-zoom glitch.
+ *
+ * Before the fix, ECharts turned every wheel event into a fixed ≥10% step whatever its
+ * size, tweened each step over 100ms and retargeted it every 20ms. Measured on this page:
+ * thirty 0.6px events — a slow, gentle pinch — shrank the view to 5.7% of the period, and
+ * a pinch whose sign flickered as the fingers settled reversed direction 20 times in 30
+ * events. `EChart.tsx` now owns the wheel; these tests assert what a reader sees.
+ *
+ * Both charts are covered for the two gesture-shape tests: the defect was measured on the
+ * five-market chart, and the fix lives in the component they share.
+ */
+const WHEEL_CHARTS = [
+  ["prototype", CHART_WRAPPER],
+  [
+    "five-market",
+    '[data-chart-canvas="true"][aria-describedby="ev-interest-markets-chart-description"]',
+  ],
+] as const;
+
+/** Ctrl + wheel over a chart's plot centre, recording every published window span. */
+async function wheelGesture(
+  page: Page,
+  selector: string,
+  deltas: readonly number[],
+  gapMs: number,
+): Promise<number[]> {
+  const region = page.locator(selector);
+  await region.scrollIntoViewIfNeeded();
+  await expect(region).toHaveAttribute("data-zoom-end", /\d/);
+  const box = await region.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+  await page.evaluate((target) => {
+    const element = document.querySelector<HTMLElement>(target);
+    if (element === null) return;
+    const spans: number[] = [];
+    const observer = new MutationObserver(() => {
+      const span =
+        Number(element.dataset["zoomEnd"] ?? "100") -
+        Number(element.dataset["zoomStart"] ?? "0");
+      if (spans[spans.length - 1] !== span) spans.push(span);
+    });
+    observer.observe(element, { attributes: true });
+    const store = window as unknown as { __spans?: { spans: number[]; stop: () => void } };
+    store.__spans = { spans, stop: () => observer.disconnect() };
+  }, selector);
+
+  await page.keyboard.down("Control");
+  for (const delta of deltas) {
+    await page.mouse.wheel(0, delta);
+    await page.waitForTimeout(gapMs);
+  }
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(300);
+
+  return page.evaluate(() => {
+    const store = window as unknown as { __spans?: { spans: number[]; stop: () => void } };
+    store.__spans?.stop();
+    return [...(store.__spans?.spans ?? [])];
+  });
+}
+
+/** How many times a sequence of spans changes direction. */
+function reversals(spans: readonly number[]): number {
+  let count = 0;
+  let previous = 0;
+  for (let i = 1; i < spans.length; i += 1) {
+    const step = (spans[i] ?? 0) - (spans[i - 1] ?? 0);
+    const sign = step > 0 ? 1 : step < 0 ? -1 : 0;
+    if (sign !== 0 && previous !== 0 && sign !== previous) count += 1;
+    if (sign !== 0) previous = sign;
+  }
+  return count;
+}
+
+async function spanOf(page: Page, selector: string): Promise<number> {
+  return page.evaluate((target) => {
+    const element = document.querySelector<HTMLElement>(target);
+    return (
+      Number(element?.dataset["zoomEnd"] ?? "100") -
+      Number(element?.dataset["zoomStart"] ?? "0")
+    );
+  }, selector);
+}
+
+test.describe("wheel zoom follows the gesture", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+  });
+
+  for (const [label, selector] of WHEEL_CHARTS) {
+    test(`${label}: a slow, gentle pinch zooms gently instead of lurching`, async ({
+      page,
+    }) => {
+      const spans = await wheelGesture(page, selector, Array<number>(30).fill(-0.6), 30);
+      const span = await spanOf(page, selector);
+      // It zoomed — and only a little. ECharts took the same gesture to 5.7%.
+      expect(span).toBeLessThan(100);
+      expect(span).toBeGreaterThan(75);
+      expect(reversals(spans)).toBe(0);
+    });
+
+    test(`${label}: a pinch whose sign flickers never reverses the view`, async ({ page }) => {
+      // The shape of a near-stationary pinch: mostly in, with small flips out.
+      const flicker = [-0.6, -0.4, 0.2, -0.5, 0.15, -0.3];
+      const deltas = Array.from({ length: 30 }, (_, i) => flicker[i % flicker.length] ?? 0);
+      const spans = await wheelGesture(page, selector, deltas, 30);
+      expect(reversals(spans)).toBe(0);
+      expect(await spanOf(page, selector)).toBeLessThanOrEqual(100);
+    });
+  }
+
+  test("a Ctrl + mouse-wheel notch is one modest step, not a lurch", async ({ page }) => {
+    await wheelGesture(page, CHART_WRAPPER, [-120], 0);
+    const span = await spanOf(page, CHART_WRAPPER);
+    expect(span).toBeLessThan(95);
+    expect(span).toBeGreaterThan(65);
+  });
+
+  test("zooming back out by the same gesture returns to the full period", async ({ page }) => {
+    await wheelGesture(page, CHART_WRAPPER, [-120, -120, -120], 120);
+    // Three clamped notches: ×1.22 each, settled onto whole weeks — a 16-week window.
+    expect(await spanOf(page, CHART_WRAPPER)).toBeLessThan(60);
+    await wheelGesture(page, CHART_WRAPPER, [120, 120, 120], 120);
+    await expect
+      .poll(async () => zoomWindow(page), { timeout: 4000 })
+      .toEqual({
+        start: 0,
+        end: 100,
+      });
   });
 });
 
@@ -815,9 +981,11 @@ test.describe("entrance motion", () => {
     // seen, so the observer no longer pre-mounts 200px early.
     await region.scrollIntoViewIfNeeded();
 
-    await expect.poll(async () => region.getAttribute("data-entrance"), {
-      timeout: 6000,
-    }).toBe("done");
+    await expect
+      .poll(async () => region.getAttribute("data-entrance"), {
+        timeout: 6000,
+      })
+      .toBe("done");
 
     // And it stays done. A second entrance would mean the option was rebuilt with
     // animation on, which is what a legend toggle or a resize must not do.
@@ -832,17 +1000,28 @@ test.describe("entrance motion", () => {
     // Scoped to the prototype's own reveal wrapper: the page carries two.
     const reveal = page.locator("[data-chart-reveal]", { has: chartRegion(page) });
     await reveal.scrollIntoViewIfNeeded();
-    await expect.poll(async () => reveal.getAttribute("data-chart-reveal"), {
-      timeout: 6000,
-    }).toBe("entered");
+    await expect
+      .poll(async () => reveal.getAttribute("data-chart-reveal"), {
+        timeout: 6000,
+      })
+      .toBe("entered");
 
-    // Fully opaque and untranslated once entered — the end state is the readable one.
-    const settled = await reveal.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { opacity: style.opacity, transform: style.transform };
-    });
-    expect(Number(settled.opacity)).toBeGreaterThan(0.99);
-    expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(settled.transform);
+    // Fully opaque and untranslated once settled — the end state is the readable one.
+    // Polled: the attribute flips at the START of a `--duration-slow` transition, and the
+    // previous single read sampled it mid-flight (opacity 0.13) on every run.
+    await expect
+      .poll(
+        async () =>
+          reveal.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return (
+              Number(style.opacity) > 0.99 &&
+              ["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(style.transform)
+            );
+          }),
+        { timeout: 4000 },
+      )
+      .toBe(true);
   });
 
   test("a legend toggle does not restart the entrance", async ({ page }) => {
@@ -850,11 +1029,15 @@ test.describe("entrance motion", () => {
     await page.goto("/");
     const region = chartRegion(page);
     await region.scrollIntoViewIfNeeded();
-    await expect.poll(async () => region.getAttribute("data-entrance"), {
-      timeout: 6000,
-    }).toBe("done");
+    await expect
+      .poll(async () => region.getAttribute("data-entrance"), {
+        timeout: 6000,
+      })
+      .toBe("done");
 
-    await chartFigure(page).getByRole("button", { name: /Brent crude/ }).click();
+    await chartFigure(page)
+      .getByRole("button", { name: /Brent crude/ })
+      .click();
     await page.waitForTimeout(300);
     await expect(region).toHaveAttribute("data-entrance", "done");
   });
@@ -869,9 +1052,11 @@ test.describe("entrance motion", () => {
     await region.scrollIntoViewIfNeeded();
 
     // "reduced", not "done": the chart was never animated in.
-    await expect.poll(async () => region.getAttribute("data-entrance"), {
-      timeout: 6000,
-    }).toBe("reduced");
+    await expect
+      .poll(async () => region.getAttribute("data-entrance"), {
+        timeout: 6000,
+      })
+      .toBe("reduced");
 
     // Usability is untouched. Hover still opens the readout...
     const box = await region.boundingBox();

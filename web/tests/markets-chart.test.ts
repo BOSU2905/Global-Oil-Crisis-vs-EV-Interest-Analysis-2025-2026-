@@ -53,7 +53,11 @@ import {
 import type { OptionObject } from "../src/components/chart/echarts-theme.ts";
 import { AXIS_LABEL_MARGIN, GRID_PADDING } from "../src/components/chart/echarts-theme.ts";
 import { SERIES_IDENTITY } from "../src/styles/chart-language.ts";
-import { CHART_TOKENS, type ChartTheme, type ChartTokenName } from "../src/styles/chart-language.ts";
+import {
+  CHART_TOKENS,
+  type ChartTheme,
+  type ChartTokenName,
+} from "../src/styles/chart-language.ts";
 
 const webRoot = join(import.meta.dirname, "..");
 
@@ -70,7 +74,8 @@ function tokenStub(key: ChartTokenName): string {
   if (/Size$/.test(key)) return "0.8125rem";
   if (/Padding$/.test(key)) return "0.75rem";
   if (/Width$|Radius$/.test(key)) return "2px";
-  if (key === "areaOpacity" || key === "dimmedOpacity" || key === "scatterOpacity") return "0.1";
+  if (key === "areaOpacity" || key === "dimmedOpacity" || key === "scatterOpacity")
+    return "0.1";
   if (/Dash$/.test(key)) return "3 3";
   return `token(${key})`;
 }
@@ -78,7 +83,10 @@ function tokenStub(key: ChartTokenName): string {
 const resolveColour = (name: string): string => `colour(${name})`;
 const ROOT_FONT_SIZE_PX = 16;
 
-const option = (widthPx: number, hidden?: readonly (typeof COUNTRY_IDS)[number][]): OptionObject =>
+const option = (
+  widthPx: number,
+  hidden?: readonly (typeof COUNTRY_IDS)[number][],
+): OptionObject =>
   buildMarketsOption({
     data,
     theme,
@@ -167,8 +175,13 @@ test("the single y-axis is the measure's 0-100 domain, not the sample's range", 
 
   // The sample's own range is narrower than 0-100 for at least one market, so an
   // auto-scaled axis would visibly differ. That is what makes this assertion load-bearing.
-  const lowest = Math.min(...COUNTRY_IDS.map((id) => Math.min(...data.weeks.map((w) => w.values[id]))));
-  assert.ok(lowest > 0, "fixture check: some market never reaches 0, so 0 is not the sample min");
+  const lowest = Math.min(
+    ...COUNTRY_IDS.map((id) => Math.min(...data.weeks.map((w) => w.values[id]))),
+  );
+  assert.ok(
+    lowest > 0,
+    "fixture check: some market never reaches 0, so 0 is not the sample min",
+  );
 });
 
 test("the axis title names the per-market normalisation", () => {
@@ -271,7 +284,10 @@ test("the peak dates are stated without interaction, in the accessible descripti
 // ---------------------------------------------------------------------------
 
 test("the selector never reads the series-local profile", () => {
-  const source = readFileSync(join(webRoot, "src", "lib", "interest-across-markets.ts"), "utf8");
+  const source = readFileSync(
+    join(webRoot, "src", "lib", "interest-across-markets.ts"),
+    "utf8",
+  );
   const code = source
     .split("\n")
     .filter((line) => {
@@ -304,11 +320,19 @@ test("nothing in the markets chart layer sorts or aggregates the markets", () =>
       .split("\n")
       .filter((line) => {
         const trimmed = line.trim();
-        return !trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*");
+        return (
+          !trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*")
+        );
       })
       .join("\n");
 
-    for (const forbidden of [".sort(", ".reverse(", "average", "Math.max(...", "Math.min(..."]) {
+    for (const forbidden of [
+      ".sort(",
+      ".reverse(",
+      "average",
+      "Math.max(...",
+      "Math.min(...",
+    ]) {
       assert.ok(!code.includes(forbidden), `${relative} contains "${forbidden}"`);
     }
   }
@@ -344,7 +368,9 @@ test("the long description states the peak dispersion as the finding", () => {
   assert.ok(a11y.longDescription.includes(String(spread.distinct_weeks)));
   assert.ok(a11y.longDescription.includes(String(spread.span_weeks)));
   assert.ok(
-    a11y.longDescription.includes(spread.synchronised_within_one_month ? "synchronised" : "not synchronised"),
+    a11y.longDescription.includes(
+      spread.synchronised_within_one_month ? "synchronised" : "not synchronised",
+    ),
     "the long description must state the synchronisation finding either way",
   );
 });
@@ -415,10 +441,12 @@ test("a visible zoom slider is declared alongside the inside-zoom accelerator", 
   assert.equal(slider["showDetail"], false);
 });
 
-test("plain wheel still scrolls the page; the modifier is an accelerator", () => {
+test("plain wheel still scrolls the page; ECharts never sees the wheel", () => {
   const inside = asArray(option(1280)["dataZoom"], "dataZoom")[0];
   assert.ok(inside !== undefined);
-  assert.equal(inside["zoomOnMouseWheel"], "ctrl");
+  // Wheel zoom is owned by `EChart.tsx` (Ctrl + wheel and trackpad pinch, proportional to
+  // the gesture). ECharts keeps drag-to-pan and touch pinch only.
+  assert.equal(inside["zoomOnMouseWheel"], false);
   assert.equal(inside["moveOnMouseWheel"], false);
   assert.equal(inside["moveOnMouseMove"], true);
   assert.equal(inside["filterMode"], "none");
@@ -427,7 +455,10 @@ test("plain wheel still scrolls the page; the modifier is an accelerator", () =>
 test("the canvas legend is off, because the HTML one is the operable control", () => {
   const legend = option(1280)["legend"] as OptionObject;
   assert.equal(legend["show"], false);
-  assert.deepEqual(legend["data"], data.series.map((market) => market.label));
+  assert.deepEqual(
+    legend["data"],
+    data.series.map((market) => market.label),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -499,7 +530,10 @@ test("the tooltip carries no classification, coefficient or p-value", () => {
     "fragile",
     "robust",
   ]) {
-    assert.ok(!html.toLowerCase().includes(forbidden.toLowerCase()), `tooltip contains "${forbidden}"`);
+    assert.ok(
+      !html.toLowerCase().includes(forbidden.toLowerCase()),
+      `tooltip contains "${forbidden}"`,
+    );
   }
 });
 
@@ -636,7 +670,9 @@ test("series enter in sequence, so five lines do not arrive at once", () => {
     rootFontSizePx: ROOT_FONT_SIZE_PX,
     animate: true,
   });
-  const delays = data.series.map((market) => Number(seriesById(built, market.id)["animationDelay"]));
+  const delays = data.series.map((market) =>
+    Number(seriesById(built, market.id)["animationDelay"]),
+  );
   for (let i = 1; i < delays.length; i += 1) {
     assert.ok((delays[i] ?? 0) > (delays[i - 1] ?? 0), "series delays must increase");
   }
@@ -658,7 +694,10 @@ test("the fallback's columns line up with its cells and with the legend order", 
   const cells = toMarketTableCells(buildMarketTableRows(data));
   // Week + five markets + note.
   assert.equal(a11y.tableColumns.length, data.series.length + 2);
-  assert.deepEqual(a11y.tableColumns.slice(1, -1), data.series.map((market) => market.label));
+  assert.deepEqual(
+    a11y.tableColumns.slice(1, -1),
+    data.series.map((market) => market.label),
+  );
 
   const first = cells[0];
   assert.ok(first !== undefined);

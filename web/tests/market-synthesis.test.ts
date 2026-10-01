@@ -28,10 +28,7 @@ import { join } from "node:path";
 
 import { loadArtifactBundle } from "../src/data/load-node.ts";
 import { COUNTRY_IDS } from "../src/data/index.ts";
-import {
-  interestDirection,
-  selectMarketSynthesis,
-} from "../src/lib/market-synthesis.ts";
+import { interestDirection, selectMarketSynthesis } from "../src/lib/market-synthesis.ts";
 import {
   CAVEAT_LABEL,
   EDITORIAL_CATEGORIES,
@@ -146,7 +143,9 @@ test("the authoritative classifications are exactly what the report renders", ()
   // suite should be able to check the five classifications against the decision record
   // without opening a JSON file. If the pipeline output ever changed, this fails loudly
   // and the change is reviewed rather than absorbed.
-  const expected: Readonly<Record<string, { group: string; robustness: string; peak: string }>> = {
+  const expected: Readonly<
+    Record<string, { group: string; robustness: string; peak: string }>
+  > = {
     indonesia: {
       group: "no_detectable_association",
       robustness: "fragile",
@@ -197,8 +196,8 @@ test("interest direction is the sign of a published figure, nothing more", () =>
 
 test("every market's direction matches the sign of its own baseline-to-peak change", () => {
   for (const market of synthesis.markets) {
-    const published = bundle.metrics.series[market.id]?.profile.scale_free
-      .baseline_to_peak_pct_change;
+    const published =
+      bundle.metrics.series[market.id]?.profile.scale_free.baseline_to_peak_pct_change;
     assert.ok(published !== undefined);
     assert.equal(market.direction, interestDirection(published));
   }
@@ -206,7 +205,11 @@ test("every market's direction matches the sign of its own baseline-to-peak chan
 
 test("interest rose in all five markets, which is the descriptive finding", () => {
   for (const market of synthesis.markets) {
-    assert.equal(market.direction, "rose", `${market.id} no longer rose — the copy must change`);
+    assert.equal(
+      market.direction,
+      "rose",
+      `${market.id} no longer rose — the copy must change`,
+    );
   }
 });
 
@@ -218,7 +221,11 @@ test("every sentence names its own classification and reads as prose", () => {
   for (const market of synthesis.markets) {
     const sentence = market.evidenceStatement;
     // Two sentences, both ending in a full stop, neither a comma splice.
-    assert.match(sentence, /^EV interest (rose|fell|broadly flat)/, `${market.id}: ${sentence}`);
+    assert.match(
+      sentence,
+      /^EV interest (rose|fell|broadly flat)/,
+      `${market.id}: ${sentence}`,
+    );
     assert.ok(sentence.endsWith("."), `${market.id} sentence is unterminated`);
     assert.ok(!sentence.includes("ev interest"), "EV must not be lowercased");
     assert.ok(sentence.split(". ").length >= 2, `${market.id} should be two sentences`);
@@ -244,7 +251,10 @@ test("Singapore's level association is affirmed and its limit is stated", () => 
   assert.ok(singapore !== undefined);
   assert.equal(singapore.evidenceGroup, "level_only_association");
   assert.match(singapore.evidenceStatement, /A level association with crude prices is present/);
-  assert.match(singapore.evidenceStatement, /does not survive removing the elevated-price weeks/);
+  assert.match(
+    singapore.evidenceStatement,
+    /does not survive removing the elevated-price weeks/,
+  );
 });
 
 test("Singapore's evidence group travels in the same object as its editorial panel", () => {
@@ -280,7 +290,10 @@ test("the sentence changes when the flags change, so it cannot go stale", () => 
     caveats: [],
   } as const;
   const detectable = evidenceSentence({ ...base, evidenceGroup: "level_only_association" });
-  const notDetectable = evidenceSentence({ ...base, evidenceGroup: "no_detectable_association" });
+  const notDetectable = evidenceSentence({
+    ...base,
+    evidenceGroup: "no_detectable_association",
+  });
   assert.notEqual(detectable, notDetectable);
   assert.match(detectable, /level association/);
   assert.match(notDetectable, /No association/);
@@ -441,7 +454,11 @@ test("the view model carries no numeric field a reader could rank markets by", (
       .map(([key]) => key);
     // `peakLagWeeks` is the only number, and it is a position in time relative to one
     // shared event — not a magnitude of anything.
-    assert.deepEqual(numericKeys, ["peakLagWeeks"], `${market.id} exposes ${numericKeys.join(", ")}`);
+    assert.deepEqual(
+      numericKeys,
+      ["peakLagWeeks"],
+      `${market.id} exposes ${numericKeys.join(", ")}`,
+    );
   }
 });
 
@@ -567,11 +584,19 @@ test("the guide states the constraints rather than hiding them behind its toggle
   // without interaction, and they are, in the section lead and beside the charts. What is
   // asserted here is that the guide's answers still contain the explanations, so a reader
   // who opens them finds the reasoning rather than a restatement.
-  const answers = HOW_TO_READ_ENTRIES.flatMap((entry) => entry.answer).join(" ").toLowerCase();
+  const answers = HOW_TO_READ_ENTRIES.flatMap((entry) => entry.answer)
+    .join(" ")
+    .toLowerCase();
   assert.ok(answers.includes("first differenc"), "no answer explains first differencing");
-  assert.ok(answers.includes("own highest week equals 100"), "no answer explains normalisation");
+  assert.ok(
+    answers.includes("own highest week equals 100"),
+    "no answer explains normalisation",
+  );
   assert.ok(answers.includes("pump price"), "no answer distinguishes crude from pump price");
-  assert.ok(answers.includes("causing") || answers.includes("cause"), "no answer addresses causation");
+  assert.ok(
+    answers.includes("causing") || answers.includes("cause"),
+    "no answer addresses causation",
+  );
 });
 
 test("the guide's page lead states the four constraints without interaction", () => {

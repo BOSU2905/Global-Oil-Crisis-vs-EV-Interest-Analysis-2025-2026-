@@ -224,15 +224,38 @@ export const annotationLabelsFit = (widthPx: number): boolean => widthPx >= BREA
 // ---------------------------------------------------------------------------
 
 /**
- * Wheel/drag zoom inside the plot.
+ * Drag-to-pan (and touch pinch) inside the plot. The WHEEL is not handled here.
  *
- * `zoomOnMouseWheel: "ctrl"` is two decisions in one value:
+ * WHY ECHARTS NO LONGER ZOOMS ON THE WHEEL — MEASURED, NOT GUESSED
+ * This used to be `zoomOnMouseWheel: "ctrl"`, and a slow, gentle trackpad pinch made
+ * the plot lurch and fight itself. Read in the ECharts 6 source and reproduced in
+ * Chromium against the production build:
  *
- *   - plain wheel keeps scrolling the PAGE. A chart inside a long-scroll article
- *     that swallows the wheel is worse than one that does not zoom at all.
- *   - trackpad pinch arrives as ctrl+wheel in every major browser, so pinch-to-zoom
- *     works with no modifier pressed. The modifier is an accelerator for a mouse,
- *     not a requirement for a trackpad.
+ *   1. `RoamController` IGNORES THE SIZE OF A WHEEL EVENT. Every event becomes a fixed
+ *      step — `|delta| > 3 ? 1.4 : |delta| > 1 ? 1.2 : 1.1` — so a 0.6px pinch tick
+ *      zooms exactly as far as a 100px mouse notch. Measured: thirty 0.6px events
+ *      shrank the window from 100% to 5.7% of the period. "Gentle" was never slow.
+ *   2. EACH STEP IS A 100ms TWEEN, retargeted every 20ms. A pinch emits events far
+ *      faster than one tween completes, and a near-stationary pinch flips sign as the
+ *      fingers settle — each flip a full ±10% step the other way. Measured: 20
+ *      direction reversals in 30 events, and 40 painted frames in which an edge of the
+ *      window moved AGAINST the gesture. That is the visible conflict.
+ *   3. THE PAGE COULD NOT SCROLL PAST A CHART. `roams.js` merges
+ *      `zoomOnMouseWheel: true` onto the shared controller whatever the model says, so
+ *      a plain wheel over the plot was `preventDefault`-ed and then discarded because
+ *      the model wanted Ctrl. Measured: 3 of 3 plain wheel events cancelled, scroll
+ *      position unchanged. The E2E test for it passed only because its pointer never
+ *      reached the plot.
+ *
+ * None of the three is configurable, so `EChart.tsx` owns the wheel: it stops every
+ * wheel event before ECharts sees it, lets a plain wheel scroll the page, and turns
+ * Ctrl + wheel and trackpad pinch into a zoom whose size is proportional to the
+ * gesture (`wheelZoomFactor`). `false` here is belt-and-braces — if a wheel event ever
+ * did reach ECharts, it would still not zoom twice.
+ *
+ * Drag-to-pan and touch pinch stay with ECharts. Both are continuous gestures the
+ * controller handles without the problem above, and touch pinch never arrives as a
+ * wheel event.
  *
  * `filterMode: "none"` zooms the view and keeps every point. `"filter"` would drop
  * observations outside the window, and a series that loses points to a viewport is a
@@ -241,7 +264,7 @@ export const annotationLabelsFit = (widthPx: number): boolean => widthPx >= BREA
 export const insideZoom = (xAxisIndex: readonly number[]): OptionObject => ({
   type: "inside",
   xAxisIndex,
-  zoomOnMouseWheel: "ctrl",
+  zoomOnMouseWheel: false,
   moveOnMouseWheel: false,
   moveOnMouseMove: true,
   preventDefaultMouseMove: false,
@@ -249,6 +272,120 @@ export const insideZoom = (xAxisIndex: readonly number[]): OptionObject => ({
   start: 0,
   end: 100,
 });
+
+// ---------------------------------------------------------------------------
+// Wheel zoom — the gesture mapping `EChart.tsx` applies
+// ---------------------------------------------------------------------------
+
+/**
+ * Wheel distance, in CSS pixels, that changes the zoom by a factor of e.
+ *
+ * Browsers deliver a trackpad pinch as a stream of small Ctrl + wheel events, so a
+ * proportional mapping is what makes a gentle pinch a gentle zoom. At 100px per e-fold a
+ * pinch that sends 69px of wheel delta zooms the chart 2×.
+ */
+export const WHEEL_PX_PER_E_FOLD = 100;
+
+/**
+ * The most a single wheel event may contribute, in pixels.
+ *
+ * A trackpad sends many small events; a mouse sends one large event per notch (100px or
+ * more). Unclamped, one notch would zoom 2.7× — a lurch. Clamped to 20px, a notch is a
+ * ×1.22 step, close to the ×1.2 ECharts used, while a pinch event, which is smaller than
+ * this, stays exactly proportional.
+ */
+export const WHEEL_STEP_LIMIT_PX = 20;
+
+/** `deltaMode` line and page units in pixels. Anything large is clamped regardless. */
+const WHEEL_LINE_PX = 16;
+const WHEEL_PAGE_PX = 400;
+
+/** A wheel event's vertical delta in CSS pixels, whatever unit the browser reported. */
+export function wheelDeltaPx(deltaY: number, deltaMode: number): number {
+  if (!Number.isFinite(deltaY)) return 0;
+  if (deltaMode === 1) return deltaY * WHEEL_LINE_PX;
+  if (deltaMode === 2) return deltaY * WHEEL_PAGE_PX;
+  return deltaY;
+}
+
+/**
+ * The zoom factor for one wheel event: above 1 zooms in, below 1 zooms out.
+ *
+ * Wheel up (negative `deltaY`) zooms in, matching the browser's own Ctrl + wheel and a
+ * pinch spreading apart. The curve is `exp(-delta / 100)`, written as its rational (Padé)
+ * form `(2 + x) / (2 − x)` because the chart layer's safety scan forbids `Math.exp` —
+ * this is gesture mapping, not a statistic, and the two agree within 0.07% over the
+ * clamped range. The form also has the property that matters most: the factor for −x is
+ * the exact reciprocal of the factor for x, so zooming in and back out by the same
+ * distance returns to exactly the same window.
+ */
+export function wheelZoomFactor(deltaPx: number): number {
+  const clamped = Math.max(-WHEEL_STEP_LIMIT_PX, Math.min(WHEEL_STEP_LIMIT_PX, deltaPx));
+  const x = -clamped / WHEEL_PX_PER_E_FOLD;
+  return (2 + x) / (2 - x);
+}
+
+/**
+ * A zoom window in CATEGORY units — week indices from 0 to `intervals` — rather than in
+ * the percentages ECharts speaks.
+ *
+ * The x-axes are category axes, and ECharts rounds a category window to whole weeks before
+ * it draws: whatever percentage is dispatched, the plot shows week 4 to week 27, never
+ * week 4.3. The wheel handler therefore keeps the reader's continuous intent in these
+ * units and decides itself which whole-week window to draw.
+ */
+export interface CategoryWindow {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Zoom a window about an anchor, keeping the anchor where it is on screen.
+ *
+ * `factor` above 1 narrows the window. The span is clamped between `minSpan` and the
+ * full domain, and a window pushed past either end is shifted back rather than squashed,
+ * so zooming out near an edge never changes the span the reader asked for.
+ */
+export function zoomCategoryWindow(
+  current: CategoryWindow,
+  anchor: number,
+  factor: number,
+  intervals: number,
+  minSpan: number,
+): CategoryWindow {
+  const span = current.end - current.start;
+  if (!(factor > 0) || !(span > 0) || !(intervals > 0)) return current;
+  const nextSpan = Math.min(intervals, Math.max(minSpan, span / factor));
+  const ratio = nextSpan / span;
+  let start = anchor - (anchor - current.start) * ratio;
+  let end = start + nextSpan;
+  if (start < 0) {
+    end -= start;
+    start = 0;
+  }
+  if (end > intervals) {
+    start -= end - intervals;
+    end = intervals;
+  }
+  return { start: Math.max(0, start), end: Math.min(intervals, end) };
+}
+
+/**
+ * How far past the halfway point a continuous edge must travel before the drawn edge
+ * moves to the next week, in weeks.
+ *
+ * Without it, a gesture resting near a week boundary flickers between two windows as the
+ * pinch wobbles — the axis's own rounding turning a tremor into a one-week jump back and
+ * forth. With it, moving back requires travelling 0.3 of a week the other way.
+ */
+export const WEEK_SNAP_HYSTERESIS = 0.15;
+
+/** The whole week a drawn edge should sit on, given where the reader's intent now is. */
+export function settleWindowEdge(target: number, current: number): number {
+  return Math.abs(target - current) >= 0.5 + WEEK_SNAP_HYSTERESIS
+    ? Math.round(target)
+    : current;
+}
 
 /**
  * The visible zoom slider.
@@ -351,3 +488,22 @@ export const seriesAnimation = (motion: MotionArgs, index: number): OptionObject
         animationDurationUpdate: 0,
       }
     : { animation: false };
+
+/**
+ * A CSS `<time>` value in milliseconds: `"360ms"` → 360, `".36s"` → 360.
+ *
+ * This exists because of a measured bug. The reset transition read `--duration-slow`
+ * with `parseFloat`, and the production CSS serialises that token as `.36s` — so the
+ * duration was 0.36 MILLISECONDS, the "animated" reset finished on its first frame, and
+ * the four E2E tests asserting that a reset passes through intermediate windows failed
+ * on every run. Returns `NaN` for anything unparseable, so a caller's fallback is
+ * explicit rather than a silent zero.
+ */
+export function cssTimeToMs(value: string): number {
+  const trimmed = value.trim().toLowerCase();
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed)) return Number.NaN;
+  if (trimmed.endsWith("ms")) return parsed;
+  if (trimmed.endsWith("s")) return parsed * 1000;
+  return Number.NaN;
+}
