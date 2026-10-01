@@ -29,6 +29,31 @@ the 2026-09-17 record and are historical: the divergence they describe no longer
 | Commit    | What                                                                     |
 | --------- | ------------------------------------------------------------------------ |
 | `b7a1b19` | Revision 4 (wheel zoom) and gate repairs — unit 314/314, E2E 105/105     |
+| `fa59e57` | Revisions 1, 2, 3, 9 — layout, indicator, Creator, coverage — E2E 114/114 |
+
+**Revisions 1–3 and 9, decided as follows.**
+
+- **Frame.** The `2xl` band grows to 1440px (`--width-page`, `--width-chart`), 75% of a
+  1920px screen (was 66.7%), and chart heights rise to 460/400px there. From `xl` each
+  section is an editorial split (`EDITORIAL` in `layout/contract.ts`): title in a
+  5-column label column, lead and prose in a 7-column reading column, evidence across
+  all twelve. Prose keeps `--width-reading: 68ch`; the width goes to structure, not to
+  longer lines. `SectionHeader` takes `layout="split" | "stacked"`.
+- **Navigation.** `Navigation.tsx` is a fixed dot indicator: right edge from `xl` (in the
+  frame margin, asserted clear of content at 1280/1536/1920), a bottom-right pill below.
+  The current section's dot is elongated — a shape cue — and named in the toggle's
+  accessible description. The menu stays mounted but `inert` + `visibility: hidden` when
+  closed; visibility transitions only on close, because a visibility transition on open
+  blocked focus from landing (measured). The scrollspy is unchanged. It is rendered by
+  `app/page.tsx`, not the shell, because `/creator` has no sections.
+- **Header.** One row at every width, so `--header-height` is one measured 69px and
+  `--header-height-narrow` is gone. `CreatorLink` is a client component only so it can
+  set `aria-current="page"` via `usePathname()`.
+- **Creator page.** `app/creator/page.tsx` carries the README author line and a factual
+  description of the repository — nothing invented. Its design is open for the owner.
+- **Coverage.** `CoverageSummary` is one hairline-divided `<dl>` (period, weekly
+  observations, markets, sources), typed to `DescriptiveMetric`. The country pills were
+  fake controls (chip-shaped, inert); they are now plain text with identity dots.
 
 **Revision 4 — the slow-zoom glitch, root cause measured.** ECharts 6's
 `RoamController` maps every wheel event to a fixed 1.1/1.2/1.4 step whatever its size,
@@ -46,9 +71,14 @@ hysteresis (`settleWindowEdge`). Separately, the reset read `--duration-slow` wi
 `cssTimeToMs` fixes it. `tests/chart-zoom.test.ts` and an E2E "wheel zoom follows the
 gesture" block guard all of it.
 
-Remaining, in order: Revisions 1–3 → 5 → 6 → 8 → 9 → 7 → 10/11/13 → 12 → validation →
-documentation. Environment on this device: Node 24.19.0, npm 11.17.0, Python 3.14.7 venv
-at `.venv` (`pip install -e "pipeline[dev]"`). Git identity via the env vars in §1.
+Remaining, in order: 5 (markets chart lines) → 6 → 8 → 7 → 10/11/13 → 12 → validation →
+documentation. **Note for Revision 5:** `EChart`'s init effect depends on `render`, which
+changes with `buildOption`, so any state in `buildOption`'s dependencies (a legend
+toggle today) disposes and re-creates the chart and loses the zoom window. Hover and
+pinned emphasis must therefore go through `dispatchAction` (highlight/downplay), never
+through an option rebuild. Environment on this device: Node 24.19.0, npm 11.17.0,
+Python 3.14.7 venv at `.venv` (`pip install -e "pipeline[dev]"`). Git identity via the
+env vars in §1. Playwright reuses any server already on :3100 — stop it before E2E.
 
 Phase 3C steps 1–4 of 8 are COMPLETE. Between step 4 and step 5 sit four passes: the
 Windows device-transition fix (typography diagnosis, Windows path defect, line-ending
