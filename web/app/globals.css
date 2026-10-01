@@ -381,4 +381,42 @@
   [data-chart-reveal="entered"] [data-chart-settle] {
     opacity: 1;
   }
+
+  /*
+   * The country selector's pill (Revision 8). One element that TRAVELS between tabs,
+   * rather than five backgrounds that switch on and off: position and width come from
+   * `--pill-x` / `--pill-w`, which `CountryDeepDivePanel` measures from the selected tab.
+   * Its tint is the selected market's identity colour — identity only, the colour that
+   * market's line has in every chart — at a translucent wash. No transition until the
+   * first placement is painted (`data-pill-ready`), so the page never loads with a pill
+   * sliding in from the left edge.
+   */
+  [data-pill] {
+    transform: translate(var(--pill-x, 0px), var(--pill-y, 0px));
+    width: var(--pill-w, 0px);
+    height: var(--pill-h, 0px);
+    background-color: color-mix(in srgb, var(--pill-colour, var(--color-fg)) 10%, transparent);
+    border-color: color-mix(in srgb, var(--pill-colour, var(--color-fg)) 38%, transparent);
+  }
+
+  [data-pill-ready="true"] [data-pill] {
+    transition:
+      transform var(--duration-glide) var(--ease-glide),
+      width var(--duration-glide) var(--ease-glide),
+      height var(--duration-glide) var(--ease-glide),
+      background-color var(--duration-glide) var(--ease-out),
+      border-color var(--duration-glide) var(--ease-out);
+  }
+
+  /* The panel below a changed selection: a short fade and rise, never a slide across. */
+  @keyframes panel-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--panel-rise, 6px));
+    }
+  }
+
+  [data-panel-enter="true"] {
+    animation: panel-enter var(--duration-medium) var(--ease-out);
+  }
 }

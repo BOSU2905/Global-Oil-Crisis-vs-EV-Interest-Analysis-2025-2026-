@@ -731,10 +731,15 @@
   --duration-instant: 80ms;
   --duration-fast: 140ms; /* hover, focus, colour */
   --duration-medium: 200ms; /* disclosure open/close */
+  /* A moving indicator — the country selector's pill. Long enough to read as one object
+     travelling rather than a jump, short enough never to delay a choice. */
+  --duration-glide: 260ms;
   --duration-slow: 360ms; /* section reveal, once only */
 
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-in-out: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  /* Fast start, long soft landing, no overshoot: physical without bounce. */
+  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
 
   --transition-colors:
     color var(--duration-fast) var(--ease-out),
@@ -756,6 +761,7 @@
     --duration-instant: 1ms;
     --duration-fast: 1ms;
     --duration-medium: 1ms;
+    --duration-glide: 1ms;
     --duration-slow: 1ms;
     --reveal-offset: 0px;
   }
