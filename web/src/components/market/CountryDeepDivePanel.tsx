@@ -57,6 +57,8 @@ export function CountryDeepDivePanel({ synthesis, className }: CountryDeepDivePa
   /** False until the reader changes market, so the first render has no entrance. */
   const [changed, setChanged] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  /** False until the pill has been placed once — see the strip scroll below. */
+  const placedRef = useRef(false);
 
   useEffect(() => {
     const sync = () => {
@@ -80,6 +82,14 @@ export function CountryDeepDivePanel({ synthesis, className }: CountryDeepDivePa
   useLayoutEffect(() => {
     const list = listRef.current;
     if (list === null) return;
+    // The FIRST placement never scrolls the strip, and no strip scroll is smooth. Both
+    // are a measured race, not taste: on a deep link the browser scrolls the strip to
+    // the fragment's tab before hydration, the first placement then ran for the DEFAULT
+    // market and smooth-scrolled the strip back towards 0, and the hash selection that
+    // followed measured the strip mid-animation, judged its tab already visible, and let
+    // the animation finish at 0 — the selected tab 10px outside the strip, 1 run in 6.
+    const scrollStrip = placedRef.current;
+    placedRef.current = true;
 
     const place = () => {
       const tab = document.getElementById(marketTabId(market.id));
@@ -93,10 +103,11 @@ export function CountryDeepDivePanel({ synthesis, className }: CountryDeepDivePa
         `var(${SERIES_IDENTITY[market.id].colorVariable})`,
       );
 
-      // Below `sm` the strip scrolls sideways, and a deep-linked or arrow-keyed tab can
-      // sit off its edge (measured at 375px: Singapore half-clipped on load). Scroll the
-      // STRIP, never the page — `scrollIntoView` would also move the page vertically.
-      if (list.scrollWidth > list.clientWidth) {
+      // Below `sm` the strip scrolls sideways, and an arrow-keyed tab or a hash
+      // selection can sit off its edge. Scroll the STRIP, never the page —
+      // `scrollIntoView` would also move the page vertically. Instant: the pill's glide
+      // carries the motion, and an instant scroll has no in-flight position to misread.
+      if (scrollStrip && list.scrollWidth > list.clientWidth) {
         const margin = 8;
         const left = tab.offsetLeft - margin;
         const right = tab.offsetLeft + tab.offsetWidth + margin;
@@ -106,10 +117,7 @@ export function CountryDeepDivePanel({ synthesis, className }: CountryDeepDivePa
             : right > list.scrollLeft + list.clientWidth
               ? right - list.clientWidth
               : list.scrollLeft;
-        if (target !== list.scrollLeft) {
-          const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          list.scrollTo({ left: target, behavior: smooth ? "smooth" : "auto" });
-        }
+        if (target !== list.scrollLeft) list.scrollTo({ left: target, behavior: "auto" });
       }
     };
     place();

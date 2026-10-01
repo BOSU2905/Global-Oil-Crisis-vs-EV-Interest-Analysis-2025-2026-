@@ -155,6 +155,18 @@
   --color-zero-line: var(--neutral-400);
   /* Data that is present but must not be read as equivalent: the partial week. */
   --color-provisional: var(--neutral-400);
+
+  /* --- market map (Revision 7) --- */
+  /* The map is MATERIAL, not data: sea, land, and the raised plates the five markets
+     stand on. Every plate is the same neutral material at the same height — identity
+     colour lives on the equal-size beacons, and reaches a plate only while the reader
+     is looking at that market. Light comes from above: bright tops, darker sides. */
+  --map-sea: var(--neutral-50);
+  --map-land: var(--neutral-150);
+  --map-plate: var(--neutral-0);
+  --map-plate-side: var(--neutral-300);
+  --map-plate-edge: var(--neutral-400);
+  --map-shadow: rgb(11 13 14 / 0.16);
 }
 
 /* ========================================================================== */
@@ -209,6 +221,13 @@
     --color-reference-line: #3d444a;
     --color-zero-line: #4d545a;
     --color-provisional: #6b7278;
+
+    --map-sea: #101315;
+    --map-land: #22272b;
+    --map-plate: #30363b;
+    --map-plate-side: #0d0f11;
+    --map-plate-edge: #4d545a;
+    --map-shadow: rgb(0 0 0 / 0.55);
   }
 }
 
@@ -260,6 +279,13 @@
   --color-reference-line: #3d444a;
   --color-zero-line: #4d545a;
   --color-provisional: #6b7278;
+
+  --map-sea: #101315;
+  --map-land: #22272b;
+  --map-plate: #30363b;
+  --map-plate-side: #0d0f11;
+  --map-plate-edge: #4d545a;
+  --map-shadow: rgb(0 0 0 / 0.55);
 }
 
 /* ========================================================================== */
@@ -749,6 +775,11 @@
 
   /* Scroll-reveal offset. Small: content should never appear to jump. */
   --reveal-offset: 12px;
+
+  /* Gap between the members of a sequenced entrance (the market map's plates and
+     beacons). Short enough to read as one arrival rather than a sequence — the order
+     must not look like it means something. */
+  --stagger: 90ms;
 }
 
 /*
@@ -764,6 +795,9 @@
     --duration-glide: 1ms;
     --duration-slow: 1ms;
     --reveal-offset: 0px;
+    /* Delays are not durations: the blanket rule below shortens every animation but
+       would leave a staggered one waiting. Zero the stagger itself. */
+    --stagger: 0ms;
   }
 
   *,

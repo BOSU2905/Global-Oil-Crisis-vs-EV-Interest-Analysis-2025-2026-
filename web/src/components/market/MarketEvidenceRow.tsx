@@ -71,7 +71,10 @@ export function MarketEvidenceRow({
   ];
 
   return (
-    <Card as={as} className={className}>
+    <Card
+      as={as}
+      className={className === undefined ? "@container" : `@container ${className}`}
+    >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
         <h3 className="text-h4 text-fg">{market.label}</h3>
         <Badge tone="info">{market.category.label}</Badge>
@@ -79,7 +82,10 @@ export function MarketEvidenceRow({
         {market.category.requiresExternalEvidence ? <Badge>Editorial</Badge> : null}
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+      {/* Four across only where the CARD is wide (a container query, not the viewport):
+          the same row sits full-width in a deep dive and in a narrow panel beside the
+          market map, and four columns in a 400px panel wrapped every value. */}
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 @2xl:grid-cols-4">
         {fields.map((field) => (
           <div key={field.label}>
             <dt className="text-label uppercase text-fg-muted">{field.label}</dt>

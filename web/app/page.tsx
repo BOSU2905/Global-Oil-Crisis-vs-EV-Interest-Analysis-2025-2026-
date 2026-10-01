@@ -12,7 +12,7 @@ import { formatWeek } from "../src/components/chart/contract.ts";
 import { NORMALISATION_CAVEAT } from "../src/components/chart/markets-contract.ts";
 import { OilVsWorldwideInterestChart } from "../src/components/chart/OilVsWorldwideInterestChart.tsx";
 import { CountryDeepDivePanel } from "../src/components/market/CountryDeepDivePanel.tsx";
-import { MarketSynthesisList } from "../src/components/market/MarketSynthesisList.tsx";
+import { MarketSynthesisMap } from "../src/components/market/MarketSynthesisMap.tsx";
 import { Container } from "../src/components/layout/Container.tsx";
 import { EDITORIAL } from "../src/components/layout/contract.ts";
 import { Navigation } from "../src/components/layout/Navigation.tsx";
@@ -388,21 +388,24 @@ export default function Home() {
       </Section>
 
       {/*
-        MARKET SYNTHESIS — the five markets as evidence rows.
+        MARKET SYNTHESIS — the five markets on one map.
 
-        Descriptive, not evaluative: no score, no rank, no ordering by a measured value.
-        Each row is a direction within one market, a date, and two classification codes
-        turned into phrases, all read from metrics.json.
+        Descriptive, not evaluative: the map encodes location and nothing else. Every
+        market stands at the same height with a same-size beacon; colour identifies a
+        market, never a value. The evidence in the panel is read from metrics.json.
+
+        "Five different patterns", not "different responses": a response is a reaction to
+        the price, and this analysis establishes no cause.
       */}
       <Section id="market-synthesis">
         <SectionHeader
           sectionId="market-synthesis"
           eyebrow="Market Synthesis"
           title="What the Shock Revealed"
-          lead="Five markets, the same weeks, and five different patterns. The rows below are evidence rather than a ranking: each Google Trends series is scaled to its own maximum, so there is no measure on which one market sits above another."
+          lead="Five markets, one oil shock, five different patterns. The map shows where each market is and nothing more: every market stands at the same height, colour only identifies it, and each Google Trends series is scaled to its own maximum, so there is no measure on which one market sits above another."
         />
         <div className="mt-(--section-header-gap)">
-          <MarketSynthesisList synthesis={synthesis} />
+          <MarketSynthesisMap synthesis={synthesis} />
         </div>
       </Section>
 
