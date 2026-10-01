@@ -2,8 +2,53 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-09-17 — **cross-device sync checkpoint committed locally; the
-push is BLOCKED on a diverged remote. Read §9 "Divergence" before doing anything.**
+**Last updated:** 2026-10-01 (Windows) — **final-polish revision cycle IN PROGRESS.**
+Read "Final-polish cycle" directly below first. The paragraphs after it, up to §0, are
+the 2026-09-17 record and are historical: the divergence they describe no longer exists.
+
+## Final-polish cycle (2026-10-01) — live state
+
+### Reconciled before any change
+
+- `main` = `origin/main` = `854685e` at the start of the cycle, linear history. The §9
+  "Divergence" is **resolved upstream**: `e4374a8` (SF Pro) is on no ref, Geist stands,
+  and there is nothing to integrate.
+- `854685e "Update"` (a user commit, 36 files) was never recorded in this file. It added
+  the five-market chart (`InterestAcrossMarketsChart`, `markets-option.ts`,
+  `markets-contract.ts`, `lib/interest-across-markets.ts`), `echarts-theme.ts`, the
+  `ChartReveal` entrance, a visible zoom slider and an animated reset, How to Read
+  (`HowToRead`, `content/how-to-read.ts`), the market layer (`components/market/*`,
+  `content/markets.ts`, `lib/market-synthesis.ts`) and two unit suites. It also
+  committed `web/tmp-shots.mjs`, a scratch script that failed lint.
+- Gates at `854685e`: unit 301/301, typecheck clean, **lint FAIL**, **format FAIL**
+  (4 files), **E2E 91/99**. Python 191 passed / 1 skipped; ruff, mypy, `--check` clean;
+  artifact digests identical to §9.
+
+### Landed
+
+| Commit    | What                                                                     |
+| --------- | ------------------------------------------------------------------------ |
+| `b7a1b19` | Revision 4 (wheel zoom) and gate repairs — unit 314/314, E2E 105/105     |
+
+**Revision 4 — the slow-zoom glitch, root cause measured.** ECharts 6's
+`RoamController` maps every wheel event to a fixed 1.1/1.2/1.4 step whatever its size,
+and tweens each step over 100ms while new events arrive every 20ms. Thirty 0.6px pinch
+ticks shrank the view to 5.7% of the period, and a pinch whose sign flickered as the
+fingers settled reversed direction 20 times in 30 events. `roams.js` also forces
+`zoomOnMouseWheel: true` onto the shared controller, so a plain wheel over a plot was
+`preventDefault`-ed and the page could not scroll past a chart; the E2E test for it
+passed only because its pointer never reached the plot. Fix: `insideZoom` sets
+`zoomOnMouseWheel: false`; `EChart` owns the wheel in the capture phase — plain wheel
+scrolls, Ctrl + wheel / trackpad pinch zooms by `wheelZoomFactor` (proportional,
+reversible), once per frame, anchored on the pointer, settled onto whole weeks with
+hysteresis (`settleWindowEdge`). Separately, the reset read `--duration-slow` with
+`parseFloat`, and the built CSS serialises it as `.36s` — 0.36ms, so it snapped.
+`cssTimeToMs` fixes it. `tests/chart-zoom.test.ts` and an E2E "wheel zoom follows the
+gesture" block guard all of it.
+
+Remaining, in order: Revisions 1–3 → 5 → 6 → 8 → 9 → 7 → 10/11/13 → 12 → validation →
+documentation. Environment on this device: Node 24.19.0, npm 11.17.0, Python 3.14.7 venv
+at `.venv` (`pip install -e "pipeline[dev]"`). Git identity via the env vars in §1.
 
 Phase 3C steps 1–4 of 8 are COMPLETE. Between step 4 and step 5 sit four passes: the
 Windows device-transition fix (typography diagnosis, Windows path defect, line-ending
