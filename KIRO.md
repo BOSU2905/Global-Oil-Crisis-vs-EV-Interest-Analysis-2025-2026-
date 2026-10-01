@@ -31,6 +31,23 @@ the 2026-09-17 record and are historical: the divergence they describe no longer
 | `b7a1b19` | Revision 4 (wheel zoom) and gate repairs — unit 314/314, E2E 105/105     |
 | `fa59e57` | Revisions 1, 2, 3, 9 — layout, indicator, Creator, coverage — E2E 114/114 |
 | `6762a48` | Revision 5 — solid lines, marker identity, emphasis — unit 323, E2E 122   |
+| `b7c6478` | Revision 6 — one typeface, role rules, chart-title measure — E2E 126      |
+| `8d16e2c` | Revision 8 — selector pill and panel entrance — E2E 136/136               |
+
+**Revision 6.** Geist stays the only family (Sans for every role, Mono only for
+identifiers and axis figures); no display or serif face — reasons and a per-role rule
+table are in `docs/design-system.md` §3. Chart titles got their own measure,
+`--width-chart-title: 40ch`: measured, `1ch` is 13.42px at 20px, so the shared 22ch was a
+300px column that broke the 59-character oil-vs-interest title into three lines. Titles
+now wrap into at most two balanced lines from 768px up (three on a phone) and are never
+shrunk, truncated or `nowrap` (unit + E2E enforced).
+
+**Revision 8.** The deep-dive selection is one translucent pill that travels to the
+chosen tab (`--duration-glide` 260ms, `--ease-glide`, no overshoot), tinted with the
+market's identity colour; geometry goes through CSS custom properties, so a move costs
+no React render. The panel re-keys and fades/rises 6px on a change, not on load. Two
+phone defects fixed on the way: a deep-linked tab sat half outside the scrolling strip,
+and the strip clipped the focus ring. Covered by the new `e2e/market.e2e.ts`.
 
 **Revision 5, decided as follows.**
 
@@ -99,8 +116,7 @@ hysteresis (`settleWindowEdge`). Separately, the reset read `--duration-slow` wi
 `cssTimeToMs` fixes it. `tests/chart-zoom.test.ts` and an E2E "wheel zoom follows the
 gesture" block guard all of it.
 
-Remaining, in order: 6 (typography: Geist decision, chart-title rules) → 8 (selector pill)
-→ 7 (market map) → 10/11/13 → 12 → validation → documentation. Environment on this device:
+Remaining, in order: 7 (market map) → 10/11/13 → 12 → validation → documentation. Environment on this device:
 Node 24.19.0, npm 11.17.0, Python 3.14.7 venv at `.venv` (`pip install -e "pipeline[dev]"`).
 Git identity via the env vars in §1. Playwright reuses any server already on :3100 — stop
 it before E2E.
