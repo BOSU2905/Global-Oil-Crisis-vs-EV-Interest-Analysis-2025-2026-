@@ -2,10 +2,10 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-10-02 (Linux) — **final-polish revision cycle IN PROGRESS: Batch 1
-of 4 COMPLETE, awaiting the user's review; Batch 2 not started.** Read "Final-polish cycle"
-directly below first. The paragraphs after it, up to §0, are the 2026-09-17 record and are
-historical: the divergence they describe no longer exists.
+**Last updated:** 2026-10-02 (Linux) — **final-polish revision cycle IN PROGRESS: Batches 1
+and 2 of 4 COMPLETE, Batch 2 awaiting the user's review; Batch 3 not started.** Read
+"Final-polish cycle" directly below first. The paragraphs after it, up to §0, are the
+2026-09-17 record and are historical: the divergence they describe no longer exists.
 
 ## Final-polish cycle (2026-10-01) — live state
 
@@ -17,8 +17,8 @@ this file updated, and **one local commit** (no push). Then **stop** for the use
 
 | Batch | Scope                                                                                       | State       |
 | ----- | ------------------------------------------------------------------------------------------- | ----------- |
-| 1     | Charts: five-market zoom smoothness (measured first, regression-tested, re-measured after); tooltip in Geist; axis titles unified; "Oil peak" off the axis title; one wording for the shaded band | **COMPLETE** — see "Batch 1" below; awaiting review |
-| 2     | Layout A1–A3, before/after at 375/768/1024/1280/1440/1920; keep the editorial composition unless evidence says otherwise | not started — NEXT, after the user accepts Batch 1 |
+| 1     | Charts: five-market zoom smoothness (measured first, regression-tested, re-measured after); tooltip in Geist; axis titles unified; "Oil peak" off the axis title; one wording for the shaded band | **COMPLETE** — accepted |
+| 2     | Layout A1–A3, before/after at 375/768/1024/1280/1440/1920; keep the editorial composition unless evidence says otherwise | **COMPLETE** — see "Batch 2" below; awaiting review |
 | 3     | Market Synthesis map, direction B — only after Batches 1–2 are reviewed and accepted        | not started |
 | 4     | Full validation (item E) and documentation (the drift listed below)                         | not started |
 
@@ -190,9 +190,98 @@ listed under Phase 0 (Batch 4) — except design-system §3/§5 rows this batch 
 are updated. The five-market scene still costs more per frame than Brent's under a 4×
 throttle (p95 ≈ 35ms against ≈ 17ms); it now spends that on a glide rather than on jumps.
 
-**Next step:** STOP for the user's review of Batch 1. On acceptance, Batch 2 (layout
-A1–A3): capture "before" screenshots at 375 / 768 / 1024 / 1280 / 1440 / 1920 from a build
-of this commit first, then fix, then "after" at the same widths. Nothing is pushed.
+**Next step at the time:** Batch 2 (layout A1–A3). Superseded by the "Batch 2" section
+below, which records what was actually done.
+
+### Batch 2 — Layout A1–A3 (COMPLETE, 2026-10-02; the commit is the "Batch 2" row under
+"Landed")
+
+Measured first on a production build of the Batch 1 commit, before any change, at all six
+widths Phase 0 named (375/768/1024/1280/1440/1920). Scratch scripts and screenshots in
+`/tmp/kiro-b2/`, not durable. One file changed: `web/app/page.tsx`.
+
+**A1 — Observation Scope.** Confirmed as a real defect, not a rendering quirk. `scope`'s
+`SectionHeader` used the default `split` layout, so from `xl` its lead sat in the reading
+column (`EDITORIAL.reading`) while `CoverageSummary` below it — the section's actual
+evidence — rendered as a plain full-width sibling, outside the editorial grid entirely.
+Measured at 1920px: lead left edge 864px, panel cell left edges 265/613/961/1308px — the
+lead's own left edge landed inside the SECOND cell's span. The panel could not reasonably
+move into the reading column: `CoverageSummary` is a four-cell evidence panel, closer in
+kind to a chart than to prose, and `EDITORIAL` itself names "evidence" as full-frame
+content; narrowing it to 7 of 12 columns to match the lead was rejected without even
+building it, because the "Markets" cell lists five country names and a ~45% narrower
+column risks exactly the cramped wrapping the brief warned against. The lead moved instead:
+`SectionHeader`'s existing `layout="stacked"` prop (already used by `comparability`) keeps
+the eyebrow, title and lead on one left edge at every width, matching the full-width panel
+beneath them. One prop added, no new markup, no new token. Confirmed null below `xl`:
+screenshots at 768/1024px are pixel-identical before and after, because `layout="stacked"`
+was already how the section rendered there (`EDITORIAL.grid` is inert under 1280px).
+
+**A2 — the editorial heading/body sections (how-to-read, ev-interest-markets,
+market-synthesis, structure).** Measured, not assumed: at `xl` each one's title column
+(eyebrow + heading, ~484px wide) is only 92–160px tall — the height of the heading plus a
+little clearance — while the reading column beside it runs 92–450px, however long that
+section's lead is. The empty space Phase 0 flagged is real (visually confirmed with section
+crops at 1920px: `how-to-read`'s void is roughly 370px tall, `market-synthesis`'s roughly
+230px) but it sits ONLY beside the lead paragraph's own height, not beside the evidence
+below — the chart, the map, the question list and the narrative-structure list all render
+as full-width siblings AFTER the grid row, not beside it. `layout/contract.ts`'s own
+documented rationale for `EDITORIAL.grid` is "the space beside a 700px paragraph is used by
+structure rather than left as a void" — which states an intent this code does not yet
+deliver on, since nothing occupies that column today. **Left unchanged.** Filling it would
+mean adding a new structural element (a number, a rule, a decorative mark) to four
+sections, which the brief explicitly reserves ("do not introduce new content… unless a
+genuine content/layout issue requires it") and which the user asked to be judged visually
+rather than assumed. Visual review at 1920/1280px (section crops; mobile confirmed
+unaffected, since the grid is inert below `xl`) found the void reads as generous margin
+around a short lead, not as a broken layout, a wrapping defect or an alignment problem —
+and removing it would mean either shortening the title column's measure (fighting the
+"wider desktop composition" the user asked to keep) or stacking every heading over its body
+(abandoning the editorial split the user said they like). Documented here rather than
+changed, per the instruction to leave an unclear-benefit change alone and say why.
+
+**A3 — Comparability Constraint.** Confirmed as excess margin, re-framed from Phase 0's
+"9.2px high" baseline reading. That number came from comparing the two paragraphs'
+BASELINES (bottom of the glyphs), which is misleading when the two font sizes differ this
+much (32px heading, 15px body): measuring GLYPH TOPS instead, with the original `xl:mt-8`
+(32px), the body's first line began 8px below the title's own text — already correctly
+below it, not above. Rendered at 1920/1280px, this read as slightly loose rather than
+misaligned. Tried `items-baseline` on the grid row first, since that is what
+`SectionHeader`'s own split uses for the title/lead pair in every other section — rejected
+after measuring it: `SectionHeader` renders the eyebrow and the heading as two stacked
+lines in one block, so CSS Grid's `items-baseline` (each item's OWN first line box) aligned
+the body to the EYEBROW, not the heading, moving the body ABOVE the title (measured 79px
+against 112px from the row's top) — the opposite direction. A hand-rolled replacement for
+`SectionHeader` was drafted and reverted: it would have dropped this title from
+`tests/layout-contract.test.ts`'s Title-Case scan, which matches the `eyebrow="…"` /
+`title="…"` JSX props literally rather than rendered text. Landed on `xl:mt-6` (24px) in
+place of `xl:mt-8` (32px) — both existing steps on the spacing scale (`--space-6`,
+`--space-8`; `mt-7` does not exist as a generated utility and was rejected for that reason
+alone) — chosen by rendering both side by side at 1920 and 1280px: at 24px the body reads
+as the title's argument, at 32px as a caption trailing it with a gap. Confirmed null below
+`xl` (768/1024/375 screenshots identical before and after; the margin is only `xl:`-prefixed).
+
+**Screenshots, all six widths, before and after.** `scope` and `comparability` section
+crops at 375/768/1024/1280/1440/1920px; full-page captures at the same six widths to check
+for horizontal overflow (`document.documentElement.scrollWidth > innerWidth`, false at every
+width, both before and after). `how-to-read`, `ev-interest-markets`, `market-synthesis` and
+`structure` crops at 1920/375px, used only for the A2 visual judgement above — no code
+changed in those sections, and the measurement script's recorded left-edge and gap figures
+for them are byte-identical before and after.
+
+**Validation.** `npm run verify` exit 0 — typecheck, lint, unit 348/348 (unchanged from
+Batch 1: no test asserts the specific margin values or layout prop touched here), format;
+`next build` clean; Playwright 155/155 (unchanged from Batch 1, fresh build). Python: pytest
+191 passed / 1 skipped, ruff + format clean, mypy clean, `pipeline.build --check` all 4
+artifacts up to date; `git status --short` against `pipeline/`, `data/`, `web/src/data/`,
+`web/src/lib/` and `reports/` is empty. The complete diff is one file,
+`web/app/page.tsx`, two hunks (`scope`, `comparability`); nothing else changed.
+
+**Not done here (by scope).** A2 is a documented non-change, not deferred work — see above.
+The map (Batch 3) and the doc drift from Phase 0 (Batch 4) are untouched.
+
+**Next step:** STOP for the user's review of Batch 2. On acceptance, Batch 3 (the Market
+Synthesis map, direction B).
 
 ### Reconciled before any change
 
@@ -221,6 +310,7 @@ of this commit first, then fix, then "after" at the same widths. Nothing is push
 | `8d16e2c` | Revision 8 — selector pill and panel entrance — E2E 136/136               |
 | `b76cc10` | Revision 7 — market synthesis map — unit 335/335, E2E 144/144             |
 | `fix: keep chart zoom gliding…` | **Batch 1** — zoom motion states, Geist chart type, annotations — unit 348/348, E2E 155/155. One commit per batch: its own hash is not written here (amending to add it would change it); read it with `git log -1 --format=%h --grep "keep chart zoom gliding"` |
+| `fix: align Scope's lead and tighten Comparability's gap…` | **Batch 2** — layout A1 (Scope lead), A3 (Comparability gap); A2 investigated and left unchanged, documented — unit 348/348, E2E 155/155. Read with `git log -1 --format=%h --grep "align Scope's lead"` |
 
 **Revision 7.** The five synthesis cards became a map, a key and a panel. The map
 encodes location only: Natural Earth 1:110m via `world-atlas` 2.0.2, Equal Earth

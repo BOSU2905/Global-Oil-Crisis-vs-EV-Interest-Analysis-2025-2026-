@@ -231,11 +231,21 @@ export default function Home() {
 
       {/* Scope: what this analysis covers, read from the artifacts rather than typed. */}
       <Section id="scope">
+        {/*
+          STACKED, NOT SPLIT. Every other split heading sits above prose confined to the
+          reading column, so the lead and the body share one left edge from `xl`. Here the
+          body is `CoverageSummary`, full-width evidence like a chart — and the split lead
+          floated alone in the reading column above it, with no element below sharing its
+          edge: measured at 1920px, its left edge (864px) landed inside the second coverage
+          cell's span (613-961px). Stacking keeps the eyebrow, title and lead on one left
+          edge, the same edge the full-width panel below already uses.
+        */}
         <SectionHeader
           sectionId="scope"
           eyebrow="Coverage"
           title="Observation Scope"
           lead="One crude-price benchmark and six independent search-interest series, compared week by week."
+          layout="stacked"
         />
 
         <CoverageSummary items={coverageItems} className="mt-(--section-header-gap)" />
@@ -314,6 +324,17 @@ export default function Home() {
           A full-frame banner from `xl`: the heading in the label column and the
           constraint itself in the reading column, so the guardrail gets the page's
           width without its prose getting wider than the measure.
+
+          THE BODY'S TOP MARGIN IS TIGHTER THAN IT WAS: `xl:mt-6` (24px) in place of
+          `xl:mt-8` (32px), both existing steps on the spacing scale. Measured side by side
+          at 1920/1280px: at 32px the body's first line sits visibly below the title's cap
+          height, reading as a caption trailing the heading rather than its argument; at
+          24px the two read as a pair, with the callout's own padding still giving the
+          block room to breathe. `items-baseline` on the row was tried and rejected —
+          `SectionHeader` renders the eyebrow and the heading as two stacked lines in one
+          block, so CSS Grid's per-item first-line-box alignment lines the body up with the
+          EYEBROW, not the heading, and moved it the wrong way (measured 79px against the
+          heading's 112px, from the row's top).
         */}
         <Callout tone="warning" kind="Guardrail">
           <div className={`mt-3 ${EDITORIAL.grid}`}>
@@ -325,7 +346,7 @@ export default function Home() {
               className={EDITORIAL.label}
             />
             <div className={`max-w-reading ${EDITORIAL.reading}`}>
-              <p className="mt-(--section-header-gap) text-small text-fg-secondary xl:mt-8">
+              <p className="mt-(--section-header-gap) text-small text-fg-secondary xl:mt-6">
                 {comparability.explanation}
               </p>
               <p className="mt-3 text-small text-fg-secondary">
