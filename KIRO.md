@@ -33,6 +33,31 @@ the 2026-09-17 record and are historical: the divergence they describe no longer
 | `6762a48` | Revision 5 — solid lines, marker identity, emphasis — unit 323, E2E 122   |
 | `b7c6478` | Revision 6 — one typeface, role rules, chart-title measure — E2E 126      |
 | `8d16e2c` | Revision 8 — selector pill and panel entrance — E2E 136/136               |
+| `b76cc10` | Revision 7 — market synthesis map — unit 335/335, E2E 144/144             |
+
+**Revision 7.** The five synthesis cards became a map, a key and a panel. The map
+encodes location only: Natural Earth 1:110m via `world-atlas` 2.0.2, Equal Earth
+projection (equal-area, so the projection itself enlarges no market), read once by
+`web/scripts/build-map-geometry.ts` into committed path data (24 KB; input SHA-256s
+recorded in the file; no runtime geography dependency). The four outlinable markets
+stand as raised plates of ONE neutral material at ONE height (stacked SVG outline layers
+plus a blurred shadow; no WebGL). Identity colour sits on equal-size beacons in each
+market's chart marker shape. Singapore is absent at 1:110m and has a beacon only. Colour
+tints a plate only while that market is active. **By default nothing is selected** and the
+panel lists all five classifications, so every classification is visible without
+interaction and the page singles out no market. Selection: a 110ms rest, a click, or the
+key (real `aria-pressed` buttons). Release: Escape, pressing again, or "Show all five
+markets". The SVG is `aria-hidden`; the key and an `aria-live` line carry the control and
+the content. The entrance plays once on scroll, in reading order, `--stagger` 90ms
+(0ms under reduced motion), and never replays a map already on screen. The section lead
+says "five different patterns", not the brief's "different responses": a response is a
+reaction to the price, which this analysis does not establish. Tests:
+`tests/market-map.test.ts` (10) and the "market map" block in `e2e/market.e2e.ts` (8).
+
+Found while building it: a race in the Revision 8 selector. On a deep link, the first
+placement smooth-scrolled the strip back toward 0 while the hash selection measured the
+strip mid-animation (1 run in 6). The first placement no longer scrolls the strip, and
+strip scrolls are instant.
 
 **Revision 6.** Geist stays the only family (Sans for every role, Mono only for
 identifiers and axis figures); no display or serif face — reasons and a per-role rule
@@ -116,7 +141,8 @@ hysteresis (`settleWindowEdge`). Separately, the reset read `--duration-slow` wi
 `cssTimeToMs` fixes it. `tests/chart-zoom.test.ts` and an E2E "wheel zoom follows the
 gesture" block guard all of it.
 
-Remaining, in order: 7 (market map) → 10/11/13 → 12 → validation → documentation. Environment on this device:
+Remaining, in order: 10/11/13 (colour accents, motion system, affordance audit) → 12
+(reading-preference evaluation) → full validation → documentation. Environment on this device:
 Node 24.19.0, npm 11.17.0, Python 3.14.7 venv at `.venv` (`pip install -e "pipeline[dev]"`).
 Git identity via the env vars in §1. Playwright reuses any server already on :3100 — stop
 it before E2E.
