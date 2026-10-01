@@ -1100,3 +1100,239 @@ test.describe("entrance motion", () => {
     await context.close();
   });
 });
+
+/**
+ * THE FIVE-MARKET CHART: IDENTITY AND EMPHASIS — Revision 5.
+ *
+ * Every line is solid and identified by colour + marker + label; a market lifts only
+ * when the reader points at it (legend hover or focus, a dwell on its line) or pins it
+ * (a click on its line, or its number key). Emphasis is published on the wrapper as
+ * `data-emphasised` / `data-pinned`, because the lines themselves are canvas.
+ */
+const MARKETS_WRAPPER =
+  '[data-chart-canvas="true"][aria-describedby="ev-interest-markets-chart-description"]';
+const marketsRegion = (page: Page) => page.locator(MARKETS_WRAPPER);
+const marketsFigure = (page: Page) => page.locator("figure", { has: marketsRegion(page) });
+const emphasis = (page: Page) => page.locator("[data-emphasised]");
+
+/** The markets chart's painted line vertices, per stroke colour, in page coordinates. */
+const RECORD_LINES = `
+(() => {
+  window.__lines = {};
+  const P = CanvasRenderingContext2D.prototype;
+  const target = () => document.querySelector(${JSON.stringify(MARKETS_WRAPPER)});
+  let points = [];
+  const tx = (ctx, x, y) => {
+    const m = ctx.getTransform();
+    const d = window.devicePixelRatio || 1;
+    const r = ctx.canvas.getBoundingClientRect();
+    return [r.left + (m.a * x + m.c * y + m.e) / d, r.top + (m.b * x + m.d * y + m.f) / d];
+  };
+  const mine = (ctx) => { const t = target(); return t !== null && t.contains(ctx.canvas); };
+  const ob = P.beginPath, om = P.moveTo, ol = P.lineTo, os = P.stroke;
+  P.beginPath = function () { if (mine(this)) points = []; return ob.apply(this, arguments); };
+  P.moveTo = function (x, y) { if (mine(this)) points.push(tx(this, x, y)); return om.apply(this, arguments); };
+  P.lineTo = function (x, y) { if (mine(this)) points.push(tx(this, x, y)); return ol.apply(this, arguments); };
+  P.stroke = function () {
+    if (mine(this) && points.length > 12) window.__lines[String(this.strokeStyle)] = points.slice();
+    return os.apply(this, arguments);
+  };
+})();`;
+
+async function openMarkets(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(RECORD_LINES);
+  await page.goto("/");
+  await marketsRegion(page).scrollIntoViewIfNeeded();
+  await expect(marketsRegion(page)).toHaveAttribute("data-entrance", /done|reduced/, {
+    timeout: 6000,
+  });
+}
+
+/** A vertex of a market's painted line, by stroke colour, at a given week index. */
+async function lineVertex(page: Page, colour: string, index: number) {
+  return page.evaluate(
+    ([stroke, at]) => {
+      const lines = (window as unknown as { __lines: Record<string, number[][]> }).__lines;
+      const point = lines[stroke as string]?.[at as number];
+      return point === undefined ? null : { x: point[0] ?? 0, y: point[1] ?? 0 };
+    },
+    [colour, index] as const,
+  );
+}
+
+test.describe("five-market chart: identity and emphasis", () => {
+  test("every legend swatch is a solid line carrying the market's own marker", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const legend = marketsFigure(page).getByRole("button", { name: /peak/ });
+    await expect(legend).toHaveCount(5);
+    for (const button of await legend.all()) {
+      // A marker glyph on every swatch, and no dashed rule anywhere in the legend.
+      await expect(button.locator("svg path")).toHaveCount(1);
+      const dashed = await button.evaluate(
+        (node) =>
+          [...node.querySelectorAll<HTMLElement>("span")].filter(
+            (span) => getComputedStyle(span).borderTopStyle === "dashed",
+          ).length,
+      );
+      expect(dashed).toBe(0);
+    }
+    // Five different shapes: the non-colour cue for the closest colour pair.
+    const shapes = await legend.evaluateAll((nodes) =>
+      nodes.map((node) => node.querySelector("svg path")?.getAttribute("d") ?? ""),
+    );
+    expect(new Set(shapes).size).toBe(5);
+  });
+
+  test("nothing is emphasised until the reader points at a market", async ({ page }) => {
+    await openMarkets(page);
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+  });
+
+  test("hovering or focusing a legend entry lifts that market, leaving lets go", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const singapore = marketsFigure(page).getByRole("button", { name: /^Singapore/ });
+
+    await singapore.hover();
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "singapore");
+    await page.mouse.move(4, 4);
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+
+    // Keyboard parity: focus is a hover a keyboard can reach.
+    await singapore.focus();
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "singapore");
+    await singapore.blur();
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+  });
+
+  test("a number key pins a market, announced; again, 0, Escape or Reset let go", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const region = marketsRegion(page);
+    const status = marketsFigure(page).getByRole("status");
+    await region.focus();
+
+    await page.keyboard.press("5");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "us");
+    await expect(status).toContainText("United States pinned");
+    await expect(
+      marketsFigure(page).getByRole("button", { name: /^United States/ }),
+    ).toContainText("Pinned");
+
+    await page.keyboard.press("5");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+    await expect(status).toHaveText("");
+
+    await page.keyboard.press("2");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "malaysia");
+    await page.keyboard.press("0");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+
+    await page.keyboard.press("3");
+    await page.keyboard.press("Escape");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+
+    await page.keyboard.press("4");
+    await marketsFigure(page).getByRole("button", { name: "Reset view" }).click();
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+  });
+
+  test("a pin survives zooming and stepping; hiding the market releases it", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const region = marketsRegion(page);
+    await region.focus();
+    await page.keyboard.press("1");
+    await page.keyboard.press("+");
+    await page.keyboard.press("ArrowRight");
+    await expect(region).not.toHaveAttribute("data-zoom-end", "100");
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "indonesia");
+
+    await marketsFigure(page)
+      .getByRole("button", { name: /^Indonesia/ })
+      .click();
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+  });
+
+  test("a legend toggle keeps the zoom window and the same chart instance", async ({
+    page,
+  }) => {
+    // The defect: `buildOption` was a dependency of the init effect, so a toggle
+    // disposed the instance and the window snapped back to 0–100 on a new canvas.
+    await openMarkets(page);
+    const region = marketsRegion(page);
+    await region.focus();
+    await page.keyboard.press("+");
+    await page.keyboard.press("+");
+    const zoomed = await region.getAttribute("data-zoom-end");
+    expect(zoomed).not.toBe("100");
+    await region.evaluate((node) => {
+      (window as unknown as { __canvas?: Element | null }).__canvas =
+        node.querySelector("canvas");
+    });
+
+    await marketsFigure(page)
+      .getByRole("button", { name: /^Norway/ })
+      .click();
+    await page.waitForTimeout(300);
+    await expect(region).toHaveAttribute("data-zoom-end", zoomed ?? "");
+    const same = await region.evaluate(
+      (node) =>
+        (window as unknown as { __canvas?: Element | null }).__canvas ===
+        node.querySelector("canvas"),
+    );
+    expect(same).toBe(true);
+  });
+
+  test("clicking a line pins it, and a drag-pan that ends on a line does not", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    // Indonesia's line, early in the period, where it sits well clear of the others.
+    const vertex = await lineVertex(page, "#db2777", 3);
+    expect(vertex).not.toBeNull();
+
+    await page.mouse.click(vertex!.x, vertex!.y);
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "indonesia");
+    await page.mouse.click(vertex!.x, vertex!.y);
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+
+    // Press on empty plot just below the line, drag onto it, release: a pan, not a pin.
+    // Early in the period Indonesia is the lowest line, so below it nothing is drawn.
+    await page.mouse.move(vertex!.x + 60, vertex!.y + 22);
+    await page.mouse.down();
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+  });
+
+  test("resting on a line lifts it; passing over one does not", async ({ page }) => {
+    await openMarkets(page);
+    const vertex = await lineVertex(page, "#db2777", 3);
+    expect(vertex).not.toBeNull();
+
+    // Passing over: in and straight out again, faster than the dwell. The "away" point is
+    // just below Indonesia's line, where — early in the period — no line is drawn.
+    const away = { x: vertex!.x, y: vertex!.y + 22 };
+    await page.mouse.move(away.x, away.y);
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 2 });
+    await page.mouse.move(away.x, away.y, { steps: 2 });
+    await page.waitForTimeout(300);
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+
+    // Resting: the line lifts after the dwell, and lets go after the pointer leaves.
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 2 });
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "indonesia");
+    await page.mouse.move(away.x, away.y, { steps: 2 });
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+  });
+});

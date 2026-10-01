@@ -21,8 +21,159 @@
  * a token-to-option translation.
  */
 
-import type { ChartTheme } from "../../styles/chart-language.ts";
+import type { ChartTheme, MarkerShape } from "../../styles/chart-language.ts";
 import { BREAKPOINTS } from "../../styles/chart-language.ts";
+
+// ---------------------------------------------------------------------------
+// Marker shapes — the non-colour identity of a series, drawn the same everywhere
+// ---------------------------------------------------------------------------
+
+/**
+ * SVG path data for each marker, in a 10×10 box. ONE geometry for every place a marker
+ * appears — the legend swatch, the tooltip swatch, the hover dot and the peak marker — so
+ * a reader who learns "the triangle is Malaysia" in one place can use it in all of them.
+ *
+ * WHY MARKERS CARRY THE REDUNDANT CUE NOW
+ * Country lines used to differ by dash pattern as well as colour. Revision 5 made every
+ * line solid: the only solid line was the United States', which read as THE series with
+ * four secondary ones, and dashes read as "uncertain". Colour is still never the only
+ * cue (product-architecture.md §5 rule 7), so the shape does that job instead.
+ */
+export const MARKER_PATH: Readonly<Record<Exclude<MarkerShape, "none">, string>> = {
+  circle: "M5 0.5A4.5 4.5 0 1 1 5 9.5A4.5 4.5 0 1 1 5 0.5Z",
+  square: "M0.75 0.75H9.25V9.25H0.75Z",
+  triangle: "M5 0.5L9.75 9.5H0.25Z",
+  diamond: "M5 0L10 5L5 10L0 5Z",
+  cross: "M3.6 0H6.4V3.6H10V6.4H6.4V10H3.6V6.4H0V3.6H3.6Z",
+};
+
+/**
+ * The ECharts `symbol` for a marker.
+ *
+ * Every marker is drawn from `MARKER_PATH` as a `path://` symbol rather than through
+ * ECharts' built-in names, and that fixes a measured defect: `"square"` and `"cross"` are
+ * not ECharts symbol names, and an unknown name silently falls back to `"rect"` — so
+ * Singapore's and Norway's hover markers were the same square.
+ */
+export function echartsSymbol(marker: MarkerShape): string {
+  return `path://${MARKER_PATH[marker === "none" ? "circle" : marker]}`;
+}
+
+/** A marker as an inline SVG string, for the HTML tooltip. */
+export function markerSvg(marker: MarkerShape, colour: string, sizePx = 10): string {
+  const path = MARKER_PATH[marker === "none" ? "circle" : marker];
+  return (
+    `<svg width="${String(sizePx)}" height="${String(sizePx)}" viewBox="0 0 10 10" ` +
+    `aria-hidden="true" style="display:inline-block;vertical-align:middle;margin-right:8px">` +
+    `<path d="${path}" fill="${colour}"/></svg>`
+  );
+}
+
+/**
+ * An option without some of its top-level keys.
+ *
+ * `EChart` uses it to apply an UPDATE — a legend toggle, an emphasis change — without
+ * touching the reader's zoom window: dropping `dataZoom` from a merged option leaves the
+ * dataZoom models, and therefore the window, exactly as they are.
+ */
+export function optionWithout(option: OptionObject, keys: readonly string[]): OptionObject {
+  const omit = new Set(keys);
+  const kept: Record<string, OptionValue> = {};
+  for (const [key, value] of Object.entries(option)) {
+    if (!omit.has(key)) kept[key] = value;
+  }
+  return kept;
+}
+
+// ---------------------------------------------------------------------------
+// Line hit-testing — which line the pointer is on
+// ---------------------------------------------------------------------------
+
+/** A line series' id and its plotted values, verbatim. */
+export interface LineSeriesValues {
+  readonly id: string;
+  readonly values: readonly (number | null)[];
+}
+
+/**
+ * The line series of a built option, for hit-testing. Read straight from the option the
+ * chart is drawing, so the hit test can never disagree with the plot.
+ */
+export function lineSeriesOf(option: OptionObject): readonly LineSeriesValues[] {
+  const series = option["series"];
+  if (!Array.isArray(series)) return [];
+  const lines: LineSeriesValues[] = [];
+  for (const entry of series as readonly OptionObject[]) {
+    const { id, type, data } = entry;
+    if (type !== "line" || typeof id !== "string" || !Array.isArray(data)) continue;
+    const values = (data as readonly OptionValue[]).map((value) =>
+      typeof value === "number" ? value : null,
+    );
+    lines.push({ id, values });
+  }
+  return lines;
+}
+
+/**
+ * How close, in CSS pixels, the pointer must be to a drawn line to be "on" it.
+ *
+ * Measured, not chosen by feel. ECharts' own hit band for a 2px line was about 3px tall
+ * and sat ABOVE the drawn stroke — a vertical sweep through a vertex hit only at −6px and
+ * −3px — and at the vertex itself the temporary hover marker took the pointer instead. So
+ * hover and click on the line were unreliable. A geometric test against the drawn
+ * segments, 7px either side, is forgiving on a 2px line and narrower than the gap
+ * between most pairs of lines.
+ */
+export const LINE_HIT_PX = 7;
+
+/** A point on the plot, in CSS pixels relative to the chart. */
+export interface PlotPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The SQUARED distance from a point to a segment. Squared, because comparing squares
+ * needs no square root — and the chart layer's safety scan forbids `Math.sqrt` outright.
+ */
+export function squaredDistanceToSegment(point: PlotPoint, a: PlotPoint, b: PlotPoint): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = dx * dx + dy * dy;
+  const along = length === 0 ? 0 : ((point.x - a.x) * dx + (point.y - a.y) * dy) / length;
+  const t = Math.min(1, Math.max(0, along));
+  const ex = point.x - (a.x + t * dx);
+  const ey = point.y - (a.y + t * dy);
+  return ex * ex + ey * ey;
+}
+
+/**
+ * The line nearest the pointer, if any drawn segment of it is within `threshold` pixels;
+ * otherwise `null`. Each line is given as the vertices around the pointer, in order.
+ * Nearest rather than first, so where two lines run close together the one the pointer
+ * is on wins; a tie keeps the earlier line, i.e. registry order.
+ */
+export function nearestLine(
+  pointer: PlotPoint,
+  lines: readonly { readonly id: string; readonly vertices: readonly PlotPoint[] }[],
+  threshold: number = LINE_HIT_PX,
+): string | null {
+  let best: string | null = null;
+  let bestDistance = threshold * threshold;
+  for (const line of lines) {
+    for (let i = 1; i < line.vertices.length; i += 1) {
+      const a = line.vertices[i - 1];
+      const b = line.vertices[i];
+      if (a === undefined || b === undefined) continue;
+      const distance = squaredDistanceToSegment(pointer, a, b);
+      if (distance < bestDistance || (distance === bestDistance && best === null)) {
+        best = line.id;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best;
+}
 
 // ---------------------------------------------------------------------------
 // Option shape

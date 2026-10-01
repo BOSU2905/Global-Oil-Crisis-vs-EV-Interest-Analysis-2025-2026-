@@ -21,10 +21,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  LINE_HIT_PX,
   WEEK_SNAP_HYSTERESIS,
   WHEEL_STEP_LIMIT_PX,
   cssTimeToMs,
+  nearestLine,
+  optionWithout,
   settleWindowEdge,
+  squaredDistanceToSegment,
   wheelDeltaPx,
   wheelZoomFactor,
   zoomCategoryWindow,
@@ -161,4 +165,64 @@ test("a tremor around a week boundary cannot flip the drawn edge back and forth"
   }
   // It may move forward once; it must never come back.
   assert.ok(changes.length <= 1, `the edge changed ${String(changes.length)} times`);
+});
+
+// ---------------------------------------------------------------------------
+// Line hit-testing and in-place updates — Revision 5
+// ---------------------------------------------------------------------------
+
+test("squared distance to a segment: perpendicular, beyond the ends, degenerate", () => {
+  const a = { x: 0, y: 0 };
+  const b = { x: 10, y: 0 };
+  assert.equal(squaredDistanceToSegment({ x: 5, y: 3 }, a, b), 9);
+  // Beyond an end, the distance is to that end, not to the infinite line.
+  assert.equal(squaredDistanceToSegment({ x: 13, y: 4 }, a, b), 25);
+  assert.equal(squaredDistanceToSegment({ x: 3, y: 4 }, a, a), 25);
+});
+
+test("the nearest line within the band wins; nothing outside the band is hit", () => {
+  const lines = [
+    {
+      id: "low",
+      vertices: [
+        { x: 0, y: 100 },
+        { x: 40, y: 100 },
+      ],
+    },
+    {
+      id: "high",
+      vertices: [
+        { x: 0, y: 90 },
+        { x: 40, y: 90 },
+      ],
+    },
+  ];
+  assert.equal(nearestLine({ x: 20, y: 97 }, lines), "low");
+  assert.equal(nearestLine({ x: 20, y: 93 }, lines), "high");
+  // Equidistant: the earlier line, i.e. registry order.
+  assert.equal(nearestLine({ x: 20, y: 95 }, lines), "low");
+  assert.equal(nearestLine({ x: 20, y: 100 + LINE_HIT_PX + 1 }, lines), null);
+  assert.equal(nearestLine({ x: 20, y: 100 }, []), null);
+});
+
+test("a sloped segment is hit along its length, not only near its vertices", () => {
+  const lines = [
+    {
+      id: "rising",
+      vertices: [
+        { x: 0, y: 100 },
+        { x: 100, y: 0 },
+      ],
+    },
+  ];
+  assert.equal(nearestLine({ x: 52, y: 52 }, lines), "rising");
+  assert.equal(nearestLine({ x: 70, y: 70 }, lines), null);
+});
+
+test("an update leaves the zoom window alone by dropping dataZoom from the merge", () => {
+  const option = { series: [], dataZoom: [{ start: 0, end: 100 }], grid: {} };
+  const merged = optionWithout(option, ["dataZoom"]);
+  assert.deepEqual(Object.keys(merged).sort(), ["grid", "series"]);
+  // The original is untouched.
+  assert.ok("dataZoom" in option);
 });

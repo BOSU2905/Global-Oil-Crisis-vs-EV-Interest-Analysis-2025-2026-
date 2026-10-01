@@ -19,6 +19,11 @@ interface ChartControlsProps {
    * accelerators. Without one the hint has to name the only gesture there is.
    */
   readonly hasZoomSlider?: boolean;
+  /**
+   * Chart-specific gestures to name after the shared ones — e.g. how to pin a market.
+   * Same rule as the rest of the hint: only gestures a reader could not discover alone.
+   */
+  readonly hints?: readonly string[];
   readonly className?: string;
 }
 
@@ -57,6 +62,7 @@ export function ChartControls({
   onToggleTable,
   tablePanelId,
   hasZoomSlider,
+  hints,
   className,
 }: ChartControlsProps) {
   const classes = ["flex flex-wrap items-center gap-2"];
@@ -71,6 +77,7 @@ export function ChartControls({
   if (capabilities.pan) gestures.push("drag the plot to pan");
   if (capabilities.zoom) gestures.push("+ / − keys to zoom");
   if (capabilities.inspect) gestures.push("arrow keys to step");
+  if (hints !== undefined) gestures.push(...hints);
 
   return (
     <div className={classes.join(" ")}>

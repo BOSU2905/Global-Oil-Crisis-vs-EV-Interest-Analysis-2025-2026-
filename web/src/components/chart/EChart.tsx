@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useRef,
   useState,
@@ -28,6 +29,9 @@ import { resolveChartTheme, type ChartTheme } from "../../styles/chart-language.
 import { BREAKPOINTS } from "../../styles/chart-language.ts";
 import {
   cssTimeToMs,
+  lineSeriesOf,
+  nearestLine,
+  optionWithout,
   settleWindowEdge,
   wheelDeltaPx,
   wheelZoomFactor,
@@ -67,6 +71,26 @@ const FULL_WINDOW = { start: 0, end: 100 } as const;
 
 /** Smallest window a keyboard zoom may produce, as a percentage of the domain. */
 const MIN_WINDOW_SPAN = 8;
+
+/**
+ * How a build reaches the live chart. The distinction is what stops a legend toggle or a
+ * hover from costing the reader their zoom window.
+ *
+ *   rebuild  first build, layout-band change, theme change: `notMerge`, because the two
+ *            layouts have different axis and grid counts; the zoom window is read first
+ *            and re-applied after
+ *   update   a new option on the SAME layout — a legend toggle, an emphasis change:
+ *            merged in, series replaced by id, and `dataZoom` left out entirely, so the
+ *            window is never touched and the tooltip stays where it is
+ *   resize   the box changed but the band did not: `resize()` only
+ */
+type RenderMode = "rebuild" | "update" | "resize";
+
+/**
+ * Pointer travel, in CSS pixels, after which a press is a drag rather than a click. A
+ * drag-pan that ends over a line must not also pin it.
+ */
+const CLICK_SLOP_PX = 4;
 
 /** Fallback when `--duration-slow` cannot be read. Matches the token's value. */
 const RESET_DURATION_FALLBACK_MS = 360;
@@ -165,6 +189,14 @@ interface EChartProps {
   readonly describedById: string;
   readonly handleRef?: RefObject<EChartHandle | null>;
   /**
+   * The series id of the line under the pointer, and `null` when it leaves every line.
+   * For hover emphasis. Decided geometrically against the drawn segments (`nearestLine`),
+   * because ECharts' own hit band for a thin line was measured to sit beside the stroke.
+   */
+  readonly onLineHover?: (seriesId: string | null) => void;
+  /** A click or tap on a line — never the end of a drag-pan. For pinning. */
+  readonly onLineClick?: (seriesId: string) => void;
+  /**
    * Height utilities. A class rather than a style value, because the height is
    * banded: `--chart-height-mobile` below `md`, `--chart-height-standard` above.
    * design-system §5 adapts charts by band, and a continuously scaling height makes
@@ -212,6 +244,8 @@ export function EChart({
   ariaLabel,
   describedById,
   handleRef,
+  onLineHover,
+  onLineClick,
   className,
 }: EChartProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -225,6 +259,8 @@ export function EChart({
   const resetFrameRef = useRef(0);
   /** The wheel gesture in progress, or `null` between gestures. */
   const wheelRef = useRef<WheelGesture | null>(null);
+  /** The option last applied, so a hit test reads exactly the values being drawn. */
+  const optionRef = useRef<OptionObject | null>(null);
   const [visible, setVisible] = useState(false);
 
   /*
@@ -540,87 +576,98 @@ export function EChart({
   );
 
   /**
-   * `buildOption` is a dependency rather than a ref.
+   * Apply the current option to the live chart. An EFFECT EVENT, not a dependency.
    *
-   * An earlier draft mirrored it into a ref and assigned during render, to avoid
-   * re-initialising the instance when the parent re-rendered. `react-hooks/refs`
-   * rejected it, and correctly: a ref written during render can be stale for the
-   * commit that reads it. The dependency is safe because callers memoise
-   * `buildOption` on the selected data, which does not change at runtime — the
-   * artifacts are read at build time.
+   * It used to be a `useCallback` on `buildOption`, and it was a dependency of the init
+   * effect — so every new `buildOption` (a legend toggle) DISPOSED the instance and
+   * created a new one. Measured on both charts: zoomed to 32–68%, toggled one legend
+   * entry, and the window snapped back to 0–100 on a brand-new canvas element. Now the
+   * instance lives exactly as long as the chart is mounted, and a new option is applied
+   * in place by the effect below (`"update"`), which keeps the window and the tooltip.
    */
-  const render = useCallback(
-    (force: boolean) => {
-      const chart = chartRef.current;
-      const wrapper = wrapperRef.current;
-      if (chart === null || wrapper === null) return;
+  const render = useEffectEvent((mode: RenderMode): void => {
+    const chart = chartRef.current;
+    const wrapper = wrapperRef.current;
+    if (chart === null || wrapper === null) return;
 
-      // Measured on the WRAPPER, never on the ECharts container. See the note on
-      // the returned markup: the container is out of flow and always matches the
-      // wrapper, so the wrapper is the only element whose width is the truth.
-      const width = wrapper.clientWidth;
-      const height = wrapper.clientHeight;
-      if (width === 0 || height === 0) return;
+    // Measured on the WRAPPER, never on the ECharts container. See the note on the
+    // returned markup: the container is out of flow and always matches the wrapper, so
+    // the wrapper is the only element whose width is the truth.
+    const width = wrapper.clientWidth;
+    const height = wrapper.clientHeight;
+    if (width === 0 || height === 0) return;
 
-      const theme = themeRef.current;
-      if (theme === null) return;
+    const theme = themeRef.current;
+    if (theme === null) return;
 
-      const band = width >= BREAKPOINTS.md ? "dual-axis" : "stacked-panels";
-      // Published on the wrapper so the rendered layout band is observable. The
-      // decision itself lives in `dualAxisLayout()`; this is how an E2E test can see
-      // which branch ran, since axis titles are drawn into a canvas and cannot be
-      // queried from the DOM.
-      wrapper.dataset["layout"] = band;
+    const band = width >= BREAKPOINTS.md ? "dual-axis" : "stacked-panels";
+    // Published on the wrapper so the rendered layout band is observable. The decision
+    // itself lives in `dualAxisLayout()`; this is how an E2E test can see which branch
+    // ran, since axis titles are drawn into a canvas and cannot be queried from the DOM.
+    wrapper.dataset["layout"] = band;
+    const sameBand = band === bandRef.current;
 
-      if (!force && band === bandRef.current) {
-        // Explicit dimensions rather than letting ECharts re-measure: it would read
-        // the container it has already sized, which is what made the chart unable
-        // to shrink in the first place.
-        chart.resize({ width, height });
-        return;
-      }
-
-      // The entrance is the FIRST build and only the first build. A band change, a
-      // theme change or a legend toggle must update in place — a line that redraws
-      // itself from the left edge every time a reader hides a series is decoration,
-      // not an entrance.
-      const animate = !enteredRef.current && !reducedMotion;
-      // Carry the reader's zoom window across a rebuild. `notMerge` resets dataZoom
-      // to the option's declared 0-100, so without this a resize silently undid a
-      // zoom the reader had set.
-      const previousWindow = bandRef.current === null ? FULL_WINDOW : readWindow();
-
-      bandRef.current = band;
+    if (mode === "resize" && sameBand) {
+      // Explicit dimensions rather than letting ECharts re-measure: it would read the
+      // container it has already sized, which is what made the chart unable to shrink.
       chart.resize({ width, height });
-      // `notMerge` because the two layouts have different axis and grid counts;
-      // merging a one-grid option into a two-grid instance leaves the second grid
-      // behind as an orphan.
-      chart.setOption(buildOption(theme, width, animate), { notMerge: true });
+      return;
+    }
 
-      if (
-        previousWindow.start !== FULL_WINDOW.start ||
-        previousWindow.end !== FULL_WINDOW.end
-      ) {
-        applyWindow(previousWindow);
-      }
+    if (mode === "update" && sameBand) {
+      // Merged, not rebuilt — see `RenderMode`. Leaving `dataZoom` out of the merge is
+      // what keeps the reader's window; replacing series by id is what removes a series
+      // the legend has hidden.
+      const next = buildOption(theme, width, false);
+      optionRef.current = next;
+      chart.setOption(optionWithout(next, ["dataZoom"]), { replaceMerge: ["series"] });
+      return;
+    }
 
-      if (animate) {
-        enteredRef.current = true;
-        wrapper.dataset["entrance"] = "running";
-        // One timer, for one transition, whose length is the option's own entrance
-        // duration plus the stagger — not an arbitrary delay standing in for an
-        // event. ECharts exposes no "animation finished" callback, and the value
-        // published here is only an observable marker: nothing about the chart's
-        // behaviour depends on it.
-        window.setTimeout(() => {
-          if (wrapperRef.current !== null) wrapperRef.current.dataset["entrance"] = "done";
-        }, 1200);
-      } else if (wrapper.dataset["entrance"] === undefined) {
-        enteredRef.current = true;
-        wrapper.dataset["entrance"] = reducedMotion ? "reduced" : "done";
-      }
-    },
-    [applyWindow, buildOption, readWindow, reducedMotion],
+    // The entrance is the FIRST build and only the first build. A band change, a theme
+    // change or a legend toggle must update in place — a line that redraws itself from
+    // the left edge every time a reader hides a series is decoration, not an entrance.
+    const animate = !enteredRef.current && !reducedMotion;
+    // Carry the reader's zoom window across a rebuild. `notMerge` resets dataZoom to the
+    // option's declared 0-100, so without this a resize silently undid the reader's zoom.
+    const previousWindow = bandRef.current === null ? FULL_WINDOW : readWindow();
+
+    bandRef.current = band;
+    chart.resize({ width, height });
+    const built = buildOption(theme, width, animate);
+    optionRef.current = built;
+    chart.setOption(built, { notMerge: true });
+
+    if (previousWindow.start !== FULL_WINDOW.start || previousWindow.end !== FULL_WINDOW.end) {
+      applyWindow(previousWindow);
+    }
+
+    if (animate) {
+      enteredRef.current = true;
+      wrapper.dataset["entrance"] = "running";
+      // One timer, for one transition, whose length is the option's own entrance
+      // duration plus the stagger — not an arbitrary delay standing in for an event.
+      // ECharts exposes no "animation finished" callback, and the value published here
+      // is only an observable marker: nothing about the chart's behaviour depends on it.
+      window.setTimeout(() => {
+        if (wrapperRef.current !== null) wrapperRef.current.dataset["entrance"] = "done";
+      }, 1200);
+    } else if (wrapper.dataset["entrance"] === undefined) {
+      enteredRef.current = true;
+      wrapper.dataset["entrance"] = reducedMotion ? "reduced" : "done";
+    }
+  });
+
+  /** The latest line callbacks, callable from listeners the init effect registers. */
+  const emitLineHover = useEffectEvent((seriesId: string | null): void => {
+    onLineHover?.(seriesId);
+  });
+  const emitLineClick = useEffectEvent((seriesId: string): void => {
+    onLineClick?.(seriesId);
+  });
+  /** Whether anyone is listening — the prototype chart is not, and skips the hit test. */
+  const wantsLineEvents = useEffectEvent(
+    (): boolean => onLineHover !== undefined || onLineClick !== undefined,
   );
 
   // --- mount when genuinely in view ----------------------------------------
@@ -660,7 +707,7 @@ export function EChart({
     const chart = echarts.init(element, undefined, { renderer: "canvas" });
     chartRef.current = chart;
     bandRef.current = null;
-    render(true);
+    render("rebuild");
 
     // Publish the window so an E2E test can assert zoom, pan and reset without
     // reaching into the library or guessing at pixels.
@@ -677,6 +724,75 @@ export function EChart({
     // the page instead of the chart.
     wrapper.addEventListener("wheel", onWheel, { capture: true, passive: false });
 
+    // Line hover and click, for callers that emphasise or pin a series — decided
+    // GEOMETRICALLY against the values being drawn, not by ECharts' element events: its
+    // hit band for a 2px line was measured to sit beside the stroke (see `LINE_HIT_PX`).
+    const lineAt = (offsetX: number, offsetY: number): string | null => {
+      const option = optionRef.current;
+      if (option === null || !wantsLineEvents()) return null;
+      if (!chart.containPixel({ gridIndex: 0 }, [offsetX, offsetY])) return null;
+      const lines = lineSeriesOf(option);
+      const count = lines[0]?.values.length ?? 0;
+      const raw = Number(chart.convertFromPixel({ xAxisIndex: 0 }, offsetX));
+      if (count === 0 || !Number.isFinite(raw)) return null;
+      const at = Math.min(count - 1, Math.max(0, Math.round(raw)));
+      return nearestLine(
+        { x: offsetX, y: offsetY },
+        lines.map((line) => ({
+          id: line.id,
+          vertices: [at - 1, at, at + 1].flatMap((index) => {
+            const value = line.values[index];
+            if (value === undefined || value === null) return [];
+            const pixel = chart.convertToPixel({ seriesId: line.id }, [index, value]);
+            return Array.isArray(pixel) ? [{ x: Number(pixel[0]), y: Number(pixel[1]) }] : [];
+          }),
+        })),
+      );
+    };
+
+    const zr = chart.getZr();
+    let hoveredLine: string | null = null;
+    const onPlotMove = (event: { offsetX: number; offsetY: number }) => {
+      const id = lineAt(event.offsetX, event.offsetY);
+      // A line under the pointer is clickable — it pins — so it gets the pointer cursor.
+      // Registered after ECharts' own roam listener, so this wins over its `grab` cursor.
+      if (id !== null) zr.setCursorStyle("pointer");
+      if (id === hoveredLine) return;
+      hoveredLine = id;
+      emitLineHover(id);
+    };
+    const onPlotOut = () => {
+      if (hoveredLine === null) return;
+      hoveredLine = null;
+      emitLineHover(null);
+    };
+    zr.on("mousemove", onPlotMove);
+    zr.on("globalout", onPlotOut);
+
+    // A press that travelled is a pan, and a pan that ends over a line must not pin it:
+    // the browser still fires `click` after the drag.
+    let pressX = 0;
+    let pressY = 0;
+    let travelled = false;
+    const onPressStart = (event: PointerEvent) => {
+      pressX = event.clientX;
+      pressY = event.clientY;
+      travelled = false;
+    };
+    const onPressMove = (event: PointerEvent) => {
+      if (event.buttons === 0) return;
+      const distance = Math.abs(event.clientX - pressX) + Math.abs(event.clientY - pressY);
+      if (distance > CLICK_SLOP_PX) travelled = true;
+    };
+    wrapper.addEventListener("pointerdown", onPressStart, { capture: true, passive: true });
+    wrapper.addEventListener("pointermove", onPressMove, { capture: true, passive: true });
+    const onPlotClick = (event: { offsetX: number; offsetY: number }) => {
+      if (travelled) return;
+      const id = lineAt(event.offsetX, event.offsetY);
+      if (id !== null) emitLineClick(id);
+    };
+    zr.on("click", onPlotClick);
+
     let frame = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onResize = () => {
@@ -685,7 +801,7 @@ export function EChart({
         if (frame !== 0) cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           frame = 0;
-          render(false);
+          render("resize");
         });
       }, 100);
     };
@@ -696,13 +812,14 @@ export function EChart({
     const resizeObserver = new ResizeObserver(onResize);
     resizeObserver.observe(wrapper);
 
-    // Dark mode changes every resolved colour, so the theme is re-read and the
-    // option rebuilt. Once per change, never per render.
+    // Dark mode changes every resolved colour, so the theme is re-read and the option
+    // rebuilt — including the slider, which a merged update would leave in the old
+    // colours. `bandRef` is NOT reset: that sentinel means "first build", and resetting
+    // it here used to discard the reader's zoom window on every theme change.
     const scheme = window.matchMedia("(prefers-color-scheme: dark)");
     const onScheme = () => {
       themeRef.current = resolveChartTheme(readVariable);
-      bandRef.current = null;
-      render(true);
+      render("rebuild");
     };
     scheme.addEventListener("change", onScheme);
 
@@ -714,12 +831,29 @@ export function EChart({
       resizeObserver.disconnect();
       scheme.removeEventListener("change", onScheme);
       wrapper.removeEventListener("wheel", onWheel, { capture: true });
+      wrapper.removeEventListener("pointerdown", onPressStart, { capture: true });
+      wrapper.removeEventListener("pointermove", onPressMove, { capture: true });
       cancelWheel();
       chart.off("dataZoom", publishWindow);
+      zr.off("mousemove", onPlotMove);
+      zr.off("globalout", onPlotOut);
+      zr.off("click", onPlotClick);
       chart.dispose();
       chartRef.current = null;
+      optionRef.current = null;
     };
-  }, [visible, render, readWindow, onWheel, cancelWheel]);
+    // `render` and the line callbacks are effect events, so they are not dependencies:
+    // nothing about a new option may re-create the instance. See `render`.
+  }, [visible, readWindow, onWheel, cancelWheel]);
+
+  // --- a new option, applied in place ---------------------------------------
+  // A legend toggle or an emphasis change produces a new `buildOption`; a reduced-motion
+  // change alters what the next build may animate. Neither re-creates the instance: the
+  // option is merged into the live chart, keeping the zoom window and the tooltip.
+  // Before the chart has mounted `render` returns at once.
+  useEffect(() => {
+    render("update");
+  }, [buildOption, reducedMotion]);
 
   // --- imperative handle for the external controls --------------------------
   useImperativeHandle(

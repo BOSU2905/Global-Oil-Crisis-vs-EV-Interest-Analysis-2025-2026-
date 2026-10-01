@@ -40,8 +40,13 @@ export const MARKETS_AXIS_TITLE = "Search interest index (0–100, per market)";
  *                  five values for one week is what makes the comparison possible
  *   legendToggle   five lines is the most a reader can hold at once; isolating two
  *                  of them is how a shape gets checked without the others in the way
- *   highlight      off: with five series, dimming four on every hover is motion the
- *                  reader did not ask for, and the tooltip already names all five
+ *   highlight      ON since the final-polish cycle. It used to be off because dimming
+ *                  four lines on every pointer move was motion nobody asked for — so it
+ *                  is NOT tied to pointer position: a market lifts only when its legend
+ *                  entry is hovered or focused, its own line is hovered (after a short
+ *                  dwell, so crossing a line does not flash it), or the reader pins it
+ *                  by clicking the line or pressing its number. Identity only — it never
+ *                  restates a level, and the axis is unchanged
  *   brush          off: nothing to publish a range to yet
  *   exportData     off: the tabular fallback already exposes every row
  */
@@ -51,7 +56,7 @@ export const MARKETS_INTERACTIONS: ChartInteractionCapabilities = {
   reset: true,
   inspect: true,
   legendToggle: true,
-  highlight: false,
+  highlight: true,
   brush: false,
   exportData: false,
 };

@@ -112,19 +112,25 @@ test("every series has a distinct marker shape", () => {
   assert.equal(new Set(markers).size, markers.length, "marker shapes must be unique");
 });
 
-test("the five countries have distinct dash patterns", () => {
+test("every country line is solid — a dash means provisional data, nothing else", () => {
+  // Revision 5: five dash patterns with one solid line made the United States read as the
+  // primary series. Identity is colour + marker + direct label; dashes are reserved for
+  // the partial week, so a dashed line has one meaning across the product.
   const countries = SERIES_IDS.filter((id) => !SERIES_IDENTITY[id].isAggregate);
-  const dashes = countries.map((id) => JSON.stringify(SERIES_IDENTITY[id].dash));
-  assert.equal(new Set(dashes).size, dashes.length, "dash patterns must be unique");
+  for (const id of countries) {
+    assert.equal(SERIES_IDENTITY[id].dash, null, `${id} is drawn dashed`);
+  }
 });
 
-test("the closest colour pair is separated by dash pattern", () => {
-  // Cyan (Singapore) and blue (United States) are the nearest hues in the
-  // palette, so they must not both be solid lines.
+test("the closest colour pair is separated by marker shape", () => {
+  // Cyan (Singapore) and blue (United States) are the nearest hues in the palette, so
+  // the shape is what tells them apart when the colour does not.
   const singapore = seriesIdentity("singapore");
   const us = seriesIdentity("us");
-  assert.notDeepEqual(singapore.dash, us.dash);
   assert.notEqual(singapore.marker, us.marker);
+  for (const id of SERIES_IDS.filter((series) => !SERIES_IDENTITY[series].isAggregate)) {
+    assert.notEqual(SERIES_IDENTITY[id].marker, "none", `${id} has no marker`);
+  }
 });
 
 test("exactly one series is an aggregate", () => {

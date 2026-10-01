@@ -22,10 +22,18 @@
  *      follows it, so nothing is drawn "on top" as a matter of importance.
  *
  * FIVE LINES AND THE COLOURBLIND PAIR
- * `SERIES_IDENTITY` gives every market a colour, a dash pattern and a marker shape,
- * and this builder uses all three. That is not belt-and-braces: cyan (Singapore) and
- * blue (United States) are the closest hues in the palette, so the dash is what tells
- * them apart when the colour does not.
+ * Every line is solid, and `SERIES_IDENTITY` gives every market a colour and a marker
+ * shape, which this builder uses for the hover dot and the peak marker; the legend and
+ * the tooltip draw the same shape. Cyan (Singapore) and blue (United States) are the
+ * closest hues in the palette, so the shape is what tells them apart when the colour
+ * does not. Dashes used to do that job, and made the only solid line — the United
+ * States' — read as the primary series.
+ *
+ * EMPHASIS IS INTERACTION STATE, NOT DATA
+ * Hovering or pinning a market lifts its line and dims the others (`emphasised`). It is
+ * driven only by where the reader points, it is off by default, and the axis stays the
+ * measure's own 0-100 domain for every line — so prominence can never be read as more
+ * interest, a stronger relationship or a rank.
  *
  * PEAK ANNOTATION, DELIBERATELY QUIET
  * Five labelled peaks on one plot collide at every width — the two February peaks are
@@ -52,8 +60,10 @@ import {
   annotationLabelsFit,
   axisCommon,
   dashArray,
+  echartsSymbol,
   figureText,
   insideZoom,
+  markerSvg,
   proseText,
   pxFor,
   seriesAnimation,
@@ -83,9 +93,25 @@ export interface BuildMarketsOptionArgs {
    * a market cannot rescale the rest.
    */
   readonly hiddenMarkets?: readonly CountryId[];
+  /**
+   * Markets the reader is focusing on — hovered in the legend or on the plot, pinned by a
+   * click or a number key. Empty means no emphasis: every line at its default weight.
+   *
+   * IDENTITY ONLY. Emphasis says "this is the line you are pointing at", nothing about
+   * the market: it never follows a measured value, it is never applied by default, and
+   * every line keeps the measure's own 0-100 axis. Width and opacity are interaction
+   * state, so they cannot be read as a level, a strength or a rank.
+   */
+  readonly emphasised?: readonly CountryId[];
   /** True exactly once per mount. False under `prefers-reduced-motion`. */
   readonly animate?: boolean;
 }
+
+/**
+ * Line opacity with no emphasis active. Slightly under 1, so five saturated identity
+ * hues read as a set rather than as five competing signals; emphasis lifts one to 1.
+ */
+export const MARKET_LINE_OPACITY = 0.9;
 
 /** One entry from ECharts' `trigger: "axis"` callback. */
 interface AxisTooltipParam {
@@ -115,6 +141,29 @@ export const marketSeriesName = (data: MarketsChartData): Readonly<Record<string
 };
 
 // ---------------------------------------------------------------------------
+// Emphasis — interaction state, decided in one place
+// ---------------------------------------------------------------------------
+
+/** How one market's line is drawn right now. */
+export type EmphasisState = "default" | "emphasised" | "dimmed";
+
+/**
+ * A market's emphasis state.
+ *
+ * With nothing emphasised every line is `default`. With anything emphasised, the
+ * emphasised markets lift and every other VISIBLE market dims — never the reverse, and
+ * never as a function of the data. Exported so the option, the tooltip and the tests
+ * share one rule rather than three.
+ */
+export function emphasisState(
+  id: CountryId,
+  emphasised: readonly CountryId[] | undefined,
+): EmphasisState {
+  if (emphasised === undefined || emphasised.length === 0) return "default";
+  return emphasised.includes(id) ? "emphasised" : "dimmed";
+}
+
+// ---------------------------------------------------------------------------
 // Tooltip — the synchronised weekly readout
 // ---------------------------------------------------------------------------
 
@@ -137,11 +186,6 @@ export function buildMarketsTooltipFormatter(
   const byWeek = new Map(data.weeks.map((week) => [week.weekStart, week]));
   const hidden = new Set(args.hiddenMarkets ?? []);
 
-  const swatch = (colour: string, dash: readonly number[] | null): string =>
-    `<span style="display:inline-block;width:12px;height:0;border-top:2px ` +
-    `${dash === null ? "solid" : "dashed"} ${colour};vertical-align:middle;` +
-    `margin-right:8px"></span>`;
-
   return (weekStart: string): string => {
     const week = byWeek.get(weekStart);
     if (week === undefined) return "";
@@ -158,10 +202,14 @@ export function buildMarketsTooltipFormatter(
       const identity = SERIES_IDENTITY[market.id];
       const colour = resolveColour(identity.colorVariable);
       const isPeak = market.peakWeek === week.weekStart;
+      // A dimmed market's row recedes with its line, so the readout and the plot agree
+      // about what the reader is looking at. Every row is still present and readable.
+      const dimmed = emphasisState(market.id, args.emphasised) === "dimmed";
       rows.push(
         `<div style="display:flex;align-items:baseline;justify-content:space-between;` +
-          `gap:16px;margin-top:6px"><span style="color:${theme.tooltipMutedFg}">` +
-          `${swatch(colour, identity.dash)}${market.label}</span>` +
+          `gap:16px;margin-top:6px${dimmed ? ";opacity:0.55" : ""}">` +
+          `<span style="color:${theme.tooltipMutedFg}">` +
+          `${markerSvg(identity.marker, colour)}${market.label}</span>` +
           `<span style="color:${theme.tooltipFg};font-variant-numeric:tabular-nums">` +
           `${formatMarketIndex(week.values[market.id])}` +
           (isPeak ? `<span style="color:${theme.tooltipMutedFg}"> · own peak</span>` : "") +
@@ -207,6 +255,19 @@ function marketSeries(
   const motion = { animate: args.animate !== false };
   const names = marketSeriesName(data);
 
+  const state = emphasisState(market.id, args.emphasised);
+  const dimmedOpacity = Number.parseFloat(theme.dimmedOpacity);
+  const opacity =
+    state === "emphasised"
+      ? 1
+      : state === "dimmed"
+        ? Number.isFinite(dimmedOpacity)
+          ? dimmedOpacity
+          : MARKET_LINE_OPACITY
+        : MARKET_LINE_OPACITY;
+  const width = px(state === "emphasised" ? theme.lineWidthEmphasis : theme.lineWidth);
+  const symbol = echartsSymbol(identity.marker);
+
   return {
     id: market.id,
     name: names[market.id],
@@ -217,36 +278,42 @@ function marketSeries(
     data: data.weeks.map((week) => week.values[market.id]),
     connectNulls: false,
     showSymbol: false,
-    symbol: identity.marker === "none" ? "circle" : identity.marker,
+    // The hover dot takes the market's own marker shape — the non-colour cue.
+    symbol,
     symbolSize: px(theme.pointRadius) * 2,
-    lineStyle: {
-      color: colour,
-      width: px(theme.lineWidth),
-      // Redundant encoding #1. Cyan and blue are the closest pair in the palette.
-      type: identity.dash === null ? "solid" : [...identity.dash],
-    },
-    itemStyle: { color: colour },
+    // Every value is EXPLICIT on every build, including the defaults. `EChart` merges
+    // an update into the live chart, and a property left out of a merge keeps its old
+    // value — so leaving out `opacity` when emphasis ends would leave the line dimmed.
+    lineStyle: { color: colour, width, opacity, type: "solid" },
+    itemStyle: { color: colour, opacity },
     emphasis: {
       focus: "none",
-      lineStyle: { width: px(theme.lineWidthEmphasis) },
+      // A visual no-op on purpose. The axis pointer puts EVERY line into its emphasis
+      // state while the pointer is anywhere on the plot (ECharts' LineView.highlight),
+      // so a wider emphasis line would thicken all five at once. Prominence is decided
+      // by `emphasised` alone.
+      lineStyle: { width },
       itemStyle: { borderWidth: 0 },
     },
-    // The peak, marked and not labelled. A hollow marker at the artifact's own peak
-    // week: visible without a hover, and incapable of colliding with four others.
+    // The peak, marked and not labelled: the market's own marker, hollow, at the
+    // artifact's peak week. Visible without a hover, and unable to collide with four
+    // labels.
     markPoint: {
       silent: true,
-      symbol: "circle",
+      symbol,
       symbolSize: px(theme.pointRadiusEmphasis) * 2,
       itemStyle: {
         color: "transparent",
         borderColor: colour,
         borderWidth: px(theme.lineWidth),
+        opacity,
       },
       label: { show: false },
       data: [{ xAxis: market.peakWeek, yAxis: peakValue(data, market.id) }],
     },
     ...seriesAnimation(motion, index),
-    z: 2 + index,
+    // The emphasised line draws on top; otherwise registry order, which carries no rank.
+    z: state === "emphasised" ? 10 : 2 + index,
   };
 }
 
@@ -296,7 +363,10 @@ function regimeBand(args: BuildMarketsOptionArgs): OptionObject {
         // across five lines the label lands on the data. The note under the chart names
         // the window's start and end weeks in words.
         show: annotationLabelsFit(args.widthPx),
-        position: "insideTop",
+        // Bottom, not top: every series peaks at 100 by construction, and at the top of
+        // the band the label sat on Singapore's peak marker (8 Mar). In the band's weeks
+        // the lowest line is well above the axis, so the bottom edge is empty.
+        position: "insideBottom",
         formatter: "Elevated crude price",
         ...proseText(theme.regimeLabelFg, theme.annotationSize, px),
       },

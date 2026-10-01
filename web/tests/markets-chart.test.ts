@@ -46,12 +46,19 @@ import {
   toMarketTableCells,
 } from "../src/components/chart/markets-contract.ts";
 import {
+  MARKET_LINE_OPACITY,
   buildMarketsOption,
   buildMarketsTooltipFormatter,
+  emphasisState,
   marketSeriesName,
 } from "../src/components/chart/markets-option.ts";
 import type { OptionObject } from "../src/components/chart/echarts-theme.ts";
-import { AXIS_LABEL_MARGIN, GRID_PADDING } from "../src/components/chart/echarts-theme.ts";
+import {
+  AXIS_LABEL_MARGIN,
+  GRID_PADDING,
+  echartsSymbol,
+  lineSeriesOf,
+} from "../src/components/chart/echarts-theme.ts";
 import { SERIES_IDENTITY } from "../src/styles/chart-language.ts";
 import {
   CHART_TOKENS,
@@ -207,25 +214,129 @@ test("hiding a market removes its line and cannot rescale the others", () => {
 // Colour is never the only cue
 // ---------------------------------------------------------------------------
 
-test("each market carries its own colour, dash and marker from the identity table", () => {
+test("each market carries its own colour and marker, and every line is solid", () => {
   const built = option(1280);
-  const dashes: string[] = [];
+  const symbols: string[] = [];
   for (const market of data.series) {
     const identity = SERIES_IDENTITY[market.id];
     const series = seriesById(built, market.id);
     const lineStyle = series["lineStyle"] as OptionObject;
     assert.equal(lineStyle["color"], `colour(${identity.colorVariable})`);
-    dashes.push(JSON.stringify(lineStyle["type"]));
-    assert.equal(series["symbol"], identity.marker);
+    assert.equal(lineStyle["type"], "solid", `${market.id} is not drawn solid`);
+    assert.equal(series["symbol"], echartsSymbol(identity.marker));
+    symbols.push(String(series["symbol"]));
   }
-  assert.equal(new Set(dashes).size, dashes.length, "two markets share a dash pattern");
+  // The measured defect this fixes: "square" and "cross" are not ECharts symbol names,
+  // both fell back to "rect", and Singapore and Norway shared a hover marker.
+  assert.equal(new Set(symbols).size, symbols.length, "two markets share a marker");
+  for (const symbol of symbols) assert.match(symbol, /^path:\/\/M/);
 });
 
-test("the closest colour pair is separated by dash, in the built option", () => {
+test("the closest colour pair is separated by marker, in the built option", () => {
   const built = option(1280);
-  const singapore = (seriesById(built, "singapore")["lineStyle"] as OptionObject)["type"];
-  const us = (seriesById(built, "us")["lineStyle"] as OptionObject)["type"];
-  assert.notDeepEqual(singapore, us, "cyan and blue must not both be solid");
+  assert.notEqual(seriesById(built, "singapore")["symbol"], seriesById(built, "us")["symbol"]);
+  // And the peak marker uses the same shape as the hover dot.
+  for (const id of ["singapore", "us"] as const) {
+    const series = seriesById(built, id);
+    assert.equal((series["markPoint"] as OptionObject)["symbol"], series["symbol"]);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Emphasis is interaction state, never data
+// ---------------------------------------------------------------------------
+
+// The stub gives every `*Width` token "2px", which would make "the emphasised line is
+// wider" untestable; this theme separates the two width tokens so the binding shows.
+const emphasisTheme: ChartTheme = { ...theme, lineWidth: "2px", lineWidthEmphasis: "3px" };
+
+const emphasised = (ids: readonly (typeof COUNTRY_IDS)[number][]): OptionObject =>
+  buildMarketsOption({
+    data,
+    theme: emphasisTheme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+    emphasised: ids,
+  });
+
+const styleOf = (built: OptionObject, id: string) =>
+  seriesById(built, id)["lineStyle"] as OptionObject;
+
+test("with nothing emphasised, every line is drawn identically", () => {
+  const built = option(1280);
+  const styles = data.series.map((market) => styleOf(built, market.id));
+  for (const style of styles) {
+    assert.equal(style["opacity"], MARKET_LINE_OPACITY);
+    assert.equal(style["width"], styles[0]?.["width"]);
+  }
+  for (const market of data.series) assert.equal(emphasisState(market.id, []), "default");
+});
+
+test("an emphasised market lifts and the others dim — and nothing else moves", () => {
+  const plain = option(1280);
+  const built = emphasised(["singapore"]);
+  const lifted = styleOf(built, "singapore");
+  assert.equal(lifted["opacity"], 1);
+  assert.equal(lifted["width"], 3, "the emphasised line takes --chart-line-width-emphasis");
+  assert.equal(styleOf(built, "us")["width"], 2, "the others keep --chart-line-width");
+  assert.ok(Number(seriesById(built, "singapore")["z"]) > Number(seriesById(built, "us")["z"]));
+  for (const id of ["indonesia", "malaysia", "norway", "us"]) {
+    assert.ok(Number(styleOf(built, id)["opacity"]) < MARKET_LINE_OPACITY, `${id} not dimmed`);
+  }
+  // The data, the axis and the peaks are identical with and without emphasis: it is
+  // interaction state, and it must not be able to restate a level or a rank.
+  for (const market of data.series) {
+    assert.deepEqual(
+      seriesById(built, market.id)["data"],
+      seriesById(plain, market.id)["data"],
+    );
+    assert.deepEqual(
+      ((seriesById(built, market.id)["markPoint"] as OptionObject)["data"] as unknown[])[0],
+      ((seriesById(plain, market.id)["markPoint"] as OptionObject)["data"] as unknown[])[0],
+    );
+  }
+  assert.deepEqual(asArray(built["yAxis"], "yAxis")[0], asArray(plain["yAxis"], "yAxis")[0]);
+});
+
+test("every style value is explicit, so a merged update can always revert emphasis", () => {
+  // `EChart` MERGES updates into the live chart; a property absent from the merge keeps
+  // its previous value. Default lines must therefore state their opacity and width.
+  for (const market of data.series) {
+    const style = styleOf(option(1280), market.id);
+    assert.equal(typeof style["opacity"], "number");
+    assert.equal(typeof style["width"], "number");
+    const ring = (seriesById(option(1280), market.id)["markPoint"] as OptionObject)[
+      "itemStyle"
+    ] as OptionObject;
+    assert.equal(typeof ring["opacity"], "number");
+  }
+});
+
+test("the axis pointer's emphasis state cannot thicken every line at once", () => {
+  // ECharts puts every line into its emphasis state while the pointer is on the plot, so
+  // the emphasis width must equal the current width or all five would thicken together.
+  for (const built of [option(1280), emphasised(["us"])]) {
+    for (const market of data.series) {
+      const series = seriesById(built, market.id);
+      const emphasis = (series["emphasis"] as OptionObject)["lineStyle"] as OptionObject;
+      assert.equal(emphasis["width"], (series["lineStyle"] as OptionObject)["width"]);
+      assert.equal((series["emphasis"] as OptionObject)["focus"], "none");
+    }
+  }
+});
+
+test("the hit test reads exactly the values the chart draws", () => {
+  // `EChart` decides which line the pointer is on from the built option itself, so the
+  // hit test cannot disagree with the plot. Hidden markets have no line to hit.
+  const lines = lineSeriesOf(option(1280, ["norway"]));
+  assert.deepEqual(
+    lines.map((line) => line.id),
+    COUNTRY_IDS.filter((id) => id !== "norway"),
+  );
+  for (const line of lines) {
+    assert.deepEqual(line.values, seriesById(option(1280), line.id)["data"]);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -421,9 +532,10 @@ test("the declared interactions are coherent and include a reset", () => {
   assert.equal(MARKETS_INTERACTIONS.pan, true);
   assert.equal(MARKETS_INTERACTIONS.reset, true);
   assert.equal(MARKETS_INTERACTIONS.legendToggle, true);
-  // Off, deliberately: with five series, dimming four on every hover is motion the
-  // reader did not ask for.
-  assert.equal(MARKETS_INTERACTIONS.highlight, false);
+  // ON since the final-polish cycle (Revision 5). It was off because dimming four lines
+  // on every pointer move is motion nobody asked for, so emphasis is NOT pointer-position
+  // driven: it follows a legend entry, a dwell on the line itself, or an explicit pin.
+  assert.equal(MARKETS_INTERACTIONS.highlight, true);
 });
 
 test("a visible zoom slider is declared alongside the inside-zoom accelerator", () => {

@@ -133,8 +133,9 @@
    * the set cannot be read as good-vs-bad.
    *
    * Cyan (Singapore) and blue (United States) are the closest pair. Colour is
-   * therefore never the only cue: every country series must ALSO carry a dash
-   * pattern and a direct label. See chart-language.ts.
+   * therefore never the only cue: every country series must ALSO carry a marker
+   * shape and a direct label. Lines are solid — a dash means provisional data and
+   * nothing else. See chart-language.ts.
    */
   --color-country-indonesia: var(--hue-pink-600);
   --color-country-malaysia: var(--hue-violet-600);

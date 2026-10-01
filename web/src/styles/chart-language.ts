@@ -14,9 +14,10 @@
  * Phase 3B work and cannot be written or verified without the dependency.
  *
  * COLOUR IS NEVER THE ONLY CUE
- * Every series carries a colour, a dash pattern and a marker shape. Cyan
- * (Singapore) and blue (United States) are the closest pair in the palette, so
- * the redundant encoding is a requirement, not a nicety.
+ * Every series carries a colour, a marker shape and a direct label. Lines are solid;
+ * a dash means provisional data and nothing else. Cyan (Singapore) and blue (United
+ * States) are the closest pair in the palette, so the redundant encoding is a
+ * requirement, not a nicety.
  */
 
 import type { SeriesId } from "../data/artifact-types.ts";
@@ -179,6 +180,14 @@ export interface SeriesVisualIdentity {
  * ranking, quality or sentiment -- these are identifiers only. Once shipped it
  * must not change, because a reader who learns "violet is Malaysia" in one
  * chart carries that to every other chart.
+ *
+ * EVERY LINE IS SOLID (final-polish Revision 5). Country lines used to carry five
+ * different dash patterns, with the United States the only solid one — which made the
+ * US read as THE series and the other four as secondary or uncertain, a hierarchy the
+ * analysis does not have. Dashes are now reserved for one meaning across the product:
+ * provisional data. The redundant non-colour cue is the MARKER, drawn identically in
+ * the legend, the tooltip, the hover dot and the peak marker (`MARKER_PATH` in
+ * `echarts-theme.ts`), plus the direct label in every one of those places.
  */
 export const SERIES_IDENTITY: Readonly<Record<SeriesId, SeriesVisualIdentity>> = {
   worldwide: {
@@ -194,28 +203,28 @@ export const SERIES_IDENTITY: Readonly<Record<SeriesId, SeriesVisualIdentity>> =
     isAggregate: false,
   },
   singapore: {
-    // Cyan sits closest to the US blue, so it takes the most distinct dash.
+    // Cyan sits closest to the US blue, so their markers are the two most different
+    // shapes: a square against a circle.
     colorVariable: "--color-country-singapore",
-    dash: [6, 3],
+    dash: null,
     marker: "square",
     isAggregate: false,
   },
   malaysia: {
     colorVariable: "--color-country-malaysia",
-    dash: [2, 3],
+    dash: null,
     marker: "triangle",
     isAggregate: false,
   },
   indonesia: {
     colorVariable: "--color-country-indonesia",
-    dash: [9, 4],
+    dash: null,
     marker: "diamond",
     isAggregate: false,
   },
   norway: {
     colorVariable: "--color-country-norway",
-    // Dash-dot: four entries, distinct from every other pattern at a glance.
-    dash: [4, 3, 1, 3],
+    dash: null,
     marker: "cross",
     isAggregate: false,
   },
