@@ -30,6 +30,34 @@ the 2026-09-17 record and are historical: the divergence they describe no longer
 | --------- | ------------------------------------------------------------------------ |
 | `b7a1b19` | Revision 4 (wheel zoom) and gate repairs — unit 314/314, E2E 105/105     |
 | `fa59e57` | Revisions 1, 2, 3, 9 — layout, indicator, Creator, coverage — E2E 114/114 |
+| `6762a48` | Revision 5 — solid lines, marker identity, emphasis — unit 323, E2E 122   |
+
+**Revision 5, decided as follows.**
+
+- **Lines.** Every country line is solid. The US line was the only solid one, so it
+  read as THE series; a dash now means provisional data and nothing else.
+- **Non-colour cue.** The marker shape, drawn from one geometry (`MARKER_PATH` in
+  `echarts-theme.ts`) in the legend swatch, the tooltip row, the hover dot and the hollow
+  peak marker. Drawing every marker as a `path://` symbol fixed a measured defect:
+  `"square"` and `"cross"` are not ECharts symbol names, both fell back to `"rect"`, and
+  Singapore and Norway shared a hover marker.
+- **Emphasis is interaction state only.** A market lifts on legend hover or focus, on a
+  120ms dwell on its line, or when pinned (click its line, or 1–5 with the chart focused;
+  the same key again, `0`, Escape, Reset or hiding releases it). The others dim to
+  `--chart-dimmed-opacity`. The data, the axis and the peaks never change (unit-tested).
+  It is announced in a `role="status"` line and published as `data-emphasised` /
+  `data-pinned`. `MARKETS_INTERACTIONS.highlight` is now `true`, with its rationale
+  updated: emphasis does NOT follow pointer position across the plot.
+- **Hit test.** Geometric, against the drawn segments, 7px either side (`nearestLine`,
+  squared distances because the chart-layer scan forbids `Math.sqrt`). ECharts' own hit
+  band for a 2px line was measured beside the stroke. A drag-pan that ends on a line does
+  not pin it.
+- **`EChart` lifecycle fix (both charts).** `render` was a `useCallback` on
+  `buildOption` and a dependency of the init effect, so a legend toggle DISPOSED the
+  instance — zoomed to 32–68%, toggled, back to 0–100% on a new canvas. `render` is now a
+  `useEffectEvent`, and a new option is merged in place (`"update"`: series replaced by
+  id, `dataZoom` left out of the merge). A theme change also no longer resets the zoom.
+  Every style value in an option must be explicit, because a merge keeps omitted values.
 
 **Revisions 1–3 and 9, decided as follows.**
 
@@ -71,14 +99,11 @@ hysteresis (`settleWindowEdge`). Separately, the reset read `--duration-slow` wi
 `cssTimeToMs` fixes it. `tests/chart-zoom.test.ts` and an E2E "wheel zoom follows the
 gesture" block guard all of it.
 
-Remaining, in order: 5 (markets chart lines) → 6 → 8 → 7 → 10/11/13 → 12 → validation →
-documentation. **Note for Revision 5:** `EChart`'s init effect depends on `render`, which
-changes with `buildOption`, so any state in `buildOption`'s dependencies (a legend
-toggle today) disposes and re-creates the chart and loses the zoom window. Hover and
-pinned emphasis must therefore go through `dispatchAction` (highlight/downplay), never
-through an option rebuild. Environment on this device: Node 24.19.0, npm 11.17.0,
-Python 3.14.7 venv at `.venv` (`pip install -e "pipeline[dev]"`). Git identity via the
-env vars in §1. Playwright reuses any server already on :3100 — stop it before E2E.
+Remaining, in order: 6 (typography: Geist decision, chart-title rules) → 8 (selector pill)
+→ 7 (market map) → 10/11/13 → 12 → validation → documentation. Environment on this device:
+Node 24.19.0, npm 11.17.0, Python 3.14.7 venv at `.venv` (`pip install -e "pipeline[dev]"`).
+Git identity via the env vars in §1. Playwright reuses any server already on :3100 — stop
+it before E2E.
 
 Phase 3C steps 1–4 of 8 are COMPLETE. Between step 4 and step 5 sit four passes: the
 Windows device-transition fix (typography diagnosis, Windows path defect, line-ending
