@@ -50,6 +50,7 @@ import type { ChartTheme } from "../../styles/chart-language.ts";
 import { SERIES_IDENTITY, axisTickBudget } from "../../styles/chart-language.ts";
 import {
   CHART_TOOLTIP_CLASS as TOOLTIP_CLASS,
+  ELEVATED_BAND_LABEL,
   formatWeek,
   formatWeekShort,
 } from "./contract.ts";
@@ -60,6 +61,7 @@ import {
   annotationLabelsFit,
   axisCommon,
   dashArray,
+  defaultTextStyle,
   echartsSymbol,
   figureText,
   insideZoom,
@@ -69,6 +71,10 @@ import {
   seriesAnimation,
   sliderZoom,
   splitLine,
+  tooltipHeading,
+  tooltipNotes,
+  tooltipSurface,
+  type ChartMotion,
   type ColourResolver,
   type OptionObject,
   type OptionValue,
@@ -103,8 +109,12 @@ export interface BuildMarketsOptionArgs {
    * state, so they cannot be read as a level, a strength or a rank.
    */
   readonly emphasised?: readonly CountryId[];
-  /** True exactly once per mount. False under `prefers-reduced-motion`. */
-  readonly animate?: boolean;
+  /**
+   * Which motion state this build is in — see `ChartMotion`. `entrance` exactly once per
+   * mount, `settled` after it (so an emphasis change lands in place while a zoom step still
+   * glides), `reduced` under `prefers-reduced-motion`. Defaults to `entrance`.
+   */
+  readonly motion?: ChartMotion;
 }
 
 /**
@@ -190,12 +200,14 @@ export function buildMarketsTooltipFormatter(
     const week = byWeek.get(weekStart);
     if (week === undefined) return "";
 
-    const heading =
-      `<div style="color:${theme.tooltipFg};font-weight:500">Week of ` +
-      `${formatWeek(week.weekStart)}</div>` +
-      `<div style="color:${theme.tooltipMutedFg};font-size:11px;margin-top:2px">` +
-      `${formatWeek(week.weekStart)} – ${formatWeek(week.weekEnd)}</div>`;
+    const heading = tooltipHeading(
+      theme,
+      `Week of ${formatWeek(week.weekStart)}`,
+      `${formatWeek(week.weekStart)} – ${formatWeek(week.weekEnd)}`,
+    );
 
+    // Figures need no treatment of their own: the surface sets tabular figures on the whole
+    // readout (`tooltipSurface`), and every size here is inherited from it.
     const rows: string[] = [];
     for (const market of data.series) {
       if (hidden.has(market.id)) continue;
@@ -210,7 +222,7 @@ export function buildMarketsTooltipFormatter(
           `gap:16px;margin-top:6px${dimmed ? ";opacity:0.55" : ""}">` +
           `<span style="color:${theme.tooltipMutedFg}">` +
           `${markerSvg(identity.marker, colour)}${market.label}</span>` +
-          `<span style="color:${theme.tooltipFg};font-variant-numeric:tabular-nums">` +
+          `<span style="color:${theme.tooltipFg}">` +
           `${formatMarketIndex(week.values[market.id])}` +
           (isPeak ? `<span style="color:${theme.tooltipMutedFg}"> · own peak</span>` : "") +
           `</span></div>`,
@@ -219,15 +231,11 @@ export function buildMarketsTooltipFormatter(
 
     // Notes in words, never colour alone.
     const notes: string[] = [];
-    if (week.regime === "elevated") notes.push("Elevated crude-price window");
+    if (week.regime === "elevated") notes.push(ELEVATED_BAND_LABEL);
     if (week.isPartialWeek) notes.push("Partial week — fewer than five trading days");
     notes.push("Each market is scaled to its own maximum");
-    const note =
-      `<div style="color:${theme.tooltipMutedFg};font-size:11px;margin-top:8px;` +
-      `padding-top:6px;border-top:1px solid ${theme.tooltipBorder}">` +
-      `${notes.join(" · ")}</div>`;
 
-    return `<div style="min-width:240px">${heading}${rows.join("")}${note}</div>`;
+    return `<div style="min-width:240px">${heading}${rows.join("")}${tooltipNotes(theme, notes)}</div>`;
   };
 }
 
@@ -252,7 +260,7 @@ function marketSeries(
   const px = pxFor(args.rootFontSizePx);
   const identity = SERIES_IDENTITY[market.id];
   const colour = resolveColour(identity.colorVariable);
-  const motion = { animate: args.animate !== false };
+  const motion: ChartMotion = args.motion ?? "entrance";
   const names = marketSeriesName(data);
 
   const state = emphasisState(market.id, args.emphasised);
@@ -367,8 +375,9 @@ function regimeBand(args: BuildMarketsOptionArgs): OptionObject {
         // the band the label sat on Singapore's peak marker (8 Mar). In the band's weeks
         // the lowest line is well above the axis, so the bottom edge is empty.
         position: "insideBottom",
-        formatter: "Elevated crude price",
-        ...proseText(theme.regimeLabelFg, theme.annotationSize, px),
+        // The same words the other chart, the tooltip and the table use for these weeks.
+        formatter: ELEVATED_BAND_LABEL,
+        ...proseText(theme, theme.regimeLabelFg, theme.annotationSize, px),
       },
       data: [[{ xAxis: oilContext.onsetWeek }, { xAxis: oilContext.lastOilWeek }]],
     },
@@ -384,7 +393,7 @@ export function buildMarketsOption(args: BuildMarketsOptionArgs): OptionObject {
   const px = pxFor(args.rootFontSizePx);
   const weeks = data.weeks.map((week) => week.weekStart);
   const hidden = new Set(args.hiddenMarkets ?? []);
-  const motion = { animate: args.animate !== false };
+  const motion: ChartMotion = args.motion ?? "entrance";
   const names = marketSeriesName(data);
   const formatWeekTooltip = buildMarketsTooltipFormatter(args);
 
@@ -402,6 +411,7 @@ export function buildMarketsOption(args: BuildMarketsOptionArgs): OptionObject {
   return {
     ...animationOptions(motion),
     backgroundColor: "transparent",
+    textStyle: defaultTextStyle(theme),
     grid: {
       top: GRID_PADDING.top,
       left: GRID_PADDING.left,
@@ -425,12 +435,7 @@ export function buildMarketsOption(args: BuildMarketsOptionArgs): OptionObject {
       // tooltip running off the side of a 375px viewport.
       confine: true,
       className: TOOLTIP_CLASS,
-      backgroundColor: theme.tooltipBg,
-      borderColor: theme.tooltipBorder,
-      borderWidth: 1,
-      padding: px(theme.tooltipPadding),
-      extraCssText: `border-radius:${theme.tooltipRadius};box-shadow:${theme.tooltipShadow}`,
-      textStyle: { color: theme.tooltipFg, fontSize: 12 },
+      ...tooltipSurface(theme, px),
       axisPointer: {
         type: "line",
         lineStyle: {

@@ -29,6 +29,7 @@ import { resolveChartTheme, type ChartTheme } from "../../styles/chart-language.
 import { BREAKPOINTS } from "../../styles/chart-language.ts";
 import {
   cssTimeToMs,
+  entranceLength,
   lineSeriesOf,
   nearestLine,
   optionWithout,
@@ -37,6 +38,7 @@ import {
   wheelZoomFactor,
   zoomCategoryWindow,
   type CategoryWindow,
+  type ChartMotion,
   type OptionObject,
 } from "./echarts-theme.ts";
 
@@ -108,8 +110,12 @@ const WHEEL_GESTURE_GAP_MS = 200;
  * The same 100ms cubic-out ECharts uses for its own slider, so wheel and slider feel
  * like one control. It is safe here where it was not before because it is dispatched
  * only when the drawn week window actually changes, and never against the gesture.
- * Under `prefers-reduced-motion` the option is built with `animation: false`, which
- * disables it and leaves each step instant.
+ *
+ * It only runs while the option has animation ENABLED — `getAnimationConfig()` drops a
+ * dispatch's tween when it is off. That is why every build after the entrance is built
+ * `settled` (animation on, zero durations) rather than with animation off, and why under
+ * `prefers-reduced-motion` (`reduced`, animation off) each step is instant. See
+ * `ChartMotion`.
  */
 const WHEEL_ZOOM_TWEEN = { duration: 100, easing: "cubicOut" } as const;
 
@@ -168,11 +174,16 @@ export interface EChartHandle {
 
 interface EChartProps {
   /**
-   * Builds the option. Called with the resolved theme, the measured width and
-   * whether this build is the chart's entrance — so the caller owns *what* the chart
-   * is and this component owns *when* it is built.
+   * Builds the option. Called with the resolved theme, the measured width and the motion
+   * state of this build — `entrance` for the first build, `settled` for every build after
+   * it, `reduced` under `prefers-reduced-motion` — so the caller owns *what* the chart is
+   * and this component owns *when* it is built.
    */
-  readonly buildOption: (theme: ChartTheme, widthPx: number, animate: boolean) => OptionObject;
+  readonly buildOption: (
+    theme: ChartTheme,
+    widthPx: number,
+    motion: ChartMotion,
+  ) => OptionObject;
   /**
    * Number of observations on the x-axis. Needed so ←/→ stepping can clamp, and
    * required rather than optional because a chart region that is focusable but
@@ -196,6 +207,17 @@ interface EChartProps {
   readonly onLineHover?: (seriesId: string | null) => void;
   /** A click or tap on a line — never the end of a drag-pan. For pinning. */
   readonly onLineClick?: (seriesId: string) => void;
+  /**
+   * A zoom or pan gesture began (`true`) or ended (`false`): Ctrl + wheel or a trackpad
+   * pinch, until the wheel has been idle for `WHEEL_GESTURE_GAP_MS`, or a press that
+   * travelled — a drag-pan or the slider — until it is released.
+   *
+   * While one is active `onLineHover` is NOT called: the view is moving under the pointer,
+   * so nothing the pointer passes is a line the reader pointed at. When it ends,
+   * `onLineHover` reports the line now under the pointer, if that changed. For callers that
+   * hold pointer-driven state still across a gesture.
+   */
+  readonly onGestureChange?: (active: boolean) => void;
   /**
    * Height utilities. A class rather than a style value, because the height is
    * banded: `--chart-height-mobile` below `md`, `--chart-height-standard` above.
@@ -234,6 +256,8 @@ interface EChartProps {
  *   - **Wheel zoom.** See `onWheel` — ECharts' own wheel handling zoomed in fixed steps
  *     whatever the size of the gesture, so a slow, gentle pinch lurched back and forth,
  *     and it cancelled plain wheel events so the page could not scroll past a chart.
+ *   - **Gestures.** While a zoom or pan is in progress, line hover is not decided — the
+ *     lines are moving under the pointer — and the caller is told (`onGestureChange`).
  *
  * WHAT IT DOES NOT OWN: any colour, size, font or series decision. Those come from
  * `buildOption`, which is a pure `.ts` function the unit tests can call.
@@ -246,6 +270,7 @@ export function EChart({
   handleRef,
   onLineHover,
   onLineClick,
+  onGestureChange,
   className,
 }: EChartProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -262,6 +287,12 @@ export function EChart({
   /** The option last applied, so a hit test reads exactly the values being drawn. */
   const optionRef = useRef<OptionObject | null>(null);
   const [visible, setVisible] = useState(false);
+  /**
+   * Set once, when the entrance has finished drawing. A change of it is what moves the live
+   * option from `entrance` to `settled` (see the end of `render`), through the same update
+   * effect a legend toggle uses.
+   */
+  const [entranceEnded, setEntranceEnded] = useState(false);
 
   /*
     `useSyncExternalStore` rather than a `useEffect` that calls `setState`.
@@ -617,8 +648,9 @@ export function EChart({
     if (mode === "update" && sameBand) {
       // Merged, not rebuilt — see `RenderMode`. Leaving `dataZoom` out of the merge is
       // what keeps the reader's window; replacing series by id is what removes a series
-      // the legend has hidden.
-      const next = buildOption(theme, width, false);
+      // the legend has hidden. `settled`, not animation off: an emphasis change used to
+      // switch animation off, and every zoom step after it jumped instead of gliding.
+      const next = buildOption(theme, width, reducedMotion ? "reduced" : "settled");
       optionRef.current = next;
       chart.setOption(optionWithout(next, ["dataZoom"]), { replaceMerge: ["series"] });
       return;
@@ -627,14 +659,21 @@ export function EChart({
     // The entrance is the FIRST build and only the first build. A band change, a theme
     // change or a legend toggle must update in place — a line that redraws itself from
     // the left edge every time a reader hides a series is decoration, not an entrance.
-    const animate = !enteredRef.current && !reducedMotion;
+    // Every build after it is `settled`: nothing animates by itself, but a zoom step still
+    // glides.
+    const motion: ChartMotion = reducedMotion
+      ? "reduced"
+      : enteredRef.current
+        ? "settled"
+        : "entrance";
+    const animate = motion === "entrance";
     // Carry the reader's zoom window across a rebuild. `notMerge` resets dataZoom to the
     // option's declared 0-100, so without this a resize silently undid the reader's zoom.
     const previousWindow = bandRef.current === null ? FULL_WINDOW : readWindow();
 
     bandRef.current = band;
     chart.resize({ width, height });
-    const built = buildOption(theme, width, animate);
+    const built = buildOption(theme, width, motion);
     optionRef.current = built;
     chart.setOption(built, { notMerge: true });
 
@@ -645,13 +684,22 @@ export function EChart({
     if (animate) {
       enteredRef.current = true;
       wrapper.dataset["entrance"] = "running";
-      // One timer, for one transition, whose length is the option's own entrance
-      // duration plus the stagger — not an arbitrary delay standing in for an event.
-      // ECharts exposes no "animation finished" callback, and the value published here
-      // is only an observable marker: nothing about the chart's behaviour depends on it.
+      // One timer, for one transition, whose length is read from the option that runs it —
+      // the longest series' stagger plus its duration (`entranceLength`): ECharts exposes no
+      // "animation finished" callback. It used to be a fixed 1200ms, which the five-market
+      // chart's last line (480ms stagger + 900ms) outlasted.
+      //
+      // When it ends, the live option moves to `settled`. An entrance option left in place
+      // keeps each series' stagger, and ECharts re-runs every line's clip transition on each
+      // zoom step with that stagger whenever the step names no delay of its own — the
+      // wheel's and a drag-pan's do not. Measured on the five-market chart: 22 extra
+      // repaints per wheel gesture, the last one 480ms after the gesture ended, with
+      // nothing to show for them. Nothing visible changes at the switch.
       window.setTimeout(() => {
-        if (wrapperRef.current !== null) wrapperRef.current.dataset["entrance"] = "done";
-      }, 1200);
+        if (chartRef.current !== chart) return;
+        wrapper.dataset["entrance"] = "done";
+        setEntranceEnded(true);
+      }, entranceLength(built));
     } else if (wrapper.dataset["entrance"] === undefined) {
       enteredRef.current = true;
       wrapper.dataset["entrance"] = reducedMotion ? "reduced" : "done";
@@ -664,6 +712,9 @@ export function EChart({
   });
   const emitLineClick = useEffectEvent((seriesId: string): void => {
     onLineClick?.(seriesId);
+  });
+  const emitGesture = useEffectEvent((active: boolean): void => {
+    onGestureChange?.(active);
   });
   /** Whether anyone is listening — the prototype chart is not, and skips the hit test. */
   const wantsLineEvents = useEffectEvent(
@@ -752,7 +803,46 @@ export function EChart({
 
     const zr = chart.getZr();
     let hoveredLine: string | null = null;
+    /** Where the pointer last was over the chart, in chart pixels; `null` once it left. */
+    let pointer: { readonly x: number; readonly y: number } | null = null;
+
+    // --- gestures: is the reader zooming or panning right now? -----------------------
+    // While the view moves under the pointer, nothing the pointer passes is a line the
+    // reader pointed at. Measured before this existed: a drag-pan that began on a line
+    // lifted it mid-drag, and a zoom begun as the pointer reached a line lifted it
+    // mid-gesture — each one an option rebuild in the middle of the motion. So line hover is
+    // not decided during a gesture, the caller is told when one starts and ends (it holds
+    // any pending lift or drop), and the state is published as `data-gesture`.
+    let wheeling = false;
+    let dragging = false;
+    let wheelIdle: ReturnType<typeof setTimeout> | undefined;
+    const gestureActive = (): boolean => wheeling || dragging;
+    /** After a gesture: report the line now under the pointer, if it is not the last one. */
+    const settleHover = (): void => {
+      const id = pointer === null ? null : lineAt(pointer.x, pointer.y);
+      if (id === hoveredLine) return;
+      hoveredLine = id;
+      emitLineHover(id);
+    };
+    const setGesture = (nextWheeling: boolean, nextDragging: boolean): void => {
+      const was = gestureActive();
+      wheeling = nextWheeling;
+      dragging = nextDragging;
+      const active = gestureActive();
+      if (active === was) return;
+      if (active) wrapper.dataset["gesture"] = "true";
+      else wrapper.removeAttribute("data-gesture");
+      // The boundary first, then the hover it settles on: a caller that held a pending
+      // change re-arms it, and a new line under the pointer then replaces it.
+      emitGesture(active);
+      if (!active) settleHover();
+    };
+
     const onPlotMove = (event: { offsetX: number; offsetY: number }) => {
+      pointer = { x: event.offsetX, y: event.offsetY };
+      // During a gesture neither the hover nor the cursor is decided here: ECharts' own drag
+      // cursor stays, and `settleHover` decides the line once the view is still.
+      if (gestureActive()) return;
       const id = lineAt(event.offsetX, event.offsetY);
       // A line under the pointer is clickable — it pins — so it gets the pointer cursor.
       // Registered after ECharts' own roam listener, so this wins over its `grab` cursor.
@@ -762,30 +852,60 @@ export function EChart({
       emitLineHover(id);
     };
     const onPlotOut = () => {
-      if (hoveredLine === null) return;
+      pointer = null;
+      if (gestureActive() || hoveredLine === null) return;
       hoveredLine = null;
       emitLineHover(null);
     };
     zr.on("mousemove", onPlotMove);
     zr.on("globalout", onPlotOut);
 
+    // A Ctrl + wheel or a pinch is a zoom gesture until the wheel has been idle for as long
+    // as `onWheel` waits before starting a new one. A second listener rather than code in
+    // `onWheel`, because `onWheel` lives outside this effect and cannot reach this state.
+    // Capture phase like it; passive, because this one never cancels anything.
+    const onWheelGesture = (event: WheelEvent) => {
+      // A plain wheel scrolls the page past the chart. It is not a chart gesture.
+      if (!event.ctrlKey) return;
+      if (wheelIdle !== undefined) clearTimeout(wheelIdle);
+      wheelIdle = setTimeout(() => {
+        wheelIdle = undefined;
+        setGesture(false, dragging);
+      }, WHEEL_GESTURE_GAP_MS);
+      if (!wheeling) setGesture(true, dragging);
+    };
+    wrapper.addEventListener("wheel", onWheelGesture, { capture: true, passive: true });
+
     // A press that travelled is a pan, and a pan that ends over a line must not pin it:
     // the browser still fires `click` after the drag.
     let pressX = 0;
     let pressY = 0;
     let travelled = false;
+    let pressing = false;
     const onPressStart = (event: PointerEvent) => {
       pressX = event.clientX;
       pressY = event.clientY;
       travelled = false;
+      pressing = true;
     };
     const onPressMove = (event: PointerEvent) => {
       if (event.buttons === 0) return;
       const distance = Math.abs(event.clientX - pressX) + Math.abs(event.clientY - pressY);
       if (distance > CLICK_SLOP_PX) travelled = true;
+      // A press begun on the chart that has travelled is a drag — a pan, or the slider —
+      // until it is released, wherever that happens.
+      if (travelled && pressing && !dragging) setGesture(wheeling, true);
+    };
+    // On the window, because a drag can end anywhere. `travelled` is deliberately left set:
+    // the `click` that follows the release reads it.
+    const onPressEnd = () => {
+      pressing = false;
+      if (dragging) setGesture(wheeling, false);
     };
     wrapper.addEventListener("pointerdown", onPressStart, { capture: true, passive: true });
     wrapper.addEventListener("pointermove", onPressMove, { capture: true, passive: true });
+    window.addEventListener("pointerup", onPressEnd, { capture: true, passive: true });
+    window.addEventListener("pointercancel", onPressEnd, { capture: true, passive: true });
     const onPlotClick = (event: { offsetX: number; offsetY: number }) => {
       if (travelled) return;
       const id = lineAt(event.offsetX, event.offsetY);
@@ -831,8 +951,12 @@ export function EChart({
       resizeObserver.disconnect();
       scheme.removeEventListener("change", onScheme);
       wrapper.removeEventListener("wheel", onWheel, { capture: true });
+      wrapper.removeEventListener("wheel", onWheelGesture, { capture: true });
       wrapper.removeEventListener("pointerdown", onPressStart, { capture: true });
       wrapper.removeEventListener("pointermove", onPressMove, { capture: true });
+      window.removeEventListener("pointerup", onPressEnd, { capture: true });
+      window.removeEventListener("pointercancel", onPressEnd, { capture: true });
+      if (wheelIdle !== undefined) clearTimeout(wheelIdle);
       cancelWheel();
       chart.off("dataZoom", publishWindow);
       zr.off("mousemove", onPlotMove);
@@ -848,12 +972,13 @@ export function EChart({
 
   // --- a new option, applied in place ---------------------------------------
   // A legend toggle or an emphasis change produces a new `buildOption`; a reduced-motion
-  // change alters what the next build may animate. Neither re-creates the instance: the
-  // option is merged into the live chart, keeping the zoom window and the tooltip.
-  // Before the chart has mounted `render` returns at once.
+  // change alters what the next build may animate; the end of the entrance moves the option
+  // to `settled`. None of them re-creates the instance: the option is merged into the live
+  // chart, keeping the zoom window and the tooltip. Before the chart has mounted `render`
+  // returns at once.
   useEffect(() => {
     render("update");
-  }, [buildOption, reducedMotion]);
+  }, [buildOption, reducedMotion, entranceEnded]);
 
   // --- imperative handle for the external controls --------------------------
   useImperativeHandle(

@@ -21,7 +21,7 @@ import type { MarketsChartData } from "../../lib/interest-across-markets.ts";
 import type { ChartAccessibilityContract } from "../../styles/chart-language.ts";
 import { assertInteractionsCoherent } from "../../styles/chart-language.ts";
 import type { ChartInteractionCapabilities } from "../../styles/chart-language.ts";
-import { formatWeek } from "./contract.ts";
+import { ELEVATED_BAND_LABEL, formatWeek } from "./contract.ts";
 import type { ChartTableCellRow } from "./contract.ts";
 
 /** Stable id. Used for element ids and the fallback's labels. */
@@ -165,7 +165,7 @@ export function buildMarketTableRows(data: MarketsChartData): readonly MarketTab
       if (market.peakWeek === week.weekStart) peaking.push(market.label);
     }
     if (peaking.length > 0) notes.push(`Peak: ${peaking.join(", ")}`);
-    if (week.regime === "elevated") notes.push("Elevated crude price");
+    if (week.regime === "elevated") notes.push(ELEVATED_BAND_LABEL);
     if (partial.has(week.weekStart)) notes.push("Partial week");
 
     return {

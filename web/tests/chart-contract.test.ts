@@ -37,6 +37,7 @@ import {
 import {
   AXIS_INDEX,
   AXIS_TITLE,
+  ELEVATED_BAND_LABEL,
   OIL_VS_INTEREST_A11Y,
   OIL_VS_INTEREST_INTERACTIONS,
   buildChartTableRows,
@@ -44,13 +45,23 @@ import {
   toTableCells,
 } from "../src/components/chart/contract.ts";
 import {
+  OIL_PEAK_LABEL,
   buildOilVsInterestOption,
   buildTooltipFormatter,
   lengthToPx,
   seriesName,
   type OptionObject,
 } from "../src/components/chart/echarts-option.ts";
-import { AXIS_LABEL_MARGIN, GRID_PADDING } from "../src/components/chart/echarts-theme.ts";
+import {
+  AXIS_LABEL_MARGIN,
+  ENTRANCE_DURATION_MS,
+  ENTRANCE_STAGGER_MS,
+  GRID_PADDING,
+  animationOptions,
+  entranceLength,
+  seriesAnimation,
+  type ChartMotion,
+} from "../src/components/chart/echarts-theme.ts";
 import {
   CHART_TOKENS,
   type ChartTheme,
@@ -75,6 +86,10 @@ function tokenStub(key: ChartTokenName): string {
   if (/Size$/.test(key)) return "0.8125rem";
   if (/Padding$/.test(key)) return "0.75rem";
   if (/Width$|Radius$/.test(key)) return "2px";
+  // A unitless multiplier and a weight step, as `--text-meta-line` and `--weight-medium`
+  // resolve.
+  if (/LineHeight$/.test(key)) return "1.5";
+  if (/Weight$/.test(key)) return "500";
   if (key === "areaOpacity" || key === "dimmedOpacity" || key === "scatterOpacity")
     return "0.1";
   if (/Dash$/.test(key)) return "3 3";
@@ -944,53 +959,231 @@ test("annotation labels are withheld below md, but the annotations still draw", 
 });
 
 // ---------------------------------------------------------------------------
-// Motion — an entrance, and nothing after it
+// Type and annotations — final-polish Batch 1
 // ---------------------------------------------------------------------------
 
-test("the entrance animates, and every update after it is instant", () => {
-  const entering = buildOilVsInterestOption({
+/** Every text style in an option — any object carrying a numeric `fontSize` — by path. */
+function textStyles(value: unknown, path = "option"): { path: string; family: unknown }[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => textStyles(entry, `${path}[${String(index)}]`));
+  }
+  if (value === null || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const own =
+    typeof record["fontSize"] === "number" ? [{ path, family: record["fontFamily"] }] : [];
+  return [
+    ...own,
+    ...Object.entries(record).flatMap(([key, child]) => textStyles(child, `${path}.${key}`)),
+  ];
+}
+
+test("every word the chart draws names the prose face, and every figure the numeric one", () => {
+  // Canvas has no cascade: a label that names no family is drawn in ECharts' default, the
+  // generic `sans-serif` (Microsoft YaHei on Windows). Measured before this, the axis titles,
+  // "Oil peak" and the band label all were — the only text on the page not in Geist.
+  for (const width of [375, 1280]) {
+    const built = option(width);
+    const styles = textStyles(built);
+    assert.ok(styles.length > 0, "no text styles found — did the option shape change?");
+    const unnamed = styles.filter(
+      (style) => style.family !== theme.textFont && style.family !== theme.axisLabelFont,
+    );
+    assert.deepEqual(unnamed, [], `a text style at ${String(width)}px names no chart face`);
+
+    // And each role gets the right one.
+    for (const axis of asArray(built["yAxis"], "yAxis")) {
+      assert.equal((axis["nameTextStyle"] as OptionObject)["fontFamily"], theme.textFont);
+      assert.equal((axis["axisLabel"] as OptionObject)["fontFamily"], theme.axisLabelFont);
+    }
+    const oil = seriesById(built, "oil");
+    for (const key of ["markArea", "markLine"]) {
+      const label = (oil[key] as OptionObject)["label"] as OptionObject;
+      assert.equal(label["fontFamily"], theme.textFont, `${key} label`);
+    }
+    // The safety net for anything a builder does not style itself.
+    assert.equal((built["textStyle"] as OptionObject)["fontFamily"], theme.textFont);
+  }
+});
+
+test("the tooltip is set in the prose face on the meta step, with tabular figures", () => {
+  const tooltip = option(1280)["tooltip"] as OptionObject;
+  const text = tooltip["textStyle"] as OptionObject;
+  const size = lengthToPx(theme.tooltipSize, ROOT_FONT_SIZE_PX);
+  assert.equal(text["fontFamily"], theme.textFont);
+  // 13px, the step the legend and the notes use — it was 12px with 11px lines, on no step.
+  assert.equal(text["fontSize"], 13);
+  assert.equal(size, 13);
+  assert.equal(text["lineHeight"], 13 * 1.5);
+  assert.match(String(tooltip["extraCssText"]), /font-variant-numeric:tabular-nums/);
+  assert.match(String(tooltip["extraCssText"]), /font-feature-settings:"tnum" 1/);
+
+  // The markup sets no size of its own anywhere — one step, hierarchy by weight and colour —
+  // and the heading's weight is the token, not a number.
+  const format = buildTooltipFormatter({
+    data,
+    theme: { ...theme, tooltipStrongWeight: "617" },
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+  });
+  for (const point of data.points) {
+    const html = format(point.weekStart);
+    assert.ok(!html.includes("font-size"), `the ${point.weekStart} readout sets its own size`);
+    assert.match(html, /font-weight:617/);
+  }
+});
+
+test("the band carries the shared label, at its foot, as the five-market chart's does", () => {
+  const markArea = seriesById(option(1280), "oil")["markArea"] as OptionObject;
+  const label = markArea["label"] as OptionObject;
+  assert.equal(label["formatter"], ELEVATED_BAND_LABEL);
+  assert.equal(label["position"], "insideBottom");
+});
+
+test("the elevated weeks carry the same words in the tooltip and in the table", () => {
+  const format = buildTooltipFormatter({
     data,
     theme,
     resolveColour,
     widthPx: 1280,
     rootFontSizePx: ROOT_FONT_SIZE_PX,
-    animate: true,
   });
+  const rows = buildChartTableRows(data);
+  const elevated = data.points.flatMap((point, index) =>
+    point.regime === "elevated" ? [{ point, index }] : [],
+  );
+  assert.ok(elevated.length > 0, "the fixture no longer has an elevated week");
+  for (const { point, index } of elevated) {
+    assert.ok(format(point.weekStart).includes(ELEVATED_BAND_LABEL));
+    assert.ok((rows[index]?.note ?? "").includes(ELEVATED_BAND_LABEL));
+  }
+  // No other name for the same weeks survives anywhere in the readout or the table.
+  for (const point of data.points) {
+    assert.doesNotMatch(format(point.weekStart), /Elevated price window|crude-price window/);
+  }
+  for (const row of rows) assert.doesNotMatch(row.note, /(^|, )Elevated(,|$)/);
+});
+
+test("the oil-peak label hangs inside the plot against its own line, not under the axis title", () => {
+  // Measured before: at the line's outer end the label sat 4px under the right axis title,
+  // overlapping it, in the same face, size and colour — one two-line label.
+  const markLine = seriesById(option(1280), "oil")["markLine"] as OptionObject;
+  const label = markLine["label"] as OptionObject;
+  assert.equal(label["formatter"], OIL_PEAK_LABEL);
+  // At the line's top...
+  assert.equal(label["position"], "end");
+  // ...hung BELOW that point, into the plot: a negative distance, text from its top edge...
+  const distance = label["distance"] as readonly number[];
+  assert.ok(Number(distance[1]) < 0, "a positive distance puts the label above the plot");
+  assert.equal(label["verticalAlign"], "top");
+  // ...and right-aligned against the line, held off it by padding.
+  assert.equal(label["align"], "right");
+  const padding = label["padding"] as readonly number[];
+  assert.ok(Number(padding[1]) > 0, "the label would touch the dashed line");
+  // Still withheld below md like every annotation label, and still the artifact's week.
+  assert.equal(
+    ((seriesById(option(375), "oil")["markLine"] as OptionObject)["label"] as OptionObject)[
+      "show"
+    ],
+    false,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Motion — an entrance, then settled, and reduced motion
+// ---------------------------------------------------------------------------
+
+const motionOption = (motion: ChartMotion): OptionObject =>
+  buildOilVsInterestOption({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+    motion,
+  });
+
+test("the entrance animates, and every update after it is instant", () => {
+  const entering = motionOption("entrance");
   assert.equal(entering["animation"], true);
   assert.ok(Number(entering["animationDuration"]) > 0);
   // The data must not move once drawn. A legend toggle or a resize updates in place.
   assert.equal(entering["animationDurationUpdate"], 0);
 });
 
+test("after the entrance, animation stays ON with zero durations, so a zoom step can glide", () => {
+  // The regression this state exists for. Every build after the entrance used to be
+  // `animation: false`, and ECharts drops the 100ms tween a wheel, slider or drag-pan step
+  // carries when animation is off — measured: repaints per zoom step fell from 4.9 to 1.0
+  // after one legend toggle. Zero durations keep updates instant without that.
+  const settled = motionOption("settled");
+  assert.equal(settled["animation"], true);
+  assert.equal(settled["animationDuration"], 0);
+  assert.equal(settled["animationDurationUpdate"], 0);
+  for (const id of ["oil", "interest"]) {
+    const series = seriesById(settled, id);
+    assert.equal(series["animation"], true, `${id} must not switch animation off`);
+    assert.equal(series["animationDuration"], 0, `${id} would draw itself in again`);
+    assert.equal(series["animationDelay"], 0);
+    assert.equal(series["animationDurationUpdate"], 0);
+  }
+});
+
 test("reduced motion switches animation off rather than speeding it up", () => {
-  const still = buildOilVsInterestOption({
-    data,
-    theme,
-    resolveColour,
-    widthPx: 1280,
-    rootFontSizePx: ROOT_FONT_SIZE_PX,
-    animate: false,
-  });
+  const still = motionOption("reduced");
   assert.equal(still["animation"], false);
   assert.equal(seriesById(still, "oil")["animation"], false);
   assert.equal(seriesById(still, "interest")["animation"], false);
-  // A zero-duration animation still schedules a frame per element; `false` does not.
+  // Off, not zero: with animation off a zoom step's own tween is dropped too, so under
+  // reduced motion every step is instant.
   assert.equal(still["animationDuration"], undefined);
 });
 
+test("the settled state restates every motion key the entrance sets", () => {
+  // `EChart` MERGES later builds into the live chart, and a merge keeps whatever a new
+  // option leaves out. A settled option that omitted `animationDuration` or a series'
+  // `animationDelay` would keep the entrance's values, and the next series a reader
+  // re-shows would draw itself in from the left edge again.
+  for (const [entering, settled] of [
+    [animationOptions("entrance"), animationOptions("settled")],
+    [seriesAnimation("entrance", 3), seriesAnimation("settled", 3)],
+  ] as const) {
+    for (const key of Object.keys(entering)) {
+      assert.ok(key in settled, `settled omits "${key}", so a merge would keep the entrance's`);
+    }
+  }
+  // Everything defaults to the entrance, so a caller that forgets the state still animates
+  // once rather than never.
+  assert.equal(
+    buildOilVsInterestOption({
+      data,
+      theme,
+      resolveColour,
+      widthPx: 1280,
+      rootFontSizePx: ROOT_FONT_SIZE_PX,
+    })["animationDuration"],
+    ENTRANCE_DURATION_MS,
+  );
+});
+
 test("the interest line enters after the price line, so the pair reads as a sequence", () => {
-  const built = buildOilVsInterestOption({
-    data,
-    theme,
-    resolveColour,
-    widthPx: 1280,
-    rootFontSizePx: ROOT_FONT_SIZE_PX,
-    animate: true,
-  });
+  const built = motionOption("entrance");
   assert.ok(
     Number(seriesById(built, "interest")["animationDelay"]) >
       Number(seriesById(built, "oil")["animationDelay"]),
   );
+});
+
+test("the entrance is timed from the option that runs it, and only an entrance has a length", () => {
+  // `EChart` moves the live option to `settled` when this elapses: two series, the second
+  // 120ms behind the first. The fixed 1200ms it replaced was this chart's figure plus a
+  // margin, and too short for the five-market chart.
+  assert.equal(
+    entranceLength(motionOption("entrance")),
+    ENTRANCE_DURATION_MS + ENTRANCE_STAGGER_MS,
+  );
+  assert.equal(entranceLength(motionOption("settled")), 0);
+  assert.equal(entranceLength(motionOption("reduced")), 0);
 });
 
 test("no chart module declares a repeating or scroll-linked animation", () => {

@@ -50,11 +50,28 @@ export const AXIS_INDEX = {
  * Axis titles. Short enough to sit on the axis, explicit enough that a reader
  * cannot mistake one unit for the other — which is the whole obligation of a
  * dual-axis chart.
+ *
+ * The interest title states its scale, "(0–100)", as the five-market chart's does
+ * (`MARKETS_AXIS_TITLE`, which adds "per market"): the same measure is named the same way
+ * in both charts, and each axis says what its numbers are — dollars on one side, a
+ * 0–100 index on the other.
  */
 export const AXIS_TITLE = {
   oil: "USD / barrel",
-  interest: "Search interest index",
+  interest: "Search interest index (0–100)",
 } as const;
+
+/**
+ * The name of the elevated crude-price window, everywhere a chart names it compactly: the
+ * band's own label, the tooltip note for a week inside it, and the fallback table's note
+ * column — in both charts. Prose around a chart calls it "the elevated crude-price
+ * window".
+ *
+ * One string, because the same four weeks used to be called "Elevated", "Elevated price
+ * window", "Elevated crude-price window" and "Elevated crude price" depending on which
+ * chart, and which part of it, a reader looked at.
+ */
+export const ELEVATED_BAND_LABEL = "Elevated crude price";
 
 /**
  * Interactions this chart declares. Deliberately not the full capability set:
@@ -216,7 +233,7 @@ export function buildChartTableRows(data: OilInterestChartData): readonly ChartT
     const notes: string[] = [];
     if (partial.has(point.weekStart)) notes.push("Partial week");
     if (point.oilUsdPerBarrel === null) notes.push("Oil series ends earlier");
-    if (point.regime === "elevated") notes.push("Elevated");
+    if (point.regime === "elevated") notes.push(ELEVATED_BAND_LABEL);
 
     return {
       week: formatWeek(point.weekStart),

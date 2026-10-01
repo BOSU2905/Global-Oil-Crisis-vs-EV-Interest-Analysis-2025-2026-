@@ -22,6 +22,7 @@ import {
   toTableCells,
 } from "./contract.ts";
 import { buildOilVsInterestOption, type SeriesKey } from "./echarts-option.ts";
+import type { ChartMotion } from "./echarts-theme.ts";
 
 interface OilVsWorldwideInterestChartProps {
   /** Selected by `selectOilVsWorldwideInterest()` on the server. */
@@ -89,12 +90,12 @@ export function OilVsWorldwideInterestChart({
   };
 
   const buildOption = useMemo(
-    () => (theme: ChartTheme, widthPx: number, animate: boolean) =>
+    () => (theme: ChartTheme, widthPx: number, motion: ChartMotion) =>
       buildOilVsInterestOption({
         data,
         theme,
         widthPx,
-        animate,
+        motion,
         // The type tokens are authored in `rem` and a custom property resolves to that
         // string verbatim. Canvas has no `rem`, so the root size has to travel with
         // the theme or every label is drawn sub-pixel.
@@ -150,6 +151,29 @@ export function OilVsWorldwideInterestChart({
               Interest is a Google Trends index scaled to its own maximum, so its level is not
               comparable with any other market&rsquo;s. Brent crude is a benchmark spot price
               per barrel of crude, not a retail pump price.
+            </p>
+
+            {/*
+              What the two annotations are, in words. Their labels are withheld below md,
+              where they would land on the data, so on a phone this sentence is the only
+              place they are named. The band clause is the five-market chart's, word for
+              word, and every date is read from the artifacts.
+            */}
+            <p className="max-w-reading text-meta text-fg-muted">
+              {annotations.regimesSeparated ? (
+                <>
+                  The shaded band is the elevated crude-price window, from{" "}
+                  <span className="tabular">{formatWeek(annotations.regimeOnsetWeek)}</span> to{" "}
+                  <span className="tabular">{formatWeek(annotations.lastOilWeek)}</span>, and
+                  the vertical dashed line marks the oil peak, in the week of{" "}
+                  <span className="tabular">{formatWeek(annotations.oilPeakWeek)}</span>.
+                </>
+              ) : (
+                <>
+                  The vertical dashed line marks the oil peak, in the week of{" "}
+                  <span className="tabular">{formatWeek(annotations.oilPeakWeek)}</span>.
+                </>
+              )}
             </p>
 
             {coverage.partialWeeks.length > 0 ? (

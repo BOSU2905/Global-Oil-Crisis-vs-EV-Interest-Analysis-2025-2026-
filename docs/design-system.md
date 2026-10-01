@@ -231,7 +231,7 @@ Geist Mono for strings a reader transcribes.
 | Chart context         | `text-small`, secondary | `max-w-reading` (68ch)       | sentence case | One or two sentences naming what to look for                                                 |
 | Lead                  | `text-lead`, secondary  | `max-w-reading`              | sentence case | The section's thesis                                                                         |
 | Body narrative        | `text-body`             | `max-w-reading`              | sentence case | Prose never exceeds the measure, at any frame width                                          |
-| Annotation (in chart) | `--chart-annotation-*`  | —                            | sentence case | Band labels and axis titles in Geist Sans at meta size; withheld below `md`, stated in notes |
+| Annotation (in chart) | `--chart-annotation-*`, `--chart-text-font` | —            | sentence case | Band labels and axis titles in Geist Sans at meta size — the face named in the option, because canvas has no cascade; withheld below `md`, stated in notes |
 | Axis figures          | `--chart-axis-label-*`  | —                            | —             | Geist Mono, tabular                                                                          |
 | Metadata / notes      | `text-meta`, muted      | `max-w-reading`              | sentence case | Sources, footnotes, chart notes, cell labels                                                 |
 | Table text            | `text-meta`             | none (scrolls horizontally)  | sentence case | Figures `.tabular`; column headers use the `label` role; cells `nowrap` so columns align     |
@@ -511,8 +511,10 @@ loaded, rather than rendering transparent lines.
 | Element          | Treatment                                                                                 |
 | ---------------- | ----------------------------------------------------------------------------------------- |
 | Axis labels      | `--font-numeric`, `--text-data-size`, `--color-fg-muted`                                  |
+| Axis titles      | `--chart-text-font` (Geist Sans), meta size, `--color-fg-secondary`, at the top of their axis and anchored to it. An interest axis states its scale: "Search interest index (0–100)", and "(0–100, per market)" on the five-market chart |
 | Gridlines        | **Horizontal only**, 1px, `--color-border`. Vertical gridlines add noise to a time series |
-| Tooltip          | Surface + hairline border + mono numerals. Never the library default                      |
+| Tooltip          | Surface + hairline border; Geist Sans on the meta step (13px / 1.5), tabular figures on the whole readout, the week at 500, notes one per line and free to wrap. Never the library default |
+| Annotation labels | Geist Sans, meta size, withheld below `md` and named in the notes. The band is "Elevated crude price" everywhere a chart names it compactly (label, tooltip, table) and sits at the band's foot in both charts; "Oil peak" hangs inside the plot under its line's top, right-aligned against the line |
 | Legend           | `--text-meta-size`, inactive entries drop to `--color-fg-subtle`                          |
 | Lines            | 2px, 2.75px on emphasis                                                                   |
 | Scatter          | r=4, 85% opacity                                                                          |
@@ -550,6 +552,23 @@ Charts change **layout** by band, not by scaling down.
 analytical question, never because the library supports it.
 `assertInteractionsCoherent` enforces two invariants: zoom or pan requires a
 visible reset, and brush requires hover inspection.
+
+### Motion states (final-polish Batch 1)
+
+`ChartMotion` in `echarts-theme.ts` has three states, and every build is in exactly one:
+
+- `entrance` — the first build only: the lines draw in, staggered. It ends when the last
+  line has drawn (`entranceLength`, read from the option), and the live option then moves
+  to `settled`.
+- `settled` — every build after it: entrance and update durations are zero, so a legend
+  toggle, an emphasis change, a resize or a theme change lands in place — but animation
+  stays **enabled**. A zoom step glides only because its dispatch carries a 100ms tween,
+  and ECharts drops that tween when animation is off: that was the five-market zoom defect.
+- `reduced` — `prefers-reduced-motion`: animation off, every change instant, zoom steps
+  included.
+
+While a zoom or pan is in progress the lines move under the pointer, so line hover is not
+decided; a lift or drop that was pending is held and re-armed when the gesture ends.
 
 ### Decided direction for the chart implementation (Phase 3C step 5)
 

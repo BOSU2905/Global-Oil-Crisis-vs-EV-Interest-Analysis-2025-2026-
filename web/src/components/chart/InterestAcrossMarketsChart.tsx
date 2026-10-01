@@ -14,6 +14,7 @@ import { ChartReveal } from "./ChartReveal.tsx";
 import { ChartTableFallback } from "./ChartTableFallback.tsx";
 import { EChart, type EChartHandle } from "./EChart.tsx";
 import { formatWeek } from "./contract.ts";
+import type { ChartMotion } from "./echarts-theme.ts";
 import { buildMarketsOption } from "./markets-option.ts";
 import {
   MARKETS_CHART_ID,
@@ -90,6 +91,18 @@ export function InterestAcrossMarketsChart({
   /** Lifted until the reader lets go of it. */
   const [pinned, setPinned] = useState<CountryId | null>(null);
   const lineTimer = useRef<number | undefined>(undefined);
+  /**
+   * The line-hover change still waiting on `lineTimer` — a lift serving its dwell, or a
+   * drop serving its grace period — or `null` when nothing is pending. Wrapped, because a
+   * pending DROP is a pending `null`.
+   */
+  const pendingLine = useRef<{ readonly market: CountryId | null } | null>(null);
+  /**
+   * True while a legend entry is hovered or focused. Line hover then changes nothing: the
+   * reader is pointing at the legend, and a line change still arriving — a drop re-armed at
+   * the end of a zoom, a line passed on the way to the legend — must not override it.
+   */
+  const legendHolds = useRef(false);
 
   const tableId = `${MARKETS_CHART_ID}-table`;
   const descriptionId = `${MARKETS_CHART_ID}-description`;
@@ -121,14 +134,38 @@ export function InterestAcrossMarketsChart({
     if (hovered === id) setHovered(null);
   };
 
-  /** Line hover, with a dwell before lifting and a grace period before dropping. */
-  const onLineHover = (id: string | null) => {
+  /** A line-hover change, applied after a dwell (lifting) or a grace period (dropping). */
+  const scheduleLine = (market: CountryId | null) => {
     window.clearTimeout(lineTimer.current);
-    const market = asMarket(id);
+    if (legendHolds.current) {
+      pendingLine.current = null;
+      return;
+    }
+    pendingLine.current = { market };
     lineTimer.current = window.setTimeout(
-      () => setHovered(market),
+      () => {
+        pendingLine.current = null;
+        setHovered(market);
+      },
       market === null ? LINE_LEAVE_MS : LINE_DWELL_MS,
     );
+  };
+
+  /** Line hover, with a dwell before lifting and a grace period before dropping. */
+  const onLineHover = (id: string | null) => scheduleLine(asMarket(id));
+
+  /**
+   * A zoom or pan holds line hover still. A change that was pending when the gesture began
+   * is held rather than landing mid-gesture — each change is an option rebuild, and the
+   * lines are moving — and re-armed, with its full delay, when the gesture ends. Held, not
+   * dropped: a line the pointer had just left must still let go afterwards. `EChart` then
+   * reports the line under the pointer, if it changed during the gesture.
+   */
+  const onGestureChange = (active: boolean) => {
+    const pending = pendingLine.current;
+    if (pending === null) return;
+    if (active) window.clearTimeout(lineTimer.current);
+    else scheduleLine(pending.market);
   };
 
   const togglePin = (id: CountryId | null) => {
@@ -153,12 +190,12 @@ export function InterestAcrossMarketsChart({
   };
 
   const buildOption = useMemo(
-    () => (theme: ChartTheme, widthPx: number, animate: boolean) =>
+    () => (theme: ChartTheme, widthPx: number, motion: ChartMotion) =>
       buildMarketsOption({
         data,
         theme,
         widthPx,
-        animate,
+        motion,
         rootFontSizePx: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
         hiddenMarkets: hidden,
         emphasised,
@@ -262,6 +299,8 @@ export function InterestAcrossMarketsChart({
             onToggle={toggleMarket}
             onHover={(id) => {
               window.clearTimeout(lineTimer.current);
+              pendingLine.current = null;
+              legendHolds.current = id !== null;
               setHovered(id);
             }}
           />
@@ -298,6 +337,7 @@ export function InterestAcrossMarketsChart({
             handleRef={chartRef}
             onLineHover={onLineHover}
             onLineClick={(id) => togglePin(asMarket(id))}
+            onGestureChange={onGestureChange}
             // Taller than the prototype at every width: five lines need vertical room
             // to stay distinguishable, and the visible zoom slider takes 46px of it.
             className="h-(--chart-height-compact) md:h-(--chart-height-hero)"

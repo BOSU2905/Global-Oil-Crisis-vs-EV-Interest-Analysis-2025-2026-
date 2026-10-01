@@ -819,6 +819,15 @@
 /* ========================================================================== */
 
 :root {
+  /*
+   * type: every WORD a chart draws -- axis titles, annotation labels, the tooltip -- in the
+   * prose face. Canvas cannot read `var()`, so the face has to be named in the option, and
+   * ECharts' own default is the generic `sans-serif` (Microsoft YaHei on Windows): measured,
+   * the axis titles and band labels were the only text on the page not set in Geist.
+   * FIGURES keep `--chart-axis-label-font` below.
+   */
+  --chart-text-font: var(--font-sans);
+
   /* axis */
   --chart-axis-label-color: var(--color-fg-muted);
   --chart-axis-label-size: var(--text-data-size);
@@ -840,6 +849,12 @@
   --chart-tooltip-radius: var(--radius-md);
   --chart-tooltip-shadow: var(--shadow-overlay);
   --chart-tooltip-padding: var(--space-3);
+  /* The meta step the chart's legend and notes already use, so the readout is not a
+     half-step smaller than every caption around it (it was 12px and 11px, on no step).
+     Hierarchy inside it is weight and colour, not a third size. */
+  --chart-tooltip-size: var(--text-meta-size);
+  --chart-tooltip-line-height: var(--text-meta-line);
+  --chart-tooltip-strong-weight: var(--weight-medium);
 
   /* series geometry */
   --chart-line-width: 2px;

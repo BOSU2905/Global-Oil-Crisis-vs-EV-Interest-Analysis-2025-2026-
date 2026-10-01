@@ -1345,3 +1345,436 @@ test.describe("five-market chart: identity and emphasis", () => {
     await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
   });
 });
+
+/**
+ * ZOOM GLIDES IN EVERY STATE — final-polish Batch 1, the five-market zoom defect.
+ *
+ * A zoom step glides because its dispatch carries a 100ms tween, and ECharts drops that
+ * tween when the option has animation off. Every build after the entrance used to be
+ * `animation: false`, so after any rebuild — on the five-market chart, any emphasis change —
+ * each step jumped a whole week. Measured: repaints per zoom step fell from 5.2 to exactly
+ * 1.0 after one legend hover. The observable consequence asserted here is the same one:
+ * how many times the canvas is repainted for ONE zoom step. A jump is one repaint; a glide
+ * is several. Not a pixel assertion — a count of full-canvas clears, which is one per frame
+ * ECharts draws.
+ */
+const COUNT_PAINTS = `
+(() => {
+  window.__paints = { armed: null, count: 0 };
+  const P = CanvasRenderingContext2D.prototype;
+  const clear = P.clearRect;
+  P.clearRect = function (x, y, w, h) {
+    const state = window.__paints;
+    const wrap = this.canvas.closest ? this.canvas.closest('[data-chart-canvas]') : null;
+    const d = window.devicePixelRatio || 1;
+    if (wrap !== null && wrap === state.armed && w * h >= 0.9 * (this.canvas.width * this.canvas.height) / (d * d)) {
+      state.count += 1;
+    }
+    return clear.apply(this, arguments);
+  };
+})();`;
+
+/**
+ * One Ctrl + wheel notch over the strip above a chart's plot — where the axis titles sit,
+ * so no tooltip or axis pointer is drawn — and the number of repaints it caused.
+ */
+async function paintsForOneZoomStep(page: Page, selector: string): Promise<number> {
+  const region = page.locator(selector);
+  await region.scrollIntoViewIfNeeded();
+  const box = await region.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width * 0.5, box!.y + 12);
+  await page.waitForTimeout(300);
+  const before = await region.getAttribute("data-zoom-end");
+  await page.evaluate((target) => {
+    const state = (window as unknown as { __paints: { armed: Element | null; count: number } })
+      .__paints;
+    state.armed = document.querySelector(target);
+    state.count = 0;
+  }, selector);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -120);
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(500);
+  // The step must have moved the window, or there was nothing to glide.
+  expect(await region.getAttribute("data-zoom-end")).not.toBe(before);
+  return page.evaluate(() => {
+    const state = (window as unknown as { __paints: { armed: Element | null; count: number } })
+      .__paints;
+    state.armed = null;
+    return state.count;
+  });
+}
+
+test.describe("zoom glides in every state", () => {
+  test("five-market: a zoom step after an emphasis change still glides", async ({ page }) => {
+    await page.addInitScript(COUNT_PAINTS);
+    await openMarkets(page);
+    // The rebuild that used to cost the glide: a legend hover lifts Norway, leaving lets go.
+    await marketsFigure(page)
+      .getByRole("button", { name: /^Norway/ })
+      .hover();
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "norway");
+    await page.mouse.move(4, 4);
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+
+    // One 100ms tween is several frames; a jump is exactly one.
+    expect(await paintsForOneZoomStep(page, MARKETS_WRAPPER)).toBeGreaterThanOrEqual(2);
+  });
+
+  test("Brent: a zoom step after a legend toggle still glides", async ({ page }) => {
+    await page.addInitScript(COUNT_PAINTS);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+    const region = chartRegion(page);
+    await region.scrollIntoViewIfNeeded();
+    await expect(region).toHaveAttribute("data-entrance", "done", { timeout: 6000 });
+    const worldwide = chartFigure(page).getByRole("button", { name: /^Worldwide/ });
+    await worldwide.click();
+    await worldwide.click();
+    await expect(worldwide).toHaveAttribute("aria-pressed", "true");
+
+    expect(await paintsForOneZoomStep(page, CHART_WRAPPER)).toBeGreaterThanOrEqual(2);
+  });
+
+  test("under reduced motion a zoom step is still one instant change", async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.addInitScript(COUNT_PAINTS);
+    await openMarkets(page);
+    await expect(marketsRegion(page)).toHaveAttribute("data-entrance", "reduced");
+    expect(await paintsForOneZoomStep(page, MARKETS_WRAPPER)).toBe(1);
+    await context.close();
+  });
+});
+
+/**
+ * LINE HOVER HOLDS STILL WHILE THE VIEW MOVES.
+ *
+ * During a zoom or a pan the lines move under the pointer, so nothing the pointer passes is
+ * a line the reader pointed at — and each emphasis change is an option rebuild in the middle
+ * of the motion. Measured before: a drag-pan begun on a line lifted it mid-drag, and a zoom
+ * begun as the pointer reached a line lifted it mid-gesture. The wrapper publishes the
+ * gesture as `data-gesture`; these record every emphasis change and whether a gesture was in
+ * progress when it landed.
+ */
+async function recordEmphasis(page: Page): Promise<void> {
+  await page.evaluate((selector) => {
+    const wrapper = document.querySelector(selector);
+    const holder = document.querySelector("[data-emphasised]");
+    if (wrapper === null || holder === null) return;
+    const log = { changes: [] as { during: boolean; value: string }[], gestureSeen: false };
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.attributeName === "data-gesture") {
+          if (wrapper.hasAttribute("data-gesture")) log.gestureSeen = true;
+        } else {
+          log.changes.push({
+            during: wrapper.hasAttribute("data-gesture"),
+            value: holder.getAttribute("data-emphasised") ?? "",
+          });
+        }
+      }
+    });
+    observer.observe(wrapper, { attributes: true, attributeFilter: ["data-gesture"] });
+    observer.observe(holder, { attributes: true, attributeFilter: ["data-emphasised"] });
+    (window as unknown as { __emphasis: typeof log }).__emphasis = log;
+  }, MARKETS_WRAPPER);
+}
+
+async function emphasisLog(page: Page) {
+  return page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __emphasis: { changes: { during: boolean; value: string }[]; gestureSeen: boolean };
+        }
+      ).__emphasis,
+  );
+}
+
+async function ctrlWheel(page: Page, events: number): Promise<void> {
+  await page.keyboard.down("Control");
+  for (let i = 0; i < events; i += 1) {
+    await page.mouse.wheel(0, -8);
+    await page.waitForTimeout(16);
+  }
+  await page.keyboard.up("Control");
+}
+
+test.describe("line hover holds still during a zoom or pan", () => {
+  test("a drag-pan begun on a line does not lift it mid-drag", async ({ page }) => {
+    await openMarkets(page);
+    const region = marketsRegion(page);
+    await region.focus();
+    await page.keyboard.press("+");
+    await page.keyboard.press("+");
+    await expect(region).not.toHaveAttribute("data-zoom-end", "100");
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(300);
+    // Mid-window, where Indonesia's line is drawn after the zoom.
+    const vertex = await lineVertex(page, "#db2777", 15);
+    expect(vertex).not.toBeNull();
+
+    await recordEmphasis(page);
+    await page.mouse.move(vertex!.x, vertex!.y + 26);
+    await page.waitForTimeout(150);
+    // Onto the line (its dwell starts), then straight into a drag.
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 2 });
+    await page.mouse.down();
+    for (let i = 1; i <= 16; i += 1) {
+      await page.mouse.move(vertex!.x - i * 10, vertex!.y);
+      await page.waitForTimeout(30);
+    }
+    await page.mouse.up();
+    await expect(region).not.toHaveAttribute("data-gesture", "true");
+
+    const log = await emphasisLog(page);
+    expect(log.gestureSeen).toBe(true);
+    expect(log.changes.filter((change) => change.during)).toEqual([]);
+    // And the drag did not pin what it ended on.
+    await expect(emphasis(page)).toHaveAttribute("data-pinned", "");
+  });
+
+  test("a zoom begun as the pointer reaches a line does not lift it mid-gesture", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const vertex = await lineVertex(page, "#db2777", 5);
+    expect(vertex).not.toBeNull();
+    await page.mouse.move(vertex!.x, vertex!.y + 26);
+    await page.waitForTimeout(250);
+
+    await recordEmphasis(page);
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 2 });
+    await ctrlWheel(page, 24);
+    await expect(marketsRegion(page)).not.toHaveAttribute("data-gesture", "true");
+
+    const log = await emphasisLog(page);
+    expect(log.gestureSeen).toBe(true);
+    expect(log.changes.filter((change) => change.during)).toEqual([]);
+  });
+
+  test("a line the pointer left just before a zoom still lets go — after the zoom", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const vertex = await lineVertex(page, "#db2777", 5);
+    expect(vertex).not.toBeNull();
+    // Lift Indonesia by resting on it.
+    await page.mouse.move(vertex!.x, vertex!.y + 26);
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 2 });
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "indonesia");
+
+    // Step off it — its drop now waits out a grace period — and zoom inside that period.
+    await recordEmphasis(page);
+    await page.mouse.move(vertex!.x, vertex!.y + 26, { steps: 2 });
+    await ctrlWheel(page, 24);
+
+    // Nothing lands while the view moves, and the drop is held, not lost.
+    await expect(marketsRegion(page)).not.toHaveAttribute("data-gesture", "true");
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "");
+    const log = await emphasisLog(page);
+    expect(log.gestureSeen).toBe(true);
+    expect(log.changes.filter((change) => change.during)).toEqual([]);
+  });
+
+  test("a drop held across a zoom does not undo the legend entry the reader moved to", async ({
+    page,
+  }) => {
+    await openMarkets(page);
+    const singapore = marketsFigure(page).getByRole("button", { name: /^Singapore/ });
+    const target = await singapore.boundingBox();
+    expect(target).not.toBeNull();
+    const vertex = await lineVertex(page, "#db2777", 5);
+    expect(vertex).not.toBeNull();
+    await page.mouse.move(vertex!.x, vertex!.y + 26);
+    await page.mouse.move(vertex!.x, vertex!.y, { steps: 2 });
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "indonesia");
+
+    // Zoom, and go straight to the legend while the gesture is still open: the line's drop
+    // is held until the gesture ends — and must then not clear the legend's lift.
+    await ctrlWheel(page, 6);
+    await page.mouse.move(target!.x + target!.width / 2, target!.y + target!.height / 2);
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "singapore");
+    await expect(marketsRegion(page)).not.toHaveAttribute("data-gesture", "true");
+    await page.waitForTimeout(500);
+    await expect(emphasis(page)).toHaveAttribute("data-emphasised", "singapore");
+  });
+});
+
+/**
+ * CHART TYPE AND ANNOTATIONS — final-polish Batch 1.
+ *
+ * Canvas has no cascade, so every word a chart draws must name its face. Measured before:
+ * the axis titles, "Oil peak" and the band labels were drawn in ECharts' default, the
+ * generic `sans-serif` (Microsoft YaHei on Windows), and the tooltip was `12px sans-serif`.
+ * This records every `fillText` on both chart canvases with its font and painted box, and
+ * every long horizontal stroke (the gridlines), in page coordinates.
+ */
+const RECORD_TEXT = `
+(() => {
+  window.__text = [];
+  window.__grid = [];
+  const P = CanvasRenderingContext2D.prototype;
+  const wrapOf = (ctx) => (ctx.canvas.closest ? ctx.canvas.closest('[data-chart-canvas]') : null);
+  const toPage = (ctx, x, y) => {
+    const m = ctx.getTransform();
+    const d = window.devicePixelRatio || 1;
+    const r = ctx.canvas.getBoundingClientRect();
+    return [r.left + window.scrollX + (m.a * x + m.c * y + m.e) / d, r.top + window.scrollY + (m.b * x + m.d * y + m.f) / d];
+  };
+  const fill = P.fillText;
+  P.fillText = function (text, x, y) {
+    const wrap = wrapOf(this);
+    if (wrap !== null) {
+      const [px, py] = toPage(this, x, y);
+      const m = this.getTransform();
+      const d = window.devicePixelRatio || 1;
+      const box = this.measureText(String(text));
+      window.__text.push({
+        chart: wrap.getAttribute('aria-describedby'), text: String(text), font: this.font,
+        left: px - (box.actualBoundingBoxLeft * m.a) / d, right: px + (box.actualBoundingBoxRight * m.a) / d,
+        top: py - (box.actualBoundingBoxAscent * m.d) / d, bottom: py + (box.actualBoundingBoxDescent * m.d) / d,
+      });
+    }
+    return fill.apply(this, arguments);
+  };
+  let points = [];
+  const begin = P.beginPath, move = P.moveTo, line = P.lineTo, stroke = P.stroke;
+  P.beginPath = function () { if (wrapOf(this) !== null) points = []; return begin.apply(this, arguments); };
+  P.moveTo = function (x, y) { if (wrapOf(this) !== null) points.push(toPage(this, x, y)); return move.apply(this, arguments); };
+  P.lineTo = function (x, y) { if (wrapOf(this) !== null) points.push(toPage(this, x, y)); return line.apply(this, arguments); };
+  P.stroke = function () {
+    const wrap = wrapOf(this);
+    if (wrap !== null && points.length === 2) {
+      const [a, b] = points;
+      if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(a[0] - b[0]) > 200) {
+        window.__grid.push({ chart: wrap.getAttribute('aria-describedby'), y: a[1] });
+      }
+    }
+    return stroke.apply(this, arguments);
+  };
+})();`;
+
+interface DrawnText {
+  readonly chart: string;
+  readonly text: string;
+  readonly font: string;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+const BRENT_DESCRIPTION = "oil-vs-interest-chart-description";
+const MARKETS_DESCRIPTION = "ev-interest-markets-chart-description";
+
+/** Both charts mounted and drawn, at a dual-axis width. */
+async function openBothCharts(page: Page): Promise<void> {
+  await page.addInitScript(RECORD_TEXT);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  for (const region of [marketsRegion(page), chartRegion(page)]) {
+    await region.scrollIntoViewIfNeeded();
+    await expect(region).toHaveAttribute("data-entrance", "done", { timeout: 6000 });
+  }
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(300);
+}
+
+const drawnText = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __text: DrawnText[] }).__text);
+
+/** The first family in a canvas font string: `13px GeistSans, …` → `GeistSans`. */
+const firstFamily = (font: string): string =>
+  (font.replace(/^.*?\d+(?:\.\d+)?px\s+/, "").split(",")[0] ?? "").replace(/["']/g, "").trim();
+
+test.describe("chart type and annotations", () => {
+  test("every word and figure on both canvases is drawn in Geist", async ({ page }) => {
+    await openBothCharts(page);
+    const drawn = await drawnText(page);
+    for (const chart of [BRENT_DESCRIPTION, MARKETS_DESCRIPTION]) {
+      const mine = drawn.filter((entry) => entry.chart === chart);
+      expect(mine.length, `nothing was drawn on ${chart}`).toBeGreaterThan(0);
+      const faces = [...new Set(mine.map((entry) => firstFamily(entry.font)))].sort();
+      expect(faces, chart).toEqual(["GeistMono", "GeistSans"]);
+      // Words in the prose face, never the mono one: the axis title is the proof case.
+      const title = mine.find((entry) => entry.text.startsWith("Search interest index"));
+      expect(title, `${chart} drew no interest-axis title`).toBeDefined();
+      expect(firstFamily(title!.font)).toBe("GeistSans");
+    }
+  });
+
+  test("the tooltip is Geist Sans on the 13px step, with tabular figures", async ({ page }) => {
+    await openBothCharts(page);
+    for (const selector of [MARKETS_WRAPPER, CHART_WRAPPER]) {
+      const region = page.locator(selector);
+      await region.scrollIntoViewIfNeeded();
+      const box = await region.boundingBox();
+      await page.mouse.move(box!.x + box!.width * 0.5, box!.y + box!.height * 0.55);
+      await expect
+        .poll(() =>
+          region.evaluate((node) => {
+            const tip = node.querySelector<HTMLElement>(".oil-ev-chart-tooltip");
+            if (tip === null || getComputedStyle(tip).display === "none") return null;
+            if (!(tip.textContent ?? "").includes("Week of")) return null;
+            const computed = getComputedStyle(tip);
+            return `${computed.fontFamily.split(",")[0] ?? ""}|${computed.fontSize}|${computed.fontVariantNumeric}`;
+          }),
+        )
+        .toBe("GeistSans|13px|tabular-nums");
+      await page.mouse.move(4, 4);
+    }
+  });
+
+  test("'Oil peak' sits inside the plot against its line, clear of the axis title", async ({
+    page,
+  }) => {
+    await openBothCharts(page);
+    const drawn = (await drawnText(page)).filter((entry) => entry.chart === BRENT_DESCRIPTION);
+    const grid = (
+      await page.evaluate(
+        () => (window as unknown as { __grid: { chart: string; y: number }[] }).__grid,
+      )
+    ).filter((line) => line.chart === BRENT_DESCRIPTION);
+    expect(grid.length).toBeGreaterThan(0);
+    const plotTop = Math.min(...grid.map((line) => line.y));
+
+    const title = drawn.findLast((entry) => entry.text === "Search interest index (0–100)");
+    const peak = drawn.findLast((entry) => entry.text === "Oil peak");
+    expect(title).toBeDefined();
+    expect(peak).toBeDefined();
+    // The axis title above the plot's top edge, the peak label below it — not a two-line
+    // label stacked above the frame, which is what they used to read as.
+    expect(title!.bottom).toBeLessThan(plotTop);
+    expect(peak!.top).toBeGreaterThan(plotTop);
+    const overlaps =
+      peak!.left < title!.right &&
+      peak!.right > title!.left &&
+      peak!.top < title!.bottom + 8 &&
+      peak!.bottom > title!.top - 8;
+    expect(overlaps).toBe(false);
+  });
+
+  test("both bands are labelled with the same words, and both notes name them alike", async ({
+    page,
+  }) => {
+    await openBothCharts(page);
+    const drawn = await drawnText(page);
+    for (const chart of [BRENT_DESCRIPTION, MARKETS_DESCRIPTION]) {
+      const words = new Set(drawn.filter((entry) => entry.chart === chart).map((e) => e.text));
+      expect(words.has("Elevated crude price"), chart).toBe(true);
+      expect(words.has("Elevated"), chart).toBe(false);
+    }
+    // The prose under each chart: the same sentence, with the window's dates read from the
+    // artifacts. On a phone, where the canvas labels are withheld, this is what names them.
+    const sentence =
+      /The shaded band is the elevated crude-price window, from \d{1,2} [A-Z][a-z]{2} \d{4} to \d{1,2} [A-Z][a-z]{2} \d{4}/;
+    await expect(marketsFigure(page)).toContainText(sentence);
+    await expect(chartFigure(page)).toContainText(sentence);
+    await expect(chartFigure(page)).toContainText(
+      /vertical dashed line marks the oil peak, in the week of \d{1,2} [A-Z][a-z]{2} \d{4}/,
+    );
+  });
+});

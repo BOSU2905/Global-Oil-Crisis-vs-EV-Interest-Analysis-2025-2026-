@@ -280,11 +280,98 @@ export const figureText = (
   fontFamily: theme.axisLabelFont,
 });
 
-/** Prose text: axis titles and annotation labels, in the sans face. */
-export const proseText = (colour: string, size: string, px: PxConverter): OptionObject => ({
+/**
+ * Prose text: axis titles and annotation labels, in the sans face.
+ *
+ * The family is NAMED, from `--chart-text-font`, because leaving it out does not inherit
+ * the page's face — canvas has no cascade. ECharts then drew these words in its own
+ * default, the generic `sans-serif` (Microsoft YaHei on Windows): measured, "Search
+ * interest index", "Oil peak" and the band label were the only text on the page not in
+ * Geist.
+ */
+export const proseText = (
+  theme: ChartTheme,
+  colour: string,
+  size: string,
+  px: PxConverter,
+): OptionObject => ({
   color: colour,
   fontSize: px(size),
+  fontFamily: theme.textFont,
 });
+
+/**
+ * The option's default text style: any text a builder does not style explicitly is still
+ * set in the prose face rather than ECharts' default. A safety net, not a substitute —
+ * every label in both charts names its own family.
+ */
+export const defaultTextStyle = (theme: ChartTheme): OptionObject => ({
+  fontFamily: theme.textFont,
+});
+
+// ---------------------------------------------------------------------------
+// Tooltip — one surface and one type treatment for both charts
+// ---------------------------------------------------------------------------
+
+/**
+ * Tabular figures across the whole readout, set exactly as the `.tabular` utility sets
+ * them, so a column of values and the dates above it align the way every other figure on
+ * the page does. Geist Sans, not Mono: these are figures a reader reads, not identifiers a
+ * reader copies (design-system §3).
+ */
+const TOOLTIP_FIGURES_CSS = 'font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1';
+
+/**
+ * The tooltip's surface and type, shared by both charts.
+ *
+ * ECharts writes the tooltip's `font` from `textStyle`, and with no family it wrote
+ * `font: 12px / 18px sans-serif` — the one readout on the page in a generic face, at a size
+ * on no step of the scale. Now it is Geist Sans at the meta step the chart's legend and
+ * notes use (13px / 1.5), and the formatters below it set no size of their own: the
+ * hierarchy inside the readout is weight and colour.
+ */
+export const tooltipSurface = (theme: ChartTheme, px: PxConverter): OptionObject => {
+  const size = px(theme.tooltipSize);
+  const lineHeight = Number.parseFloat(theme.tooltipLineHeight);
+  return {
+    backgroundColor: theme.tooltipBg,
+    borderColor: theme.tooltipBorder,
+    borderWidth: 1,
+    padding: px(theme.tooltipPadding),
+    extraCssText:
+      `border-radius:${theme.tooltipRadius};box-shadow:${theme.tooltipShadow};` +
+      TOOLTIP_FIGURES_CSS,
+    textStyle: {
+      color: theme.tooltipFg,
+      fontFamily: theme.textFont,
+      fontSize: size,
+      // In pixels, because ECharts writes `line-height` in pixels.
+      lineHeight: Number.isFinite(lineHeight) ? size * lineHeight : undefined,
+    },
+  };
+};
+
+/**
+ * The notes at the foot of a readout — "Elevated crude price", "Partial week", the
+ * normalisation reminder — one per line.
+ *
+ * One per line rather than joined with " · ", and allowed to wrap: ECharts sets
+ * `white-space: nowrap` on the whole tooltip, so a joined line was as wide as all of its
+ * notes together. Measured at 375px, the five-market readout was 384px wide inside a 301px
+ * chart and ran off the screen.
+ */
+export const tooltipNotes = (theme: ChartTheme, notes: readonly string[]): string =>
+  notes.length === 0
+    ? ""
+    : `<div style="color:${theme.tooltipMutedFg};white-space:normal;margin-top:8px;` +
+      `padding-top:6px;border-top:1px solid ${theme.tooltipBorder}">` +
+      notes.map((note) => `<div>${note}</div>`).join("") +
+      `</div>`;
+
+/** The readout's heading: the week, at the emphasis weight, and its date range, muted. */
+export const tooltipHeading = (theme: ChartTheme, title: string, range: string): string =>
+  `<div style="color:${theme.tooltipFg};font-weight:${theme.tooltipStrongWeight}">${title}</div>` +
+  `<div style="color:${theme.tooltipMutedFg};margin-top:2px">${range}</div>`;
 
 // ---------------------------------------------------------------------------
 // Axis and grid spacing — measured, named, and asserted
@@ -347,7 +434,7 @@ export const axisCommon = (
   axisLine: { show: true, lineStyle: { color: theme.axisLineColor, width: 1 } },
   axisTick: { show: false },
   nameTextStyle: {
-    ...proseText(theme.axisTitleColor, theme.axisTitleSize, px),
+    ...proseText(theme, theme.axisTitleColor, theme.axisTitleSize, px),
     align: nameAlign,
     padding: [0, 0, 6, 0],
   },
@@ -592,53 +679,99 @@ export const sliderZoom = (
 // ---------------------------------------------------------------------------
 
 /**
- * Entrance motion for a line series, and the rule that keeps it an entrance.
+ * The three states a chart's motion can be in.
  *
- * ECharts draws a line series in by animating a clip rectangle from left to right,
- * which is exactly the "line draws left-to-right" the motion contract asks for — no
- * custom animation is needed, only a duration.
+ *   entrance  the FIRST build only. ECharts draws a line in by animating a clip rectangle
+ *             from left to right — exactly the "line draws left-to-right" the motion
+ *             contract asks for — so the entrance needs only a duration and a stagger.
+ *   settled   every build after it. Nothing animates by itself: entrance and update
+ *             durations are zero, so a legend toggle, an emphasis change, a resize or a
+ *             theme change lands in place instead of redrawing a line from the left edge.
+ *             But animation stays ENABLED, and that is the whole point of this state.
+ *   reduced   `prefers-reduced-motion`: animation off, every change instant.
  *
- * `animate: false` returns `animation: false` rather than a zero duration, because
- * the two differ: a zero-duration animation still schedules a frame per element,
- * and `prefers-reduced-motion` should stop the work rather than speed it up.
- *
- * THE ENTRANCE HAPPENS ONCE. Every subsequent `setOption` passes `animate: false`,
- * so a legend toggle, a resize or a theme change updates in place instead of
- * redrawing the line from the left edge. KIRO.md §10: the data stays still.
+ * WHY "SETTLED" EXISTS — THE FIVE-MARKET ZOOM DEFECT, MEASURED
+ * There used to be two states, and every build after the entrance was `animation: false`.
+ * A zoom step only glides because its dispatch carries a 100ms tween — the wheel
+ * (`WHEEL_ZOOM_TWEEN` in `EChart.tsx`), the slider and a drag-pan all do — and
+ * `getAnimationConfig()` ignores a dispatch's tween entirely when the option has animation
+ * off. So after ANY rebuild every zoom step jumped a whole week. The five-market chart
+ * rebuilds on every emphasis change (a legend hover, a line dwell, a pin), so in practice
+ * its zoom was nearly always the jumping one: repaints per zoom step fell from 5.2 to 1.0
+ * after a single legend hover, and from 4.9 to 1.0 on the Brent chart after a legend
+ * toggle. A zero duration is not the same as animation off: ECharts applies a 0ms
+ * transition immediately (`animateOrSetProps` sets the props and schedules nothing), and a
+ * dispatch's own tween still overrides it.
  */
+export type ChartMotion = "entrance" | "settled" | "reduced";
+
 export const ENTRANCE_DURATION_MS = 900;
 
-/** Delay before a second series starts drawing, so the pair reads as a sequence. */
+/** Delay before a second series starts drawing, so the series read as a sequence. */
 export const ENTRANCE_STAGGER_MS = 120;
 
-export interface MotionArgs {
-  /** False under `prefers-reduced-motion`, and false for every update after the first. */
-  readonly animate: boolean;
-}
-
-/** Option-level animation switches. */
-export const animationOptions = (motion: MotionArgs): OptionObject =>
-  motion.animate
-    ? {
-        animation: true,
-        animationDuration: ENTRANCE_DURATION_MS,
-        animationEasing: "cubicOut",
-        // Updates are instant. An update that animates is an update that moves the
-        // data, and the data must not move once it is drawn.
-        animationDurationUpdate: 0,
-      }
-    : { animation: false };
+/**
+ * Option-level animation switches.
+ *
+ * EVERY KEY THE ENTRANCE SETS IS RESTATED BY `settled`. `EChart` merges a later build into
+ * the live chart, and a merge keeps whatever a new option leaves out — so a settled option
+ * that omitted `animationDuration` would keep the entrance's 900ms, and the next series a
+ * reader re-shows would draw itself in again. Unit-tested.
+ *
+ * `reduced` returns `animation: false` rather than zero durations, because the two differ
+ * where it matters here: with animation off a dispatch's own tween is ignored too, so a
+ * zoom step is instant under reduced motion.
+ */
+export const animationOptions = (motion: ChartMotion): OptionObject => {
+  if (motion === "reduced") return { animation: false };
+  return {
+    animation: true,
+    animationDuration: motion === "entrance" ? ENTRANCE_DURATION_MS : 0,
+    animationEasing: "cubicOut",
+    // Updates are instant in both states. An update that animates is an update that moves
+    // the data, and the data must not move once it is drawn. A zoom step's glide is the
+    // dispatch's own tween, not this.
+    animationDurationUpdate: 0,
+  };
+};
 
 /** Per-series animation, staggered by position so series arrive in order. */
-export const seriesAnimation = (motion: MotionArgs, index: number): OptionObject =>
-  motion.animate
-    ? {
-        animationDuration: ENTRANCE_DURATION_MS,
-        animationDelay: index * ENTRANCE_STAGGER_MS,
-        animationEasing: "cubicOut",
-        animationDurationUpdate: 0,
-      }
-    : { animation: false };
+export const seriesAnimation = (motion: ChartMotion, index: number): OptionObject => {
+  if (motion === "reduced") return { animation: false };
+  const entering = motion === "entrance";
+  return {
+    // Explicit, not inherited: a series merged over a `reduced` build would otherwise keep
+    // its own `animation: false` after reduced motion is switched off.
+    animation: true,
+    animationDuration: entering ? ENTRANCE_DURATION_MS : 0,
+    animationDelay: entering ? index * ENTRANCE_STAGGER_MS : 0,
+    animationEasing: "cubicOut",
+    animationDurationUpdate: 0,
+  };
+};
+
+/**
+ * How long an option's entrance runs, in milliseconds: the longest series' delay plus its
+ * duration, read from the option that runs it. Zero when nothing enters.
+ *
+ * `EChart` marks the entrance done — and moves the live option to `settled` — when this
+ * elapses. It used to be a fixed 1200ms, which was the prototype's two series (900 + 120ms)
+ * plus a margin; the five-market chart's last line starts 480ms late and was still drawing
+ * when the chart said it was done.
+ */
+export function entranceLength(option: OptionObject): number {
+  if (option["animation"] !== true) return 0;
+  const base = Number(option["animationDuration"] ?? 0);
+  let longest = Number.isFinite(base) ? base : 0;
+  const series = option["series"];
+  if (!Array.isArray(series)) return longest;
+  for (const entry of series as readonly OptionObject[]) {
+    const length =
+      Number(entry["animationDuration"] ?? base) + Number(entry["animationDelay"] ?? 0);
+    if (Number.isFinite(length)) longest = Math.max(longest, length);
+  }
+  return longest;
+}
 
 /**
  * A CSS `<time>` value in milliseconds: `"360ms"` → 360, `".36s"` → 360.

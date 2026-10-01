@@ -51,6 +51,7 @@ import {
   AXIS_INDEX,
   AXIS_TITLE,
   CHART_TOOLTIP_CLASS as TOOLTIP_CLASS,
+  ELEVATED_BAND_LABEL,
   formatInterestIndex,
   formatUsdPerBarrel,
   formatWeek,
@@ -63,6 +64,7 @@ import {
   annotationLabelsFit,
   axisCommon,
   dashArray,
+  defaultTextStyle,
   figureText,
   insideZoom,
   lengthToPx,
@@ -70,6 +72,10 @@ import {
   pxFor,
   seriesAnimation,
   splitLine,
+  tooltipHeading,
+  tooltipNotes,
+  tooltipSurface,
+  type ChartMotion,
   type ColourResolver,
   type OptionObject,
   type OptionValue,
@@ -106,14 +112,15 @@ export interface BuildOptionArgs {
    */
   readonly hiddenSeries?: readonly SeriesKey[];
   /**
-   * Whether this build is the chart's entrance.
+   * Which motion state this build is in — see `ChartMotion`.
    *
-   * `true` exactly once per mount, and `false` under `prefers-reduced-motion` and for
-   * every rebuild after the first — a legend toggle or a band change must update in
-   * place rather than redraw the line from the left edge. Defaults to `true` so a
-   * test that does not care about motion still exercises the animated option.
+   * `entrance` exactly once per mount; `settled` for every build after it, so a legend
+   * toggle or a band change lands in place rather than redrawing the line from the left
+   * edge while a zoom step still glides; `reduced` under `prefers-reduced-motion`.
+   * Defaults to `entrance` so a test that does not care about motion still exercises the
+   * animated option.
    */
-  readonly animate?: boolean;
+  readonly motion?: ChartMotion;
 }
 
 /** The two real series. The provisional overlay is a treatment, not a series. */
@@ -166,22 +173,24 @@ export function buildTooltipFormatter(args: BuildOptionArgs): (weekStart: string
     `<span style="display:inline-block;width:10px;height:2px;background:${colour};` +
     `vertical-align:middle;margin-right:8px"></span>`;
 
+  // Figures need no treatment of their own: the surface sets tabular figures on the whole
+  // readout (`tooltipSurface`), and every size here is inherited from it.
   const row = (colour: string, label: string, value: string, unit: string): string =>
     `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;` +
     `margin-top:6px"><span style="color:${theme.tooltipMutedFg}">` +
     `${swatch(colour)}${label}</span>` +
-    `<span style="color:${theme.tooltipFg};font-variant-numeric:tabular-nums">${value}` +
+    `<span style="color:${theme.tooltipFg}">${value}` +
     `<span style="color:${theme.tooltipMutedFg}"> ${unit}</span></span></div>`;
 
   return (weekStart: string): string => {
     const point = byWeek.get(weekStart);
     if (point === undefined) return "";
 
-    const heading =
-      `<div style="color:${theme.tooltipFg};font-weight:500">Week of ` +
-      `${formatWeek(point.weekStart)}</div>` +
-      `<div style="color:${theme.tooltipMutedFg};font-size:11px;margin-top:2px">` +
-      `${formatWeek(point.weekStart)} – ${formatWeek(point.weekEnd)}</div>`;
+    const heading = tooltipHeading(
+      theme,
+      `Week of ${formatWeek(point.weekStart)}`,
+      `${formatWeek(point.weekStart)} – ${formatWeek(point.weekEnd)}`,
+    );
 
     const oil = hidden.has("oil")
       ? ""
@@ -214,15 +223,9 @@ export function buildTooltipFormatter(args: BuildOptionArgs): (weekStart: string
     if (point.oilUsdPerBarrel === null && !hidden.has("oil")) {
       notes.push("Oil series ends one week earlier");
     }
-    if (point.regime === "elevated") notes.push("Elevated price window");
-    const note =
-      notes.length === 0
-        ? ""
-        : `<div style="color:${theme.tooltipMutedFg};font-size:11px;margin-top:8px;` +
-          `padding-top:6px;border-top:1px solid ${theme.tooltipBorder}">` +
-          `${notes.join(" · ")}</div>`;
+    if (point.regime === "elevated") notes.push(ELEVATED_BAND_LABEL);
 
-    return `<div style="min-width:210px">${heading}${oil}${interest}${note}</div>`;
+    return `<div style="min-width:210px">${heading}${oil}${interest}${tooltipNotes(theme, notes)}</div>`;
   };
 }
 
@@ -241,7 +244,7 @@ function oilSeries(args: BuildOptionArgs, gridIndex: 0 | 1, yAxisIndex: number):
   const { data, theme, resolveColour } = args;
   const px = pxFor(args.rootFontSizePx);
   const colour = resolveColour(OIL_IDENTITY.colorVariable);
-  const motion = { animate: args.animate !== false };
+  const motion: ChartMotion = args.motion ?? "entrance";
 
   return {
     id: "oil",
@@ -339,7 +342,7 @@ function interestSeries(
   const { data, theme, resolveColour } = args;
   const px = pxFor(args.rootFontSizePx);
   const colour = resolveColour(SERIES_IDENTITY.worldwide.colorVariable);
-  const motion = { animate: args.animate !== false };
+  const motion: ChartMotion = args.motion ?? "entrance";
 
   return {
     id: "interest",
@@ -370,12 +373,34 @@ function interestSeries(
 // ---------------------------------------------------------------------------
 
 /**
+ * The oil-peak label: what it says, and how far it sits inside the plot from the top of
+ * its line and from the line itself, in pixels.
+ */
+export const OIL_PEAK_LABEL = "Oil peak";
+export const OIL_PEAK_LABEL_INSET_PX = 6;
+
+/**
  * The elevated-price window and the oil peak, both read from `metrics.json`.
  *
  * Attached to the oil series because both are properties of the price path. The
  * band is suppressed entirely when `regimes_separated` is false: the artifact saying
  * "do not present this as a distinct regime" is honoured by drawing nothing, not by
  * drawing it more faintly.
+ *
+ * WHERE THE TWO LABELS SIT, AND WHY — MEASURED AT 1920px BEFORE THE CHANGE
+ * The peak week is two weeks from the right edge, so a label at the line's outer end sat
+ * directly under the right axis title: "Search interest index" at y 8–17 and "Oil peak" at
+ * y 21–33, overlapping horizontally, same face, same size, same colour — one two-line label
+ * that read as "Search interest index / Oil peak". The peak label now sits INSIDE the plot,
+ * under its top edge and right-aligned against its own line, so the axis title is above the
+ * frame and the annotation is attached to the thing it annotates. There is room for it:
+ * in the weeks just before the peak both lines stay well below the top edge (the index
+ * reaches 84 of 100; the price peaks at $111 on a $60–120 axis).
+ *
+ * That moves the band label to the band's FOOT — the position the five-market chart already
+ * uses, so the one annotation that appears in both charts is in the same place in both. At
+ * the foot of these four weeks the oil line is at its lowest in the band ($85, 42% up the
+ * axis), so the bottom edge is clear.
  */
 function oilAnnotations(args: BuildOptionArgs): OptionObject {
   const { data, theme, resolveColour } = args;
@@ -396,9 +421,9 @@ function oilAnnotations(args: BuildOptionArgs): OptionObject {
         // The band still draws below `md`; only its text is withheld, because at 300px
         // the label lands on the data. The notes under the chart carry the dates.
         show: showLabels,
-        position: "insideTop",
-        formatter: "Elevated",
-        ...proseText(theme.regimeLabelFg, theme.annotationSize, px),
+        position: "insideBottom",
+        formatter: ELEVATED_BAND_LABEL,
+        ...proseText(theme, theme.regimeLabelFg, theme.annotationSize, px),
       },
       data: [[{ xAxis: annotations.regimeOnsetWeek }, { xAxis: annotations.lastOilWeek }]],
     };
@@ -414,9 +439,18 @@ function oilAnnotations(args: BuildOptionArgs): OptionObject {
     },
     label: {
       show: showLabels,
+      // `end` is the line's top. A NEGATIVE vertical distance moves the label below that
+      // point, into the plot, and `verticalAlign: top` hangs the text from there; the right
+      // padding holds the text off the dashed line. The other positions ECharts offers for
+      // a markLine label ("insideEndTop" and the rest) rotate the text to run along the
+      // line — vertical text, for a vertical line.
       position: "end",
-      formatter: "Oil peak",
-      ...proseText(theme.annotationFg, theme.annotationSize, px),
+      distance: [0, -OIL_PEAK_LABEL_INSET_PX],
+      align: "right",
+      verticalAlign: "top",
+      padding: [0, OIL_PEAK_LABEL_INSET_PX, 0, 0],
+      formatter: OIL_PEAK_LABEL,
+      ...proseText(theme, theme.annotationFg, theme.annotationSize, px),
     },
     data: [{ xAxis: annotations.oilPeakWeek }],
   };
@@ -443,7 +477,7 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
   const names = seriesName(data);
   const formatWeekTooltip = buildTooltipFormatter(args);
   const hidden = new Set(args.hiddenSeries ?? []);
-  const motion = { animate: args.animate !== false };
+  const motion: ChartMotion = args.motion ?? "entrance";
   /** Drop hidden series. The axes have fixed domains, so nothing rescales. */
   const shown = (entries: readonly (OptionObject | null)[]): OptionObject[] =>
     entries.filter((entry): entry is OptionObject => entry !== null);
@@ -465,12 +499,7 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
     // matching text, and picked up the heading rather than the whole readout. Naming
     // it makes "is the tooltip showing, and what does it say" a direct query.
     className: TOOLTIP_CLASS,
-    backgroundColor: theme.tooltipBg,
-    borderColor: theme.tooltipBorder,
-    borderWidth: 1,
-    padding: px(theme.tooltipPadding),
-    extraCssText: `border-radius:${theme.tooltipRadius};box-shadow:${theme.tooltipShadow}`,
-    textStyle: { color: theme.tooltipFg, fontSize: 12 },
+    ...tooltipSurface(theme, px),
     axisPointer: {
       type: "line",
       lineStyle: {
@@ -578,6 +607,7 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
     return {
       ...animationOptions(motion),
       backgroundColor: "transparent",
+      textStyle: defaultTextStyle(theme),
       // Room for both axis titles, and enough left/right padding that the first and
       // last week labels are not clipped at the frame edge.
       grid: {
@@ -617,6 +647,7 @@ export function buildOilVsInterestOption(args: BuildOptionArgs): OptionObject {
   return {
     ...animationOptions(motion),
     backgroundColor: "transparent",
+    textStyle: defaultTextStyle(theme),
     grid: [
       {
         top: GRID_PADDING.top - 6,

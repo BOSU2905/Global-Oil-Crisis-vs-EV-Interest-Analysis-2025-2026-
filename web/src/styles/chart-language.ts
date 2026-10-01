@@ -32,6 +32,13 @@ import type { SeriesId } from "../data/artifact-types.ts";
  * inherit light/dark theming instead of hard-coding colour.
  */
 export const CHART_TOKENS = {
+  /**
+   * The face for every word a chart draws — axis titles, annotation labels, the tooltip.
+   * Figures use `axisLabelFont`. Canvas cannot read `var()`, so without this the words fell
+   * back to ECharts' default, the generic `sans-serif` (Microsoft YaHei on Windows).
+   */
+  textFont: "--chart-text-font",
+
   axisLabelColor: "--chart-axis-label-color",
   axisLabelSize: "--chart-axis-label-size",
   axisLabelFont: "--chart-axis-label-font",
@@ -49,6 +56,12 @@ export const CHART_TOKENS = {
   tooltipRadius: "--chart-tooltip-radius",
   tooltipShadow: "--chart-tooltip-shadow",
   tooltipPadding: "--chart-tooltip-padding",
+  /** The meta step, 13px: the same size as the chart's legend and notes. */
+  tooltipSize: "--chart-tooltip-size",
+  /** A unitless multiplier, as `--text-meta-line` is. */
+  tooltipLineHeight: "--chart-tooltip-line-height",
+  /** The week heading's weight — the product's emphasis step, not a raw number. */
+  tooltipStrongWeight: "--chart-tooltip-strong-weight",
 
   lineWidth: "--chart-line-width",
   lineWidthEmphasis: "--chart-line-width-emphasis",

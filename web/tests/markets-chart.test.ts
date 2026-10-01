@@ -45,6 +45,7 @@ import {
   buildMarketsA11y,
   toMarketTableCells,
 } from "../src/components/chart/markets-contract.ts";
+import { AXIS_TITLE, ELEVATED_BAND_LABEL } from "../src/components/chart/contract.ts";
 import {
   MARKET_LINE_OPACITY,
   buildMarketsOption,
@@ -55,8 +56,10 @@ import {
 import type { OptionObject } from "../src/components/chart/echarts-theme.ts";
 import {
   AXIS_LABEL_MARGIN,
+  ENTRANCE_DURATION_MS,
   GRID_PADDING,
   echartsSymbol,
+  entranceLength,
   lineSeriesOf,
 } from "../src/components/chart/echarts-theme.ts";
 import { SERIES_IDENTITY } from "../src/styles/chart-language.ts";
@@ -81,6 +84,8 @@ function tokenStub(key: ChartTokenName): string {
   if (/Size$/.test(key)) return "0.8125rem";
   if (/Padding$/.test(key)) return "0.75rem";
   if (/Width$|Radius$/.test(key)) return "2px";
+  if (/LineHeight$/.test(key)) return "1.5";
+  if (/Weight$/.test(key)) return "500";
   if (key === "areaOpacity" || key === "dimmedOpacity" || key === "scatterOpacity")
     return "0.1";
   if (/Dash$/.test(key)) return "3 3";
@@ -739,6 +744,44 @@ test("the band is attached once, not once per market", () => {
   assert.equal(withBand.length, 1, "five overlaid bands would darken the plot fivefold");
 });
 
+test("the band, the readout and the table name the elevated weeks in the same words", () => {
+  // One name across both charts: it used to be "Elevated" in one, "Elevated crude price"
+  // in the other, and "Elevated crude-price window" in this chart's own tooltip.
+  const markArea = seriesById(option(1280), "indonesia")["markArea"] as OptionObject;
+  const label = markArea["label"] as OptionObject;
+  assert.equal(label["formatter"], ELEVATED_BAND_LABEL);
+  // At the band's foot: every series peaks at 100 by construction, so the top is crowded.
+  assert.equal(label["position"], "insideBottom");
+  assert.equal(label["fontFamily"], theme.textFont);
+
+  const format = buildMarketsTooltipFormatter({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+  });
+  const rows = buildMarketTableRows(data);
+  let elevated = 0;
+  data.weeks.forEach((week, index) => {
+    const html = format(week.weekStart);
+    assert.doesNotMatch(html, /crude-price window|Elevated price window/);
+    if (week.regime !== "elevated") return;
+    elevated += 1;
+    assert.ok(html.includes(ELEVATED_BAND_LABEL));
+    assert.ok((rows[index]?.note ?? "").includes(ELEVATED_BAND_LABEL));
+  });
+  assert.ok(elevated > 0, "the fixture no longer has an elevated week");
+});
+
+test("both charts name the interest axis the same way, stating its 0–100 scale", () => {
+  const stem = "Search interest index (0–100";
+  assert.ok(AXIS_TITLE.interest.startsWith(stem), AXIS_TITLE.interest);
+  assert.ok(MARKETS_AXIS_TITLE.startsWith(stem), MARKETS_AXIS_TITLE);
+  // This chart adds the normalisation, because the axis is where the misreading starts.
+  assert.match(MARKETS_AXIS_TITLE, /per market/);
+});
+
 // ---------------------------------------------------------------------------
 // Motion
 // ---------------------------------------------------------------------------
@@ -750,12 +793,40 @@ test("the entrance animates once and updates do not", () => {
     resolveColour,
     widthPx: 1280,
     rootFontSizePx: ROOT_FONT_SIZE_PX,
-    animate: true,
+    motion: "entrance",
   });
   assert.equal(entering["animation"], true);
   assert.ok(Number(entering["animationDuration"]) > 0);
   // The data must not move once drawn: an update is instant.
   assert.equal(entering["animationDurationUpdate"], 0);
+});
+
+test("an emphasis rebuild keeps animation on, so a zoom step after a hover still glides", () => {
+  // THE five-market zoom defect. Every emphasis change — a legend hover, a line dwell, a
+  // pin — rebuilds the option, and every rebuild used to switch animation off, which makes
+  // ECharts drop the 100ms tween each wheel, slider and drag-pan step carries. Measured:
+  // repaints per zoom step fell from 5.2 to 1.0 after one legend hover, so in practice
+  // this chart's zoom was nearly always the one that jumped.
+  const lifted = buildMarketsOption({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 1280,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+    motion: "settled",
+    emphasised: ["norway"],
+  });
+  assert.equal(lifted["animation"], true);
+  assert.equal(lifted["animationDuration"], 0);
+  assert.equal(lifted["animationDurationUpdate"], 0);
+  for (const market of data.series) {
+    const series = seriesById(lifted, market.id);
+    assert.equal(series["animation"], true, `${market.id} must not switch animation off`);
+    // Zero, restated: a merge would otherwise keep the entrance's draw-in and stagger.
+    assert.equal(series["animationDuration"], 0);
+    assert.equal(series["animationDelay"], 0);
+    assert.equal(series["animationDurationUpdate"], 0);
+  }
 });
 
 test("reduced motion switches animation off rather than shortening it", () => {
@@ -765,7 +836,7 @@ test("reduced motion switches animation off rather than shortening it", () => {
     resolveColour,
     widthPx: 1280,
     rootFontSizePx: ROOT_FONT_SIZE_PX,
-    animate: false,
+    motion: "reduced",
   });
   assert.equal(still["animation"], false);
   for (const market of data.series) {
@@ -780,7 +851,7 @@ test("series enter in sequence, so five lines do not arrive at once", () => {
     resolveColour,
     widthPx: 1280,
     rootFontSizePx: ROOT_FONT_SIZE_PX,
-    animate: true,
+    motion: "entrance",
   });
   const delays = data.series.map((market) =>
     Number(seriesById(built, market.id)["animationDelay"]),
@@ -788,11 +859,14 @@ test("series enter in sequence, so five lines do not arrive at once", () => {
   for (let i = 1; i < delays.length; i += 1) {
     assert.ok((delays[i] ?? 0) > (delays[i - 1] ?? 0), "series delays must increase");
   }
-});
 
-// ---------------------------------------------------------------------------
-// The tabular twin
-// ---------------------------------------------------------------------------
+  // The entrance ends when the LAST line has drawn: four staggers and one duration. The
+  // fixed 1200ms timer this replaced declared the entrance done with that line still
+  // drawing.
+  const last = Math.max(...delays);
+  assert.equal(entranceLength(built), last + ENTRANCE_DURATION_MS);
+  assert.ok(entranceLength(built) > 1200);
+});
 
 test("the fallback has one row per week and one cell per market", () => {
   const rows = buildMarketTableRows(data);
@@ -873,4 +947,59 @@ test("no rendered font size is sub-pixel, given rem-valued tokens", () => {
   for (const size of sizes) {
     assert.ok(size >= 8, `a font size of ${String(size)}px would be invisible`);
   }
+});
+
+test("every text style names a chart face — the prose one for words, the numeric for figures", () => {
+  // Canvas has no cascade, so a style that names no family is drawn in ECharts' default:
+  // measured, this chart's axis title and band label were in the generic `sans-serif`.
+  const families: unknown[] = [];
+  const walk = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const entry of value) walk(entry);
+      return;
+    }
+    if (value === null || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (typeof record["fontSize"] === "number") families.push(record["fontFamily"]);
+    for (const entry of Object.values(record)) walk(entry);
+  };
+  for (const width of [375, 1280]) {
+    const built = option(width);
+    walk(built);
+    const yAxis = asArray(built["yAxis"], "yAxis")[0];
+    assert.equal((yAxis?.["nameTextStyle"] as OptionObject)["fontFamily"], theme.textFont);
+    assert.equal((yAxis?.["axisLabel"] as OptionObject)["fontFamily"], theme.axisLabelFont);
+    assert.equal((built["textStyle"] as OptionObject)["fontFamily"], theme.textFont);
+  }
+  assert.ok(families.length > 0);
+  assert.deepEqual(
+    families.filter((family) => family !== theme.textFont && family !== theme.axisLabelFont),
+    [],
+  );
+});
+
+test("the readout is one type step, and its notes wrap one per line instead of widening it", () => {
+  const tooltip = option(1280)["tooltip"] as OptionObject;
+  const text = tooltip["textStyle"] as OptionObject;
+  assert.equal(text["fontFamily"], theme.textFont);
+  assert.equal(text["fontSize"], 13);
+  assert.match(String(tooltip["extraCssText"]), /font-variant-numeric:tabular-nums/);
+
+  const format = buildMarketsTooltipFormatter({
+    data,
+    theme,
+    resolveColour,
+    widthPx: 375,
+    rootFontSizePx: ROOT_FONT_SIZE_PX,
+  });
+  const elevated = data.weeks.find((week) => week.regime === "elevated");
+  assert.ok(elevated !== undefined);
+  const html = format(elevated.weekStart);
+  assert.ok(!html.includes("font-size"), "the readout sets a size of its own");
+  // ECharts sets `white-space: nowrap` on the whole tooltip, so notes joined on one line
+  // were as wide as all of them together: measured, 384px inside a 301px chart at 375px.
+  assert.match(html, /white-space:normal/);
+  assert.ok(!html.includes(" · Each market"), "the notes are joined onto one line again");
+  assert.ok(html.includes(`<div>${ELEVATED_BAND_LABEL}</div>`));
+  assert.ok(html.includes("<div>Each market is scaled to its own maximum</div>"));
 });

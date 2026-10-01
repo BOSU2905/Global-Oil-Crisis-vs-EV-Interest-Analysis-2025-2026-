@@ -2,11 +2,197 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-10-01 (Windows) — **final-polish revision cycle IN PROGRESS.**
-Read "Final-polish cycle" directly below first. The paragraphs after it, up to §0, are
-the 2026-09-17 record and are historical: the divergence they describe no longer exists.
+**Last updated:** 2026-10-02 (Linux) — **final-polish revision cycle IN PROGRESS: Batch 1
+of 4 COMPLETE, awaiting the user's review; Batch 2 not started.** Read "Final-polish cycle"
+directly below first. The paragraphs after it, up to §0, are the 2026-09-17 record and are
+historical: the divergence they describe no longer exists.
 
 ## Final-polish cycle (2026-10-01) — live state
+
+### Batch plan and decisions (user, 2026-10-02) — read first
+
+The Phase 0 reconciliation below was accepted. The remaining work runs as four batches. Each
+batch ends with Kiro's own review of the complete diff, the relevant gates, a scope check,
+this file updated, and **one local commit** (no push). Then **stop** for the user's review.
+
+| Batch | Scope                                                                                       | State       |
+| ----- | ------------------------------------------------------------------------------------------- | ----------- |
+| 1     | Charts: five-market zoom smoothness (measured first, regression-tested, re-measured after); tooltip in Geist; axis titles unified; "Oil peak" off the axis title; one wording for the shaded band | **COMPLETE** — see "Batch 1" below; awaiting review |
+| 2     | Layout A1–A3, before/after at 375/768/1024/1280/1440/1920; keep the editorial composition unless evidence says otherwise | not started — NEXT, after the user accepts Batch 1 |
+| 3     | Market Synthesis map, direction B — only after Batches 1–2 are reviewed and accepted        | not started |
+| 4     | Full validation (item E) and documentation (the drift listed below)                         | not started |
+
+Revisions 10 (colour accents), 11 (motion) and 13 (affordance audit) overlap items C, D and
+E and are folded into Batches 1–4 rather than run separately.
+
+**Decisions.**
+
+1. **Map: direction B, spotlight with a small locator.** The main visual is ONE market's
+   geographic silhouette beside its short synthesis text; a small locator gives the five
+   markets their geographic context. Keep the raised plates, the staggered entrance and the
+   hover / click / button selection; keep the composition compact; existing dependencies
+   only (Singapore's outline needs Natural Earth 1:50m from the same `world-atlas` package).
+   Direction A (compact regional windows) is the fallback if B adds needless complexity or
+   costs usability. **Not started** — Batch 3.
+2. **Revision 12 (reading-preference modes): deferred, not implemented.** Reason: there is
+   no demonstrated user need for another preference control. Accessibility obligations are
+   unchanged — reduced motion, keyboard operation, readable contrast, visible focus.
+   Revisit only if validation identifies a concrete usability problem a mode would solve.
+3. **Commits:** one coherent local commit per batch, after self-review; never pushed until
+   the user says so. Identity: the Kiro Agent env vars in §1 (see the Phase 0 note).
+4. **Guardrails:** no restart of completed phases, no change to the analytical source of
+   truth, no unrelated redesign.
+
+### Phase 0 reconciliation (2026-10-01, Linux) — inspection only, nothing changed
+
+- `main` = `origin/main` = `dfdf0ed`, clean tree, no stash, linear history.
+- **Gates, all run:** `npm run verify` (unit 335/335), E2E 144/144, pytest 191 passed /
+  1 skipped (SciPy absent by design), ruff, mypy, `pipeline.build --check`; artifact digests
+  identical to §9; no analytical change since `211f5c9`. At 375–1920px: no horizontal
+  overflow, no console errors or warnings.
+- **This device:** Node 22.23.2, npm 10.9.8, Python 3.11.16 venv at `.venv`, Playwright
+  Chromium. `~/.gitconfig` now carries a user identity (BOSU2905), so §1's "no identity
+  configured" is out of date here; commits still use the Kiro Agent env vars, as every
+  final-polish commit has.
+- Revisions 10–13, the final validation and the documentation pass had not started. The
+  original brief for 10–13 is not in the repository; only the one-line summary survives.
+
+| Item                          | Found at `dfdf0ed`                                                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| A1 Observation Scope subhead  | Baseline-aligned, but it starts at x=864 — inside the 2nd of the 4 coverage cells (265/613/961/1308): three left edges in one section; an orphan "by week." at 1920 |
+| A2 Split-section gaps         | The empty label column under the heading (≈460px in How to Read, ≈690px in Narrative Structure at 1920), not the 96px section rhythm |
+| A3 Comparability spacing      | Body's first baseline 9.2px above the title's (a fixed offset, not the baseline rule the other headers use); body column 6px right of the page reading column; three stacked label rows above the title |
+| B tooltip                     | Names no font, so ECharts falls back to `sans-serif` — not Geist; 12px / 11px literals, off the 13px meta step               |
+| B axis titles                 | Same face and size; wording differs — "Search interest index (0–100, per market)" vs "Search interest index"                 |
+| B annotations                 | "Oil peak" sits directly under the right-axis title and reads as one label; the band is "Elevated" (top) in one chart, "Elevated crude price" (bottom) in the other |
+| C map                         | 910×398 at 1920 with the markets in <20% of it; Malaysia / Singapore / Indonesia in ≈150×90px on leader lines; each name shown three times; 341×149 on a phone |
+| D zoom                        | Cause measured — see below                                                                                                   |
+| E                             | Clean baseline; at 375 the floating section indicator overlaps the "All Five Markets" panel text                             |
+
+**D, measured.** A zoom step glides (100ms cubic-out) only while the option has animation
+on, and every build after the entrance set `animation: false` — so after ANY rebuild each
+zoom step jumped a whole week. The five-market chart rebuilds on every emphasis change
+(legend hover, a line dwell, a pin), so in practice its zoom was always the snapping one.
+Repaints per drawn zoom window, same gesture: five-market Ctrl + wheel **5.2 → 1.0** after
+one emphasis rebuild, five-market slider **2.2 → 1.0**, Brent Ctrl + wheel **4.9 → 1.0**
+after a legend toggle. Secondary: one or two emphasis rebuilds land mid-gesture when the
+pointer rests on a line, and the five-line scene costs more per paint (p95 frame 33ms vs
+17ms at 4× CPU throttle; no difference at 1×). Ruled out: the dataZoom throttle (20ms in
+this configuration, not 100ms), React re-renders per event, the shared week-snapping.
+
+**Documentation drift, for Batch 4:** `web/README.md` (describes step 4: no charts, 160
+unit / 62 E2E); `README.md` status line (one prototype chart); `design-system.md` §4 and
+`product-architecture.md` §7 (frame 1280px; tokens say 1440px); `design-system.md` §5
+tooltip "mono numerals"; KIRO.md §3, §5, §6, §9, §10 and the environment line below.
+
+Scratch evidence (mockups of A and B at 1920/375, the D repro scripts) is in
+`/tmp/kiro-phase0/`, outside the repository and not durable.
+
+### Batch 1 — Charts (COMPLETE, 2026-10-02; the commit is the "Batch 1" row under "Landed")
+
+Measured first on an unchanged production build of `dfdf0ed`, fixed, then re-measured with
+the same harness (Chromium, 1920×1080; scratch scripts in `/tmp/kiro-b1/`, not durable).
+
+**Zoom — the fix.** `ChartMotion` (`echarts-theme.ts`) replaces the boolean `animate`:
+
+- `entrance` — first build only. Its length is read from the option (`entranceLength`: the
+  last series' stagger + duration) instead of a fixed 1200ms, which the five-market chart's
+  last line (480 + 900ms) outlasted. When it ends, `EChart` moves the live option to
+  `settled` (a one-time `entranceEnded` state through the existing update effect — the
+  React Compiler lint forbids `render` calling itself). Left in place, the entrance stagger
+  made ECharts re-run every line's clip transition on each wheel/pan step: 22 invisible
+  repaints per gesture, the last 480ms after it ended.
+- `settled` — every later build: animation ENABLED, every duration and delay 0, restated
+  on every build because `EChart` merges and a merge keeps omitted keys. Updates stay
+  instant; a zoom step's own 100ms tween now survives. This is the defect: ECharts drops a
+  dispatch's tween when the option has `animation: false`, which every post-entrance build
+  had, and the five-market chart rebuilds on every emphasis change.
+- `reduced` — `prefers-reduced-motion`: `animation: false`, every step instant (unchanged).
+
+**Gestures.** `EChart` tracks a zoom/pan gesture (Ctrl + wheel / pinch until 200ms idle;
+a press that travelled, until `pointerup`/`pointercancel` on the window), publishes it as
+`data-gesture`, and does not decide line hover during one; `onGestureChange` tells the
+caller, and `settleHover` reports the line under the pointer when it ends. The five-market
+chart holds a pending lift/drop across a gesture and re-arms it afterwards
+(`pendingLine`), and ignores line hover while a legend entry holds emphasis
+(`legendHolds`) — found in review: a drop held across a zoom otherwise cleared the
+legend lift the reader had moved to (E2E-reproduced 2/2 without the guard).
+
+| Measurement (paints per drawn zoom window)       | Before      | After       |
+| ------------------------------------------------ | ----------- | ----------- |
+| Five-market Ctrl + wheel: fresh / after a hover  | 5.21 / 1.00 | 3.68 / 3.68 |
+| Five-market slider: fresh / after a hover        | 2.20 / 1.00 | 2.20 / 2.20 |
+| Brent Ctrl + wheel: fresh / after legend toggle  | 4.92 / 1.00 | 4.92 / 5.08 |
+| Reduced motion, wheel / slider                   | 1.00 / 1.00 | 1.00 / 1.00 |
+| Emphasis changes landing mid-gesture (pan, wheel)| 1 / 1       | 0 / 0       |
+| 4× CPU, after a hover: wheel p/w, p95 frame gap  | 1.0, 100ms  | 3.2–3.3, 34–37ms |
+| 4× CPU, after a hover: slider p/w, p95 frame gap | 1.0, 72–74ms| 3.9–4.0, 37–38ms |
+
+"Fresh" five-market wheel fell from 5.21 to 3.68 because the stagger tail is gone; the
+glide itself is unchanged. One state now behaves like every other.
+
+**Typography.** New tokens `--chart-text-font` (= `--font-sans`), `--chart-tooltip-size`
+(= meta, 13px), `--chart-tooltip-line-height` (= 1.5), `--chart-tooltip-strong-weight`
+(= 500). Canvas has no cascade, so `proseText` now names the family; a root `textStyle`
+is the safety net. Measured before: axis titles, "Oil peak" and both band labels were drawn
+in ECharts' default `13px sans-serif` (Microsoft YaHei on Windows), and the tooltip was
+`12px / 18px sans-serif` with 11px lines. After: every word on both canvases is Geist Sans,
+every figure Geist Mono; the tooltip is Geist Sans 13px / 19.5px with tabular figures on
+the whole readout (`tooltipSurface`), the week at 500, no size literals in the markup, and
+notes one per line and wrappable (`tooltipNotes`). That also fixed an overflow: ECharts sets
+`white-space: nowrap`, so the five-market readout's joined notes made it 384px wide in a
+301px chart at 375px; it is 277px now. Tabular figures stay in Geist Sans, not Mono —
+design-system §3 (human-facing figures), so §5's old "mono numerals" row is corrected.
+
+**Annotations and wording.**
+
+- Axis titles: both interest axes state the scale — "Search interest index (0–100)" on the
+  Brent chart (legend unit included), "(0–100, per market)" on the five-market chart.
+- "Oil peak" now hangs inside the plot under its line's top, right-aligned against the line
+  (`position: "end"`, `distance [0, −6]`, `align: right`, `verticalAlign: top`). Measured
+  before: at 1920 it sat at y 21–33 directly under the axis title (y 8–17) and read as one
+  two-line label. After: the title is above the plot's top edge (y ≈ 36), the label inside
+  it at y 43–55, 25px clear of the title, no overlap; same at 1024 / 1280 / 1920.
+  `insideEnd*` positions were rejected: they rotate the text along a vertical line.
+- The band is `ELEVATED_BAND_LABEL` = "Elevated crude price" in both band labels, both
+  tooltips and both tables (it was "Elevated", "Elevated price window", "Elevated
+  crude-price window" and "Elevated crude price"), at the band's foot in both charts.
+- The Brent notes now name the band and the oil-peak line with their artifact dates, in the
+  five-market chart's words — below `md` the canvas labels are withheld and this sentence
+  was missing, so on a phone the two annotations were unnamed.
+
+**Checked and left alone.** On a deep link, ~22 of 154 canvas text draws report
+`document.fonts.check() === false`, but their measured widths equal the loaded face's
+(247 / 121px) — the face was in use; no font-loading race to fix. ECharts' tooltip CSS
+transition already collapses to 0.001s under reduced motion via the global rule.
+
+**Tests.** Unit 335 → 348: motion states (settled keeps animation on; settled restates
+every entrance key; entrance length), named faces on every text style, tooltip type and
+wrapping, shared band wording across label/tooltip/table, oil-peak placement, consistent
+axis titles. E2E 144 → 155 in three new `chart.e2e.ts` blocks: "zoom glides in every
+state" (repaints per step ≥ 2 after a hover / legend toggle; exactly 1 under reduced
+motion), "line hover holds still during a zoom or pan" (no emphasis change while
+`data-gesture` is set; a held drop still lands; a held drop does not undo a legend lift),
+"chart type and annotations" (Geist on both canvases, tooltip type, label separation from
+the gridline geometry, band wording). Run against a worktree of `dfdf0ed`, 9 of the first
+10 new E2E tests failed (the reduced-motion one passes on both, by design); a temporary
+mutation of `settled` back to animation-off failed 3 unit tests.
+
+**Validation (all run on the final tree).** `npm run verify` exit 0 — typecheck, lint,
+unit 348/348, format; `next build` clean; Playwright 155/155 (fresh build). Python: pytest
+191 passed / 1 skipped, ruff + format clean, mypy clean, `pipeline.build --check` all 4
+artifacts up to date; no file under `pipeline/`, `data/`, `web/src/data/`, `web/src/lib/`
+or `reports/` changed; no analytical diff since `211f5c9`. No console errors or warnings
+in the measurement runs at 375–1920px.
+
+**Not done here (by scope).** Layout A1–A3 (Batch 2); the map (Batch 3); the doc drift
+listed under Phase 0 (Batch 4) — except design-system §3/§5 rows this batch changed, which
+are updated. The five-market scene still costs more per frame than Brent's under a 4×
+throttle (p95 ≈ 35ms against ≈ 17ms); it now spends that on a glide rather than on jumps.
+
+**Next step:** STOP for the user's review of Batch 1. On acceptance, Batch 2 (layout
+A1–A3): capture "before" screenshots at 375 / 768 / 1024 / 1280 / 1440 / 1920 from a build
+of this commit first, then fix, then "after" at the same widths. Nothing is pushed.
 
 ### Reconciled before any change
 
@@ -34,6 +220,7 @@ the 2026-09-17 record and are historical: the divergence they describe no longer
 | `b7c6478` | Revision 6 — one typeface, role rules, chart-title measure — E2E 126      |
 | `8d16e2c` | Revision 8 — selector pill and panel entrance — E2E 136/136               |
 | `b76cc10` | Revision 7 — market synthesis map — unit 335/335, E2E 144/144             |
+| `fix: keep chart zoom gliding…` | **Batch 1** — zoom motion states, Geist chart type, annotations — unit 348/348, E2E 155/155. One commit per batch: its own hash is not written here (amending to add it would change it); read it with `git log -1 --format=%h --grep "keep chart zoom gliding"` |
 
 **Revision 7.** The five synthesis cards became a map, a key and a panel. The map
 encodes location only: Natural Earth 1:110m via `world-atlas` 2.0.2, Equal Earth
@@ -141,11 +328,11 @@ hysteresis (`settleWindowEdge`). Separately, the reset read `--duration-slow` wi
 `cssTimeToMs` fixes it. `tests/chart-zoom.test.ts` and an E2E "wheel zoom follows the
 gesture" block guard all of it.
 
-Remaining, in order: 10/11/13 (colour accents, motion system, affordance audit) → 12
-(reading-preference evaluation) → full validation → documentation. Environment on this device:
-Node 24.19.0, npm 11.17.0, Python 3.14.7 venv at `.venv` (`pip install -e "pipeline[dev]"`).
-Git identity via the env vars in §1. Playwright reuses any server already on :3100 — stop
-it before E2E.
+Remaining: superseded by the batch plan at the top of this section (Revision 12 deferred;
+10/11/13 folded into the batches). Environments: Windows — Node 24.19.0, npm 11.17.0,
+Python 3.14.7; Linux — Node 22.23.2, npm 10.9.8, Python 3.11.16; both with a venv at `.venv`
+(`pip install -e "pipeline[dev]"`). Git identity via the env vars in §1. Playwright reuses
+any server already on :3100 — stop it before E2E.
 
 Phase 3C steps 1–4 of 8 are COMPLETE. Between step 4 and step 5 sit four passes: the
 Windows device-transition fix (typography diagnosis, Windows path defect, line-ending
