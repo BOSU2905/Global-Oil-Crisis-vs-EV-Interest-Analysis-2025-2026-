@@ -34,6 +34,9 @@ import {
   EDITORIAL_CATEGORIES,
   EVIDENCE_GROUP_LABEL,
   MARKET_READING_ORDER,
+  MARKET_READOUT,
+  MARKET_STAGE_NOTE,
+  MARKET_SYNTHESIS_ORIENTATION,
   MARKET_SYNTHESIS_WORDING_NOTE,
   ROBUSTNESS_LABEL,
   evidenceSentence,
@@ -44,6 +47,7 @@ import {
   assertNoRankingLanguage,
   countryFromHash,
   marketPanelId,
+  marketPreview,
   marketTabId,
 } from "../src/components/market/contract.ts";
 import { HOW_TO_READ_ENTRIES, HOW_TO_READ_MARKER } from "../src/content/how-to-read.ts";
@@ -390,6 +394,10 @@ test("the guard rejects every prohibited phrase and accepts honest copy", () => 
 test("no rendered synthesis string ranks, scores or crowns a market", () => {
   const rendered = [
     MARKET_SYNTHESIS_WORDING_NOTE,
+    MARKET_SYNTHESIS_ORIENTATION,
+    MARKET_STAGE_NOTE,
+    ...Object.values(MARKET_READOUT),
+    ...synthesis.markets.flatMap((market) => Object.values(marketPreview(market))),
     ...synthesis.markets.flatMap((market) => [
       market.label,
       market.directionLabel,
@@ -466,7 +474,11 @@ test("no causal language appears in the synthesis copy", () => {
   const causal = [" caused", " causes", " drove ", " led to ", " triggered", " resulted in "];
   const sentences = synthesis.markets
     .flatMap((market) => [market.evidenceStatement, market.category.basis])
-    .concat(MARKET_SYNTHESIS_WORDING_NOTE)
+    .concat(
+      MARKET_SYNTHESIS_WORDING_NOTE,
+      MARKET_SYNTHESIS_ORIENTATION,
+      ...Object.values(MARKET_READOUT),
+    )
     .join(" ")
     .split(/(?<=[.!?])\s+/);
 
@@ -606,4 +618,95 @@ test("the guide's page lead states the four constraints without interaction", ()
   assert.match(sentence, /establishes no cause/);
   assert.match(sentence, /cannot be compared by height/);
   assert.match(sentence, /do not survive comparing week-to-week changes/);
+});
+
+// ---------------------------------------------------------------------------
+// The orientation under the title, and the preview under the map
+// ---------------------------------------------------------------------------
+
+test("the orientation is short, plain prose with no number, no ranking and no cause", () => {
+  const sentences = MARKET_SYNTHESIS_ORIENTATION.split(/(?<=[.!?])\s+/);
+  assert.equal(sentences.length, 2);
+  assert.ok(MARKET_SYNTHESIS_ORIENTATION.split(/\s+/).length <= 60, "it should stay short");
+  // No figure to mis-cite: the numbers live in the finding and the panel, with their caveats.
+  assert.doesNotMatch(MARKET_SYNTHESIS_ORIENTATION, /\d/);
+  // A response, a producing or a driving is a cause; the section lead says "patterns" for the
+  // same reason. (KIRO.md §23.)
+  assert.doesNotMatch(
+    MARKET_SYNTHESIS_ORIENTATION,
+    /\b(respon\w*|produc\w*|driv\w*|drove|caus\w*|trigger\w*|effect\w*|impact\w*|led to)\b/i,
+  );
+  assert.doesNotThrow(() =>
+    assertNoRankingLanguage(MARKET_SYNTHESIS_ORIENTATION, "orientation"),
+  );
+  // It is the bridge from the worldwide chart, in that chart's words.
+  assert.match(MARKET_SYNTHESIS_ORIENTATION, /worldwide/);
+  assert.match(MARKET_SYNTHESIS_ORIENTATION, /country-level/);
+});
+
+test("every claim in the orientation is one the artifacts support today", () => {
+  // "they differ in when interest peaked": the peaks are not one week, and not one month.
+  assert.ok(synthesis.peakSpread.distinctWeeks > 1);
+  assert.equal(synthesis.peakSpread.synchronisedWithinOneMonth, false);
+  // "and in how, if at all, it is associated with crude prices": the markets do not share one
+  // classification, and at least one has no detectable (or no conclusive) association, which
+  // is what "if at all" concedes. If the pipeline ever made the five agree, this sentence
+  // would be false and this test would say so.
+  const groups = new Set(synthesis.markets.map((market) => market.evidenceGroup));
+  assert.ok(groups.size > 1, "the five markets share one classification");
+  assert.ok(
+    synthesis.markets.some(
+      (market) =>
+        market.evidenceGroup === "no_detectable_association" ||
+        market.evidenceGroup === "inconclusive",
+    ),
+  );
+  // "one worldwide line": the worldwide series exists and is a series of its own.
+  assert.ok(bundle.countries.series.some((entry) => entry.id === "worldwide"));
+});
+
+test("the orientation sits on the market-synthesis header only", () => {
+  const page = readFileSync(join(webRoot, "app", "page.tsx"), "utf8");
+  // Batch 2 A2 left the empty label column alone for every other section, and this stays so.
+  assert.equal((page.match(/\baside=/g) ?? []).length, 1);
+  const header = page.slice(page.indexOf('sectionId="market-synthesis"'));
+  assert.ok(header.indexOf("aside={MARKET_SYNTHESIS_ORIENTATION}") < header.indexOf("lead="));
+});
+
+test("a preview is the panel's own words, never a second account of a market", () => {
+  for (const market of synthesis.markets) {
+    const preview = marketPreview(market);
+    assert.equal(preview.label, market.label);
+    assert.equal(
+      preview.relationship,
+      `${market.evidenceGroupLabel} · ${market.robustnessLabel}`,
+    );
+    // Composed here from the pieces, independently of the sentence it is cut from.
+    assert.equal(
+      preview.timing,
+      `${market.directionLabel} and ${peakTimingPhrase(market.peakLagWeeks)}.`,
+    );
+    assert.ok(market.evidenceStatement.startsWith(preview.timing));
+    // One sentence, and not the one about the association (that stays in the panel).
+    assert.equal(preview.timing.split(/(?<=\.)\s/).length, 1);
+  }
+});
+
+test("a preview never shows an editorial panel name, so Singapore's can never stand alone", () => {
+  // KIRO.md §19 rule 3: Maturity Gap may only be shown beside Singapore's evidence group,
+  // and the evidence row is the one place that pairs them. The preview shows the evidence
+  // group alone, for every market.
+  for (const market of synthesis.markets) {
+    const text = Object.values(marketPreview(market)).join(" ");
+    for (const category of synthesis.categories) {
+      assert.ok(
+        !text.includes(category.label),
+        `${market.label}'s preview names "${category.label}"`,
+      );
+    }
+  }
+  const singapore = synthesis.markets.find((market) => market.id === "singapore");
+  assert.ok(singapore !== undefined);
+  // And §19 rule 4: it affirms the level association rather than implying there is none.
+  assert.match(marketPreview(singapore).relationship, /^Level-only association/);
 });

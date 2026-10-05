@@ -19,6 +19,7 @@ import { Navigation } from "../src/components/layout/Navigation.tsx";
 import { Section } from "../src/components/layout/Section.tsx";
 import { SectionHeader } from "../src/components/layout/SectionHeader.tsx";
 import { HOW_TO_READ_ENTRIES } from "../src/content/how-to-read.ts";
+import { MARKET_SYNTHESIS_ORIENTATION } from "../src/content/markets.ts";
 import { SHELL_SECTIONS } from "../src/content/sections.ts";
 import { COUNTRY_IDS, getComparability, getSeriesLabel } from "../src/data/index.ts";
 import { getArtifacts } from "../src/lib/artifacts.ts";
@@ -423,6 +424,7 @@ export default function Home() {
           sectionId="market-synthesis"
           eyebrow="Market Synthesis"
           title="What the Shock Revealed"
+          aside={MARKET_SYNTHESIS_ORIENTATION}
           lead="Five markets, one oil shock, five different patterns. The map shows where each market is and nothing more: every market stands at the same height, colour only identifies it, and each Google Trends series is scaled to its own maximum, so there is no measure on which one market sits above another."
         />
         <div className="mt-(--section-header-gap)">

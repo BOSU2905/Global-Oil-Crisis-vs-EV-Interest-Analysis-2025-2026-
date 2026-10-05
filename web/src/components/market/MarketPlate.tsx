@@ -10,20 +10,16 @@ import {
 
 interface MarketPlateProps {
   readonly id: CountryId;
-  /**
-   * Where this plate is drawn. It is only a namespace: the same market is drawn as a small
-   * tile in the overview and large as the spotlight, and the two never share a document id.
-   */
-  readonly variant: "tile" | "spotlight";
 }
 
 /**
  * One market's raised plate and beacon — the stage's only picture of a market.
  *
- * THE SAME PICTURE AT EVERY SIZE
- * The overview draws five of these as small tiles and the spotlight draws one large. The
- * SVG is identical and only its CSS size differs, so a market looks like itself in both,
- * and the plate recipe, the beacon and the entrance rules are written once.
+ * ONE DRAWING PER MARKET, ALWAYS ON THE STAGE
+ * The five plates stay in place whatever the reader does: hovering lifts one, choosing one
+ * tints it and dims the others (CSS on the tile that holds this SVG), and nothing is ever
+ * swapped for a second drawing. The plate recipe, the beacon and the entrance rules are
+ * written once.
  *
  * PSEUDO-3D, CHEAPLY (unchanged from the world map it replaces)
  * No WebGL and no CSS 3D: the outline is drawn `PLATE_DEPTH` times in the side colour, one
@@ -36,8 +32,8 @@ interface MarketPlateProps {
  * analysis: Singapore's plate is as thick as the United States' and both are fitted to the
  * same frame.
  */
-export function MarketPlate({ id, variant }: MarketPlateProps) {
-  const pathId = `market-plate-${variant}-${id}`;
+export function MarketPlate({ id }: MarketPlateProps) {
+  const pathId = `market-plate-${id}`;
   const blurId = `${pathId}-blur`;
   const anchor = SPOTLIGHT_ANCHORS[id];
   const glyph = glyphCentre(anchor);

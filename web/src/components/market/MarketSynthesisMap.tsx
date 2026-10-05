@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { CSSProperties, KeyboardEvent } from "react";
+import { useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 
 import type { CountryId } from "../../data/index.ts";
 import type { MarketSynthesis } from "../../lib/market-synthesis.ts";
@@ -22,20 +22,23 @@ const PANEL_ID = "market-synthesis-panel";
 /**
  * "Five markets, one oil shock, five different patterns" — the synthesis as a picture.
  *
- * WHAT CHANGED, AND WHAT DID NOT (Revision 7, then Batch 3)
- * The five stacked evidence cards became a map, a key and a panel (Revision 7); the map
- * then became a stage (Batch 3) — five silhouettes, or one large with a small locator —
- * because a world map made the markets specks (see `MarketStage`). The EVIDENCE did not
- * change: the panel renders the same `MarketEvidenceRow` the deep dives use, read from
- * the same view model, so the two can never disagree.
+ * THE MAP IS THE NAVIGATION (the refinement after Batch 3)
+ * The list of market buttons that used to sit under the picture is gone: each plate on the
+ * stage is itself the button (see `MarketStage`). Five markets stay on the stage at all times;
+ * hovering previews one, choosing one focuses it, and Back returns to all five.
  *
  * NOTHING IS EMPHASISED UNTIL THE READER CHOOSES
  * By default no market is selected: every tile is the same size and depth, every beacon
  * the same size, and the panel shows all five markets' relationships at once — so the
  * classification of every market is visible without any interaction (§5 rule 5), and no
- * market is singled out by the page's own choice. A market takes the stage when the reader
- * rests on it, taps it, or presses it in the key; pressing it again, Escape, or "Show all
- * five markets" returns to the overview.
+ * market is singled out by the page's own choice. The panel is the detail: it renders the
+ * same `MarketEvidenceRow` the deep dives use, read from the same view model, so the two
+ * can never disagree, and it changes only when the reader chooses — never on hover.
+ *
+ * LEAVING A SELECTION
+ * Pressing the chosen tile again, the Back control in the stage's readout, or Escape anywhere
+ * in the section lets go. Focus goes back to the tile that was chosen, so a keyboard reader
+ * is not dropped at the top of the page when the Back button they just pressed disappears.
  *
  * WHAT STAYS VISIBLE REGARDLESS
  * The finding above the stage — interest rose in all five, the peaks did not coincide, no
@@ -50,6 +53,7 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
   const [active, setActive] = useState<CountryId | null>(null);
   /** False until the reader changes the panel, so the first render has no entrance. */
   const [changed, setChanged] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const market = synthesis.markets.find((entry) => entry.id === active) ?? null;
   const { peakSpread } = synthesis;
@@ -59,10 +63,24 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
     setActive(id);
   };
 
-  const onKeyKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
+  /** Choosing the chosen market again lets go of it, as the key's toggle used to. */
+  const select = (id: CountryId) => show(id === active ? null : id);
+
+  const release = () => {
+    const previous = active;
+    if (previous === null) return;
+    // The tiles are the same elements in every state, so this one exists right now; focusing
+    // it before the Back button unmounts means focus never falls to the document.
+    rootRef.current
+      ?.querySelector<HTMLElement>(`.map-tile[data-market="${previous}"]`)
+      ?.focus({ preventScroll: true });
+    show(null);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape" && active !== null) {
       event.preventDefault();
-      show(null);
+      release();
     }
   };
 
@@ -70,7 +88,7 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
   if (className !== undefined) classes.push(className);
 
   return (
-    <div className={classes.join(" ")}>
+    <div ref={rootRef} className={classes.join(" ")} onKeyDown={onKeyDown}>
       {/*
         The finding, before the map, in plain text. "The peaks were not synchronised" is
         the claim the original project got exactly backwards.
@@ -93,54 +111,10 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
           <MarketStage
             markets={synthesis.markets}
             active={active}
-            changed={changed}
-            onSelect={(id) => {
-              if (id !== active) show(id);
-            }}
+            onSelect={select}
+            onBack={release}
+            panelId={PANEL_ID}
           />
-
-          {/*
-            The key: the stage's legend, and its keyboard and touch control. Real buttons —
-            each one does something — so they look like buttons, unlike the inert pills
-            that used to sit in the scope section.
-          */}
-          <ul
-            aria-label="Markets on the map"
-            className="mt-3 flex flex-wrap gap-2"
-            onKeyDown={onKeyKeyDown}
-          >
-            {synthesis.markets.map((entry) => {
-              const pressed = entry.id === active;
-              return (
-                <li key={entry.id}>
-                  <button
-                    type="button"
-                    aria-pressed={pressed}
-                    aria-controls={PANEL_ID}
-                    onClick={() => show(pressed ? null : entry.id)}
-                    style={
-                      {
-                        "--market-colour": `var(${SERIES_IDENTITY[entry.id].colorVariable})`,
-                      } as CSSProperties
-                    }
-                    className={[
-                      "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-small",
-                      "transition-[color,background-color,border-color] duration-(--duration-fast) ease-out",
-                      pressed
-                        ? "border-[color-mix(in_srgb,var(--market-colour)_40%,transparent)] bg-[color-mix(in_srgb,var(--market-colour)_10%,transparent)] text-fg"
-                        : "border-border text-fg-secondary hover:border-border-interactive hover:text-fg",
-                    ].join(" ")}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="h-2 w-2 shrink-0 rounded-full bg-(--market-colour)"
-                    />
-                    {entry.label}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
         </div>
 
         <div id={PANEL_ID} className="xl:col-span-5">
@@ -155,8 +129,7 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
                 <h3 className="text-h4 text-fg">All Five Markets</h3>
                 <p className="mt-2 text-meta text-fg-muted">
                   The pipeline&rsquo;s classification of each market&rsquo;s association with
-                  crude prices. Choose an outline, or a name below it, to read that
-                  market&rsquo;s evidence.
+                  crude prices. Select a market on the map to read its evidence.
                 </p>
                 <ul className="mt-4 flex flex-col divide-y divide-border">
                   {synthesis.markets.map((entry) => (
@@ -180,16 +153,7 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
                 </ul>
               </Card>
             ) : (
-              <>
-                <MarketEvidenceRow market={market} as="div" />
-                <button
-                  type="button"
-                  onClick={() => show(null)}
-                  className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md text-small text-fg-secondary underline decoration-border-strong underline-offset-4 transition-colors duration-(--duration-fast) ease-out hover:text-fg hover:decoration-fg-muted"
-                >
-                  <span aria-hidden="true">←</span> Show all five markets
-                </button>
-              </>
+              <MarketEvidenceRow market={market} as="div" />
             )}
           </div>
         </div>

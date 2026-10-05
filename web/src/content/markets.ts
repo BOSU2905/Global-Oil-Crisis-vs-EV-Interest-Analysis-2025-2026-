@@ -329,3 +329,41 @@ export const MARKET_STAGE_NOTE =
   "Each outline is scaled to fill its frame, so its size says nothing about a market; " +
   "the small map shows where it is. The United States is drawn without Alaska and Hawaii, " +
   "and Norway without Svalbard.";
+
+/**
+ * The orientation under the Market Synthesis title: why the reader is asked to compare
+ * markets here, after the worldwide chart.
+ *
+ * EVERY CLAIM IN IT IS ONE THE ANALYSIS ALREADY MAKES
+ * A worldwide series cannot show whether individual markets moved alike (true of any single
+ * aggregate line). The five markets do differ in when interest peaked (four distinct peak
+ * weeks across three calendar months) and in how, if at all, interest is associated with
+ * crude prices (level-only, inconclusive, no detectable association — the panel beside the
+ * map lists each). The last clause is reading guidance, not a finding.
+ *
+ * WHAT IT DELIBERATELY DOES NOT SAY
+ * Nothing about the shock "producing" or "driving" a shift, and no "response": the
+ * section lead says "patterns" for the same reason (a response is a reaction, and this
+ * analysis establishes no cause). No number, no ordering of markets, and no coefficient —
+ * those stay in the finding below it and in the panel, where the caveats travel with them.
+ */
+export const MARKET_SYNTHESIS_ORIENTATION =
+  "One worldwide line cannot show whether individual markets moved alike. Set side by " +
+  "side, they differ in when interest peaked and in how, if at all, it is associated with " +
+  "crude prices, so the worldwide pattern needs country-level context.";
+
+/**
+ * The line under the market tiles, in its three states. It is a readout, not a control
+ * panel: a hint at rest, a short preview while a market is under the pointer or focus, and
+ * — once a market is chosen — the way back.
+ *
+ * Two hints at rest because hover is a property of the device, not of the screen width: a
+ * phone has no "rest on a market", and telling it to would be an instruction it cannot
+ * follow. CSS shows one of them (`hover: hover`).
+ */
+export const MARKET_READOUT = {
+  hintPointer: "Rest on a market for a preview. Select it to read its evidence.",
+  hintTouch: "Select a market to read its evidence.",
+  back: "Back to all markets",
+  focused: "Select another market to compare, or go back to all five.",
+} as const;

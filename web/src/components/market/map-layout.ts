@@ -21,8 +21,9 @@
 
 /**
  * Height of every raised plate, in frame units (`SPOTLIGHT_VIEWBOX`): the side layers
- * drawn below the top face. A frame unit is ~0.3px on an overview tile and ~1.3–1.6px on
- * the spotlight, so the same plate reads as a thin slab small and a thick one large.
+ * drawn below the top face. A frame unit is ~0.2–0.4px on a tile, so the plate reads as a
+ * thin slab. (The `SPOTLIGHT_*` names are historical: Batch 3 drew these outlines large as a
+ * spotlight; the stage now draws them as the five tiles, and the geometry is unchanged.)
  */
 export const PLATE_DEPTH = 5;
 
@@ -53,14 +54,3 @@ export function glyphCentre(anchor: { readonly x: number; readonly y: number }):
 } {
   return { x: anchor.x, y: anchor.y - BEACON.stem - BEACON.size / 2 };
 }
-
-/** How long the pointer rests on a tile before the panel follows it, in ms. */
-export const MAP_DWELL_MS = 110;
-
-/**
- * After the stage returns to the overview, a resting pointer is ignored for this long.
- * The tiles appear under a pointer that has not moved, and the browser reports that as the
- * pointer entering one — which would select it again at once, so that the reader could
- * never let go while the pointer sat over the stage.
- */
-export const MAP_QUIET_MS = 400;

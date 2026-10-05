@@ -17,6 +17,15 @@ interface SectionHeaderProps {
   /** The analytical thesis for the section. One or two sentences, sentence case. */
   readonly lead?: ReactNode;
   /**
+   * A short orientation that belongs with the title rather than the lead: why the section
+   * is here. From `xl` it sits in the label column under the title, which is otherwise
+   * empty beside a long lead (Batch 2 A2 left that space alone for every section, and this
+   * is the one place it carries content, on request); below `xl` it follows the title.
+   * Sentence case, plain prose, and never a claim the section's evidence does not make.
+   * Omitted, the header renders exactly as it did before this prop existed.
+   */
+  readonly aside?: string;
+  /**
    * Heading level. `1` is for the page's single top-level heading; everything
    * else is `2`. Restricting it to these two makes a skipped level impossible.
    */
@@ -79,6 +88,7 @@ export function SectionHeader({
   eyebrow,
   title,
   lead,
+  aside,
   headingLevel = 2,
   layout,
   className,
@@ -97,6 +107,19 @@ export function SectionHeader({
   const titleColumn = split ? ` ${EDITORIAL.label}` : "";
   const leadColumn = split ? ` ${EDITORIAL.reading} xl:mt-3` : "";
 
+  // With an aside, the label column holds the title AND the aside, so the pair is wrapped
+  // and the wrapper is the grid item: its first baseline is still the title's, so the
+  // baseline alignment with the lead is unchanged. Without one, nothing is wrapped and the
+  // markup is what it always was.
+  const heading = (
+    <Heading
+      id={sectionTitleId(sectionId)}
+      className={`mt-3 max-w-title ${titleClass}${aside === undefined ? titleColumn : ""}`}
+    >
+      {title}
+    </Heading>
+  );
+
   return (
     <div className={classes.join(" ")}>
       <p className="text-label uppercase text-fg-muted">
@@ -109,12 +132,16 @@ export function SectionHeader({
         {eyebrow}
       </p>
       <div className={row}>
-        <Heading
-          id={sectionTitleId(sectionId)}
-          className={`mt-3 max-w-title ${titleClass}${titleColumn}`}
-        >
-          {title}
-        </Heading>
+        {aside === undefined ? (
+          heading
+        ) : (
+          <div className={titleColumn.trim() === "" ? undefined : titleColumn.trim()}>
+            {heading}
+            <p className="mt-4 max-w-reading text-pretty text-small text-fg-secondary">
+              {aside}
+            </p>
+          </div>
+        )}
         {lead === undefined ? null : (
           <p
             className={`mt-(--section-header-gap) max-w-reading text-lead text-fg-secondary${leadColumn}`}

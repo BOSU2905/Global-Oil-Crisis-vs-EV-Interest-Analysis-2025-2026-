@@ -15,7 +15,10 @@ import { LOCATOR } from "./map-layout.ts";
 interface MarketLocatorProps {
   /** The five markets, in the editorial reading order. */
   readonly markets: readonly { readonly id: CountryId; readonly label: string }[];
-  /** The market being read, or `null` for none. */
+  /**
+   * The market to mark, or `null` for none: the focused one, else the one being previewed.
+   * The locator does not know which of the two it is, and does not need to.
+   */
   readonly active: CountryId | null;
   readonly className?: string;
 }
@@ -27,9 +30,9 @@ interface MarketLocatorProps {
  * It answers "where is this?" and nothing else. It is `aria-hidden` and takes no pointer
  * events, and that is a measured decision rather than a shortcut: at the size of an inset,
  * Malaysia's and Singapore's anchors are about 2.7px apart, so no pointer could choose
- * between them. The key under the stage (44px targets) is the control, and the equivalent
- * one — WCAG 2.5.8 accepts a different control on the same page for a target that cannot
- * be made big enough.
+ * between them. The tiles above it (each a large button) are the control, and the
+ * equivalent one — WCAG 2.5.8 accepts a different control on the same page for a target
+ * that cannot be made big enough.
  *
  * THE SAME WORLD AS THE MAP IT REPLACES
  * Equal Earth, so this is also the one place where relative SIZE can honestly be read: the
@@ -54,6 +57,7 @@ export function MarketLocator({ markets, active, className }: MarketLocatorProps
     <svg
       viewBox={`0 0 ${String(MAP_VIEWBOX.width)} ${String(MAP_VIEWBOX.height)}`}
       className={classes.join(" ")}
+      data-has-highlight={active === null ? "false" : "true"}
       aria-hidden="true"
       focusable="false"
     >

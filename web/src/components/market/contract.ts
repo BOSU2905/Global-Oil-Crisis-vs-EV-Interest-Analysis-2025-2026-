@@ -15,6 +15,7 @@
  */
 
 import type { CountryId } from "../../data/artifact-types.ts";
+import type { MarketEvidence } from "../../lib/market-synthesis.ts";
 
 /** Section anchors. Registered in `src/content/sections.ts`, which owns navigation. */
 export const MARKET_SYNTHESIS_SECTION_ID = "market-synthesis";
@@ -93,4 +94,41 @@ export function assertNoRankingLanguage(text: string, where: string): void {
   if (found.length > 0) {
     throw new Error(`${where}: ${RANKING_LANGUAGE_MESSAGE} — found "${found.join('", "')}"`);
   }
+}
+
+/** What the line under the map shows while a market is under the pointer or focus. */
+export interface MarketPreview {
+  readonly label: string;
+  /** The pipeline's classification and its robustness: the two phrases the panel lists. */
+  readonly relationship: string;
+  /** The market's own direction and timing: the first sentence of its evidence statement. */
+  readonly timing: string;
+}
+
+/**
+ * A market's preview, built ONLY from strings the panel already renders.
+ *
+ * It is deliberately thin. The preview is a reminder of what the panel beside the map says,
+ * not a second account of it, so it can never disagree with the panel and it invents no
+ * claim: `relationship` is the evidence group and robustness label verbatim, and `timing` is
+ * the statement's first sentence, which `evidenceSentence` documents as the market's own
+ * direction and timing (the second sentence, about the association, is left to the panel).
+ *
+ * It leaves out the editorial panel name on purpose. Maturity Gap may only ever be shown
+ * beside Singapore's evidence group (KIRO.md §19 rule 3), and the one place that pairs them
+ * is the evidence row; a preview that showed the name without the pairing would break the
+ * rule, so it shows the evidence group alone.
+ */
+export function marketPreview(
+  market: Pick<
+    MarketEvidence,
+    "label" | "evidenceGroupLabel" | "robustnessLabel" | "evidenceStatement"
+  >,
+): MarketPreview {
+  const [timing = ""] = market.evidenceStatement.split(/(?<=\.)\s+/);
+  return {
+    label: market.label,
+    relationship: `${market.evidenceGroupLabel} · ${market.robustnessLabel}`,
+    timing,
+  };
 }

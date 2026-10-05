@@ -234,37 +234,38 @@ test("a focused tab's ring fits inside the scrolling strip at 375px", async ({ p
 });
 
 /**
- * THE MARKET STAGE — Revision 7, reworked in Batch 3.
+ * THE MARKET MAP — Revision 7, reworked in Batch 3, then made the navigation.
  *
- * The picture is decorative to assistive technology; the key and the panel beside it are
- * the control and the content. What a browser must show: nothing is emphasised until the
- * reader chooses, every market is drawn the same, the stage follows the key and the panel
- * follows the stage, the silhouettes are big enough to read on a phone, and Singapore's
- * editorial panel is never shown without its evidence group.
+ * There is no list of countries under the picture: each plate on the stage IS the button.
+ * What a browser must show: nothing is emphasised until the reader chooses; hovering (or a
+ * keyboard reaching) a market previews it and selects nothing; choosing one focuses it with
+ * the other four dimmed IN PLACE; Back (or Escape, or the same tile again) returns to all
+ * five; the picture is big enough to read on a phone; and Singapore's editorial panel is
+ * never shown without its evidence group.
  */
 const MARKET_IDS = ["indonesia", "us", "singapore", "malaysia", "norway"] as const;
 const map = (page: Page) => page.locator(".market-map");
 const panel = (page: Page) => page.locator("#market-synthesis-panel");
 const tiles = (page: Page) => map(page).locator(".map-tile");
 const tile = (page: Page, id: string) => map(page).locator(`.map-tile[data-market="${id}"]`);
-const spotlight = (page: Page) => map(page).locator(".map-spotlight");
+const readout = (page: Page) => map(page).locator(".map-readout");
+const back = (page: Page) => readout(page).getByRole("button", { name: "Back to all markets" });
 const stage = (page: Page) => map(page).locator("> div").first();
-const key = (page: Page, name: string) =>
+/** A market's button, found the way an assistive technology finds it: by role and name. */
+const button = (page: Page, name: string) =>
   page
     .getByRole("list", { name: "Markets on the map" })
     .getByRole("button", { name, exact: true });
+const plateOpacity = (page: Page, id: string) =>
+  tile(page, id)
+    .locator(".map-tile-plate")
+    .evaluate((node) => Number(getComputedStyle(node).opacity));
 
 async function openSynthesis(page: Page, width = 1440): Promise<void> {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");
   await page.locator("#market-synthesis").scrollIntoViewIfNeeded();
   await expect(map(page)).toBeVisible();
-}
-
-/** A pointer that arrives in the first moments after load is ignored by design (MAP_QUIET_MS). */
-async function openForPointer(page: Page, width = 1440): Promise<void> {
-  await openSynthesis(page, width);
-  await page.waitForTimeout(500);
 }
 
 test.describe("market map", () => {
@@ -282,11 +283,15 @@ test.describe("market map", () => {
     ]) {
       await expect(panel(page).getByText(label, { exact: false }).first()).toBeVisible();
     }
-    // Five tiles, in the reading order, none of them active, and no spotlight.
+    // Five buttons, in the reading order, none pressed, none dimmed, and a hint under them.
     await expect(tiles(page)).toHaveCount(5);
-    await expect(spotlight(page)).toHaveCount(0);
-    for (const id of MARKET_IDS)
-      await expect(tile(page, id)).toHaveAttribute("data-active", "false");
+    for (const id of MARKET_IDS) {
+      await expect(tile(page, id)).toHaveAttribute("aria-pressed", "false");
+      await expect(tile(page, id)).toHaveAttribute("data-dim", "false");
+      expect(await plateOpacity(page, id)).toBe(1);
+    }
+    await expect(readout(page)).toContainText("preview");
+    await expect(back(page)).toHaveCount(0);
     // The locator is there, with five neutral marks and nothing active.
     await expect(map(page).locator(".map-locator-mark")).toHaveCount(5);
     await expect(map(page).locator('.map-locator [data-active="true"]')).toHaveCount(0);
@@ -321,52 +326,236 @@ test.describe("market map", () => {
     expect(new Set(look.sizes).size).toBe(1);
   });
 
-  test("resting on a tile puts that market alone on the stage, in its colour", async ({
+  test("the map is the only way to choose a market: no second selector under it", async ({
     page,
   }) => {
-    await openForPointer(page);
+    await openSynthesis(page);
+    // Every market has exactly ONE button in the whole section (it used to have two: the
+    // plate was decoration and a list of buttons under it was the control).
+    for (const name of ["Indonesia", "United States", "Singapore", "Malaysia", "Norway"]) {
+      await expect(
+        page.locator("#market-synthesis").getByRole("button", { name, exact: true }),
+      ).toHaveCount(1);
+    }
+    await expect(
+      page.getByRole("list", { name: "Markets on the map" }).getByRole("button"),
+    ).toHaveCount(5);
+    // ...and that button is the plate itself.
+    await expect(button(page, "Malaysia")).toHaveAttribute("data-market", "malaysia");
+    await expect(map(page).locator("ul button")).toHaveCount(5);
+  });
+
+  test("hovering previews a market and selects nothing", async ({ page }) => {
+    await openSynthesis(page);
+    const rest = await tile(page, "malaysia")
+      .locator(".map-plate-raised")
+      .evaluate((node) => getComputedStyle(node).transform);
+
+    await tile(page, "malaysia").hover();
+    // The plate lifts and the readout shows a short preview, from the panel's own words.
+    await expect(readout(page)).toContainText("Malaysia");
+    await expect(readout(page)).toContainText("Inconclusive association · Fragile");
+    await expect(readout(page)).toContainText("peaked four weeks before the crude-price peak");
+    await expect
+      .poll(async () =>
+        tile(page, "malaysia")
+          .locator(".map-plate-raised")
+          .evaluate((node) => getComputedStyle(node).transform),
+      )
+      .not.toBe(rest);
+    // The locator marks where it is while it is previewed...
+    await expect(map(page).locator('.map-locator-mark[data-active="true"]')).toHaveAttribute(
+      "data-locates",
+      "malaysia",
+    );
+    // ...but nothing is chosen: not now, and not after resting far longer than the old
+    // 110ms dwell that used to choose it.
+    await page.waitForTimeout(700);
+    await expect(map(page)).toHaveAttribute("data-has-active", "false");
+    await expect(tile(page, "malaysia")).toHaveAttribute("aria-pressed", "false");
+    await expect(panel(page).getByRole("heading", { name: "All Five Markets" })).toBeVisible();
+    await expect(readout(page)).toContainText("Malaysia");
+
+    // Moving on changes the preview; leaving the map brings the hint back.
+    await tile(page, "norway").hover();
+    await expect(readout(page)).toContainText("Norway");
+    await expect(readout(page)).not.toContainText("Malaysia");
+    await page.mouse.move(2, 2);
+    await expect(readout(page)).toContainText("preview");
+    await expect(map(page).locator('.map-locator [data-active="true"]')).toHaveCount(0);
+  });
+
+  test("choosing a market focuses it and dims the other four IN PLACE", async ({ page }) => {
+    await openSynthesis(page);
     const neutral = await tile(page, "us")
       .locator(".map-plate-top")
       .evaluate((node) => getComputedStyle(node).fill);
+    const positions = async () =>
+      Promise.all(
+        MARKET_IDS.map(async (id) => JSON.stringify(await tile(page, id).boundingBox())),
+      );
+    const before = await positions();
 
-    await tile(page, "us").hover();
+    await tile(page, "us").click();
     await expect(map(page)).toHaveAttribute("data-active-market", "us");
+    await expect(tile(page, "us")).toHaveAttribute("aria-pressed", "true");
     await expect(panel(page).getByRole("heading", { name: "United States" })).toBeVisible();
-    await expect(key(page, "United States")).toHaveAttribute("aria-pressed", "true");
 
-    // The others leave: one silhouette on the stage, and it alone takes the tint.
-    await expect(tiles(page)).toHaveCount(0);
-    await expect(spotlight(page)).toHaveAttribute("data-market", "us");
-    const top = spotlight(page).locator(".map-plate-top");
-    await expect(top).toHaveCount(1);
+    // All five are still on the stage, where they were: dimmed, not removed.
+    await expect(tiles(page)).toHaveCount(5);
+    expect(await positions()).toEqual(before);
+    for (const id of MARKET_IDS.filter((entry) => entry !== "us")) {
+      await expect(tile(page, id)).toHaveAttribute("aria-pressed", "false");
+      await expect(tile(page, id)).toHaveAttribute("data-dim", "true");
+      await expect.poll(async () => plateOpacity(page, id)).toBeLessThan(0.6);
+      // The picture recedes; the name does not. It is a button, and it stays readable.
+      await expect(tile(page, id).locator(".map-tile-label")).toHaveCSS("opacity", "1");
+    }
+    expect(await plateOpacity(page, "us")).toBe(1);
+
+    // Only the chosen plate takes its colour.
     await expect
-      .poll(async () => top.evaluate((node) => getComputedStyle(node).fill))
+      .poll(async () =>
+        tile(page, "us")
+          .locator(".map-plate-top")
+          .evaluate((node) => getComputedStyle(node).fill),
+      )
       .not.toBe(neutral);
+    const fills = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          ".market-map .map-tile:not([data-active='true']) .map-plate-top",
+        ),
+      ].map((node) => getComputedStyle(node).fill),
+    );
+    expect(new Set(fills)).toEqual(new Set([neutral]));
 
-    // The locator marks that market, and only it.
+    // The locator marks it, and the readout is now the way back.
     const located = await page.evaluate(() =>
       [...document.querySelectorAll<SVGElement>('.map-locator [data-active="true"]')].map(
         (node) => node.dataset["locates"],
       ),
     );
-    expect(located.length).toBeGreaterThan(0);
     expect([...new Set(located)]).toEqual(["us"]);
+    await expect(back(page)).toBeVisible();
+  });
 
-    // Nothing reverts when the pointer leaves, so it can travel to the panel's link.
-    await page.mouse.move(5, 5);
-    await page.waitForTimeout(300);
-    await expect(map(page)).toHaveAttribute("data-active-market", "us");
+  test("a dimmed market is one click from being the focus, and resting on it says so", async ({
+    page,
+  }) => {
+    await openSynthesis(page);
+    await tile(page, "malaysia").click();
+    await expect(tile(page, "norway")).toHaveAttribute("data-dim", "true");
+    // Settled first: the dimming is a transition, and reading mid-flight would read "not dimmed".
+    await expect.poll(async () => plateOpacity(page, "norway")).toBeLessThan(0.6);
+    const dimmed = await plateOpacity(page, "norway");
+
+    await tile(page, "norway").hover();
+    await expect.poll(async () => plateOpacity(page, "norway")).toBeGreaterThan(dimmed + 0.2);
+    // Looking is still not choosing.
+    await expect(map(page)).toHaveAttribute("data-active-market", "malaysia");
+
+    await tile(page, "norway").click();
+    await expect(map(page)).toHaveAttribute("data-active-market", "norway");
+    await expect(tile(page, "norway")).toHaveAttribute("aria-pressed", "true");
+    await expect(tile(page, "malaysia")).toHaveAttribute("aria-pressed", "false");
+    await expect(tile(page, "malaysia")).toHaveAttribute("data-dim", "true");
+    await expect(panel(page).getByRole("heading", { name: "Norway" })).toBeVisible();
+  });
+
+  test("Back to all markets returns to five equal plates, and focus to the tile", async ({
+    page,
+  }) => {
+    await openSynthesis(page);
+    await tile(page, "singapore").click();
+    await expect(back(page)).toBeVisible();
+    await back(page).click();
+
+    await expect(map(page)).toHaveAttribute("data-has-active", "false");
+    await expect(panel(page).getByRole("heading", { name: "All Five Markets" })).toBeVisible();
+    await expect(back(page)).toHaveCount(0);
+    for (const id of MARKET_IDS) {
+      await expect(tile(page, id)).toHaveAttribute("data-dim", "false");
+      await expect.poll(async () => plateOpacity(page, id)).toBe(1);
+    }
+    await expect(map(page).locator('.map-locator [data-active="true"]')).toHaveCount(0);
+    // The Back button has just unmounted; focus goes to the tile the reader was on, not to
+    // the top of the document.
+    await expect(tile(page, "singapore")).toBeFocused();
+  });
+
+  test("Escape anywhere in the section goes back, and so does choosing the chosen tile again", async ({
+    page,
+  }) => {
+    await openSynthesis(page);
+    await tile(page, "norway").click();
+    await page.keyboard.press("Escape");
+    await expect(map(page)).toHaveAttribute("data-has-active", "false");
+    await expect(tile(page, "norway")).toBeFocused();
+
+    // From inside the panel too (focus on its link, not on the map).
+    await tile(page, "malaysia").click();
+    await panel(page)
+      .getByRole("link", { name: /Open the Malaysia deep dive/ })
+      .focus();
+    await page.keyboard.press("Escape");
+    await expect(map(page)).toHaveAttribute("data-has-active", "false");
+    await expect(tile(page, "malaysia")).toBeFocused();
+
+    // And pressing the chosen tile again lets go, as the old key's toggle did.
+    await tile(page, "us").click();
+    await expect(tile(page, "us")).toHaveAttribute("aria-pressed", "true");
+    await tile(page, "us").click();
+    await expect(tile(page, "us")).toHaveAttribute("aria-pressed", "false");
+    await expect(map(page)).toHaveAttribute("data-has-active", "false");
+  });
+
+  test("the keyboard reaches every market in order, previews it, and chooses with Enter or Space", async ({
+    page,
+  }) => {
+    await openSynthesis(page);
+    const status = panel(page).locator("[aria-live]");
+    await expect(status).toHaveText("Showing all five markets.");
+
+    await button(page, "Indonesia").focus();
+    for (const id of ["us", "singapore", "malaysia", "norway"]) {
+      await page.keyboard.press("Tab");
+      await expect(tile(page, id)).toBeFocused();
+    }
+    // A keyboard gets the preview a mouse gets, and a ring to see where it is.
+    await expect(readout(page)).toContainText("Norway");
+    await expect(readout(page)).toContainText("No detectable contemporaneous association");
+    const ring = await tile(page, "norway").evaluate((node) => {
+      const style = getComputedStyle(node);
+      return Number.parseFloat(style.outlineWidth);
+    });
+    expect(ring).toBeGreaterThan(0);
+    await expect(map(page)).toHaveAttribute("data-has-active", "false");
+
+    await page.keyboard.press("Enter");
+    await expect(tile(page, "norway")).toHaveAttribute("aria-pressed", "true");
+    await expect(status).toHaveText("Showing Norway.");
+    // Focus stays on the tile, and Shift+Tab walks back along the same row.
+    await expect(tile(page, "norway")).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(tile(page, "malaysia")).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(status).toHaveText("Showing Malaysia.");
+    await expect(tile(page, "norway")).toHaveAttribute("aria-pressed", "false");
   });
 
   test("Singapore's editorial panel is never shown apart from its evidence group", async ({
     page,
   }) => {
     await openSynthesis(page);
-    // A click selects at once; Singapore is a real outline now, not a 3px dot.
+    // The preview names the evidence group alone...
+    await tile(page, "singapore").hover();
+    await expect(readout(page)).toContainText("Level-only association");
+    await expect(readout(page)).not.toContainText("Maturity Gap");
+    // ...and choosing it shows the editorial name only beside that group (KIRO.md §19 rule 3).
     await tile(page, "singapore").click();
     const view = panel(page);
     await expect(view.getByRole("heading", { name: "Singapore" })).toBeVisible();
-    // KIRO.md §19 rule 3: Maturity Gap and level-only association, in the same view.
     await expect(view.getByText("Maturity Gap")).toBeVisible();
     await expect(view.getByText("Editorial", { exact: true })).toBeVisible();
     await expect(view.getByText("Level-only association")).toBeVisible();
@@ -375,41 +564,7 @@ test.describe("market map", () => {
     ).toBeVisible();
   });
 
-  test("the key selects and releases a market from the keyboard, and is announced", async ({
-    page,
-  }) => {
-    await openSynthesis(page);
-    const status = panel(page).locator("[aria-live]");
-    await expect(status).toHaveText("Showing all five markets.");
-
-    await key(page, "Norway").focus();
-    await page.keyboard.press("Enter");
-    await expect(key(page, "Norway")).toHaveAttribute("aria-pressed", "true");
-    await expect(status).toHaveText("Showing Norway.");
-    await expect(map(page)).toHaveAttribute("data-active-market", "norway");
-    // The stage follows the key: Norway alone, the tiles gone.
-    await expect(spotlight(page)).toHaveAttribute("data-market", "norway");
-    await expect(tiles(page)).toHaveCount(0);
-
-    // Pressing it again lets go, and the five tiles come back.
-    await page.keyboard.press("Enter");
-    await expect(key(page, "Norway")).toHaveAttribute("aria-pressed", "false");
-    await expect(map(page)).toHaveAttribute("data-has-active", "false");
-    await expect(tiles(page)).toHaveCount(5);
-    await expect(spotlight(page)).toHaveCount(0);
-
-    // Escape anywhere in the key lets go too, and so does the panel's own button.
-    await page.keyboard.press("Enter");
-    await page.keyboard.press("Escape");
-    await expect(status).toHaveText("Showing all five markets.");
-    await key(page, "Malaysia").click();
-    await panel(page)
-      .getByRole("button", { name: /Show all five markets/ })
-      .click();
-    await expect(panel(page).getByRole("heading", { name: "All Five Markets" })).toBeVisible();
-  });
-
-  test("the picture is hidden from assistive technology and adds no tab stop", async ({
+  test("the picture is hidden from assistive technology, and the buttons say they are buttons", async ({
     page,
   }) => {
     await openSynthesis(page);
@@ -424,52 +579,55 @@ test.describe("market map", () => {
             .length ?? -1,
       };
     });
-    // Five tiles and the locator; every one hidden; nothing in the figure takes focus.
+    // Five plates and the locator, every drawing hidden; the only things that take focus in
+    // the figure are the five plate buttons (the Back control is not there until a choice).
     expect(audit.svgs).toBe(6);
     expect(audit.hidden).toBe(true);
-    expect(audit.focusable).toBe(0);
+    expect(audit.focusable).toBe(5);
 
-    // What is pointable says so; the key carries the same control for everyone else.
-    for (const id of MARKET_IDS) await expect(tile(page, id)).toHaveCSS("cursor", "pointer");
-    await expect(key(page, "Indonesia")).toHaveCSS("cursor", "pointer");
+    for (const id of MARKET_IDS) {
+      await expect(tile(page, id)).toHaveCSS("cursor", "pointer");
+      await expect(tile(page, id)).toHaveAttribute("aria-controls", "market-synthesis-panel");
+    }
+    await tile(page, "norway").click();
+    await expect(back(page)).toHaveCSS("cursor", "pointer");
   });
 
   test("the locator says where, and is not a control", async ({ page }) => {
-    await openForPointer(page);
+    await openSynthesis(page);
     // Malaysia and Singapore are ~2.7px apart at this size: nothing to aim at.
     await map(page)
       .locator(".map-locator")
       .click({ position: { x: 150, y: 50 } });
     await page.waitForTimeout(400);
     await expect(map(page)).toHaveAttribute("data-has-active", "false");
-
-    await key(page, "Malaysia").click();
-    const located = await page.evaluate(() =>
-      [...document.querySelectorAll<SVGElement>('.map-locator [data-active="true"]')].map(
-        (node) => node.dataset["locates"],
-      ),
-    );
-    expect([...new Set(located)]).toEqual(["malaysia"]);
   });
 
-  test("a touch passing over a tile does not select it; a mouse resting there does", async ({
-    page,
+  test("a tap chooses at once and leaves no hover behind; the hint is the touch one", async ({
+    browser,
   }) => {
-    await openForPointer(page);
-    const enter = async (pointerType: "touch" | "mouse"): Promise<void> => {
-      await tile(page, "norway").evaluate((node, type) => {
-        node.dispatchEvent(
-          new PointerEvent("pointerover", { bubbles: true, pointerType: type }),
-        );
-      }, pointerType);
-    };
-    // A finger crossing a row of large tiles must not choose one...
-    await enter("touch");
-    await page.waitForTimeout(400);
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 812 },
+      hasTouch: true,
+      isMobile: true,
+    });
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.locator("#market-synthesis").scrollIntoViewIfNeeded();
+    // A phone cannot "rest on" anything, so it is not told to.
+    await expect(map(page).locator(".map-hint-touch")).toBeVisible();
+    await expect(map(page).locator(".map-hint-pointer")).toBeHidden();
+
+    await tile(page, "malaysia").tap();
+    await expect(map(page)).toHaveAttribute("data-active-market", "malaysia");
+    await expect(back(page)).toBeVisible();
+    expect((await back(page).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await back(page).tap();
     await expect(map(page)).toHaveAttribute("data-has-active", "false");
-    // ...and the positive control: the same event from a mouse does, after the rest.
-    await enter("mouse");
-    await expect(map(page)).toHaveAttribute("data-active-market", "norway");
+    // No preview is left showing (a tap is not a hover), only the touch hint.
+    await expect(map(page).locator(".map-hint-touch")).toBeVisible();
+    await expect(readout(page)).not.toContainText("Inconclusive");
+    await context.close();
   });
 
   test("the entrance plays once on scroll, and never replays a stage already in view", async ({
@@ -480,17 +638,14 @@ test.describe("market map", () => {
     await expect(map(page)).toHaveAttribute("data-intro", "pending");
     await expect(tile(page, "us")).toHaveCSS("opacity", "0");
     await page.locator("#market-synthesis").scrollIntoViewIfNeeded();
-    // `play` is brief now: the entrance hands itself back (`done`) when it has finished.
+    // `play` is brief: the entrance hands itself back (`done`) when it has finished.
     await expect(map(page)).toHaveAttribute("data-intro", /^(play|done)$/);
     await expect(map(page)).toHaveAttribute("data-intro", "done");
     await expect(tile(page, "us")).toHaveCSS("opacity", "1");
 
-    // Choosing a market and letting go brings the tiles back WITHOUT the stagger.
-    await key(page, "Norway").click();
-    await panel(page)
-      .getByRole("button", { name: /Show all five markets/ })
-      .click();
-    await expect(tiles(page)).toHaveCount(5);
+    // Choosing and going back does not restart it: the tiles were never removed.
+    await tile(page, "norway").click();
+    await back(page).click();
     await expect(map(page)).toHaveAttribute("data-intro", "done");
     await expect(tile(page, "malaysia")).toHaveCSS("animation-name", "none");
 
@@ -530,31 +685,37 @@ test.describe("market map", () => {
     // The stagger collapses to zero; only the 1ms base delay (--duration-medium) remains.
     expect(Number.parseFloat(timing.delay)).toBeLessThanOrEqual(0.001);
     await expect(tile(page, "norway")).toHaveCSS("opacity", "1");
+    // The dimming and the lift are transitions on the same tokens: instant, not gone.
+    await tile(page, "norway").click();
+    await expect(tile(page, "us")).toHaveAttribute("data-dim", "true");
+    await expect.poll(async () => plateOpacity(page, "us")).toBeLessThan(0.6);
     await context.close();
   });
 
-  test("choosing a market never resizes the stage, and the panel sits beside it from xl", async ({
+  test("the stage keeps its size through hover and choice, and the panel sits beside it from xl", async ({
     page,
   }) => {
     for (const width of [1440, 1024, 375]) {
       await openSynthesis(page, width);
-      const before = await stage(page).boundingBox();
-      await key(page, "United States").click();
-      await expect(spotlight(page)).toHaveAttribute("data-market", "us");
-      const after = await stage(page).boundingBox();
-      expect(before).not.toBeNull();
-      expect(after).not.toBeNull();
-      // The same size in both states, so what is below it never moves.
-      expect(Math.abs(after!.width - before!.width)).toBeLessThan(1);
-      expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
-
+      const rest = await stage(page).boundingBox();
+      await tile(page, "indonesia").hover();
+      await expect(readout(page)).toContainText("Indonesia");
+      const hovered = await stage(page).boundingBox();
+      await tile(page, "us").click();
+      await expect(map(page)).toHaveAttribute("data-active-market", "us");
+      const chosen = await stage(page).boundingBox();
+      expect(rest).not.toBeNull();
+      // The same height whether at rest, previewing or chosen, so nothing below it moves.
+      for (const box of [hovered, chosen]) {
+        expect(Math.abs(box!.width - rest!.width)).toBeLessThan(1);
+        expect(Math.abs(box!.height - rest!.height)).toBeLessThan(1);
+      }
       const panelBox = await panel(page).boundingBox();
       expect(panelBox).not.toBeNull();
       if (width >= 1280) {
-        expect(panelBox!.x).toBeGreaterThanOrEqual(after!.x + after!.width);
+        expect(panelBox!.x).toBeGreaterThanOrEqual(chosen!.x + chosen!.width);
       } else {
-        const keyBox = await key(page, "Norway").boundingBox();
-        expect(panelBox!.y).toBeGreaterThanOrEqual(keyBox!.y + keyBox!.height - 1);
+        expect(panelBox!.y).toBeGreaterThanOrEqual(chosen!.y + chosen!.height - 1);
       }
     }
   });
@@ -565,43 +726,113 @@ test.describe("market map", () => {
     for (const fragment of ["says nothing about a market", "Alaska", "Hawaii", "Svalbard"]) {
       await expect(caption).toContainText(fragment);
     }
-    await key(page, "Singapore").click();
-    await expect(spotlight(page)).toHaveAttribute("data-market", "singapore");
+    await tile(page, "singapore").click();
+    await expect(tile(page, "singapore")).toHaveAttribute("aria-pressed", "true");
     await expect(caption).toContainText("says nothing about a market");
     await expect(caption).toBeVisible();
   });
 
-  test("on a phone every silhouette stays readable, with no overflow", async ({ page }) => {
+  test("on a phone every plate is a readable, tappable button, with no overflow", async ({
+    page,
+  }) => {
     await openSynthesis(page, 375);
     // Measured before Batch 3: Singapore was 3x3px here, and the labels were switched off.
     for (const id of MARKET_IDS) {
-      const box = await tile(page, id).locator("svg").boundingBox();
-      expect(box?.width ?? 0).toBeGreaterThanOrEqual(90);
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(55);
-      await expect(tile(page, id).locator("span")).toBeVisible();
+      const svg = await tile(page, id).locator("svg").boundingBox();
+      expect(svg?.width ?? 0).toBeGreaterThanOrEqual(90);
+      expect(svg?.height ?? 0).toBeGreaterThanOrEqual(55);
+      const target = await tile(page, id).boundingBox();
+      expect(target?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await expect(tile(page, id).locator(".map-tile-label")).toBeVisible();
     }
     // Three and two: two rows.
     const rows = new Set<number>();
     for (const id of MARKET_IDS)
       rows.add(Math.round((await tile(page, id).boundingBox())?.y ?? 0));
     expect(rows.size).toBe(2);
-    // The locator keeps a size a place can be found on.
     expect((await map(page).locator(".map-locator").boundingBox())?.width ?? 0).toBeGreaterThan(
       100,
     );
 
-    await key(page, "Singapore").click();
+    await tile(page, "singapore").click();
     await expect(panel(page).getByRole("heading", { name: "Singapore" })).toBeVisible();
-    // The spotlight fills the stage instead of sitting in a corner of it.
-    const frame = await stage(page).boundingBox();
-    const outline = await spotlight(page).locator("svg").boundingBox();
-    expect(outline!.width).toBeGreaterThanOrEqual(frame!.width * 0.85);
-
-    const box = await key(page, "Norway").boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await expect(tiles(page)).toHaveCount(5);
+    expect((await back(page).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBeLessThanOrEqual(0);
+  });
+});
+
+test.describe("market synthesis orientation", () => {
+  const boxes = async (page: Page) => {
+    const section = page.locator("#market-synthesis");
+    const title = section.locator("h2");
+    const aside = section.getByText(/^One worldwide line cannot show/);
+    const lead = section.getByText(/^Five markets, one oil shock/);
+    const [t, a, l] = await Promise.all([
+      title.boundingBox(),
+      aside.boundingBox(),
+      lead.boundingBox(),
+    ]);
+    expect(t).not.toBeNull();
+    expect(a).not.toBeNull();
+    expect(l).not.toBeNull();
+    return { t: t!, a: a!, l: l! };
+  };
+
+  for (const width of [1920, 1440, 1280]) {
+    test(`at ${String(width)}px it fills the empty label column beside the lead`, async ({
+      page,
+    }) => {
+      await openSynthesis(page, width);
+      const { t, a, l } = await boxes(page);
+      // Under the title, on its left edge, inside the label column and clear of the lead.
+      expect(Math.abs(a.x - t.x)).toBeLessThan(1);
+      expect(a.y).toBeGreaterThanOrEqual(t.y + t.height);
+      expect(a.x + a.width).toBeLessThanOrEqual(l.x);
+      // Beside the lead, not below it: that is the space it uses.
+      expect(a.y).toBeLessThan(l.y + l.height);
+      expect(a.y + a.height).toBeGreaterThan(l.y + l.height * 0.6);
+      await expect(
+        page.locator("#market-synthesis").getByText(/^One worldwide line cannot show/),
+      ).toBeVisible();
+    });
+  }
+
+  for (const width of [1024, 375]) {
+    test(`at ${String(width)}px it follows the title and precedes the lead, in one column`, async ({
+      page,
+    }) => {
+      await openSynthesis(page, width);
+      const { t, a, l } = await boxes(page);
+      expect(Math.abs(a.x - t.x)).toBeLessThan(1);
+      expect(Math.abs(l.x - t.x)).toBeLessThan(1);
+      expect(a.y).toBeGreaterThanOrEqual(t.y + t.height);
+      expect(l.y).toBeGreaterThanOrEqual(a.y + a.height);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+    });
+  }
+
+  test("it reads in order: title, orientation, lead", async ({ page }) => {
+    await openSynthesis(page);
+    const order = await page.evaluate(() => {
+      const section = document.querySelector("#market-synthesis");
+      const nodes = [...(section?.querySelectorAll("h2, p") ?? [])];
+      const find = (re: RegExp) => nodes.findIndex((node) => re.test(node.textContent ?? ""));
+      return [
+        find(/^What the Shock Revealed$/),
+        find(/^One worldwide line/),
+        find(/^Five markets, one oil shock/),
+      ];
+    });
+    expect(order[0]).toBeGreaterThanOrEqual(0);
+    expect(order[1]).toBeGreaterThan(order[0]!);
+    expect(order[2]).toBeGreaterThan(order[1]!);
   });
 });

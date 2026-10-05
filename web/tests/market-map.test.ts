@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { COUNTRY_IDS } from "../src/data/index.ts";
-import { MARKET_STAGE_NOTE } from "../src/content/markets.ts";
+import { MARKET_READOUT, MARKET_STAGE_NOTE } from "../src/content/markets.ts";
 import {
   GRATICULE_PATH,
   LAND_PATH,
@@ -42,8 +42,6 @@ import {
 import {
   BEACON,
   LOCATOR,
-  MAP_DWELL_MS,
-  MAP_QUIET_MS,
   PLATE_DEPTH,
   SHADOW_OFFSET,
   glyphCentre,
@@ -190,14 +188,7 @@ test("one plate depth, one shadow, one beacon size, shared by every market", () 
   assert.ok(BEACON.size > 0 && BEACON.stem > 0);
   // The layout module carries sizes and timings and nothing keyed by market: there is no
   // per-market table through which one market could be drawn differently.
-  for (const value of [
-    PLATE_DEPTH,
-    SHADOW_OFFSET,
-    BEACON,
-    LOCATOR,
-    MAP_DWELL_MS,
-    MAP_QUIET_MS,
-  ]) {
+  for (const value of [PLATE_DEPTH, SHADOW_OFFSET, BEACON, LOCATOR]) {
     assert.notEqual(typeof value, "function");
   }
   const code = codeOf(read("src", "components", "market", "map-layout.ts"));
@@ -229,7 +220,7 @@ test("the overview draws the same component for every market, in the reading ord
   // order of its own, so it cannot sort the markets by anything.
   assert.match(stage, /markets\.map\(/);
   assert.doesNotMatch(stage, /\.sort\(|\.toSorted\(|\.reverse\(/);
-  assert.match(stage, /<MarketPlate id=\{id\} variant="tile"/);
+  assert.match(stage, /<MarketPlate id=\{id\} \/>/);
 });
 
 // ---------------------------------------------------------------------------
@@ -255,13 +246,62 @@ test("plates are one neutral material; identity colour tints only the active one
   assert.doesNotMatch(rule(".market-map .map-plate-side"), /--market-colour/);
 });
 
-test("a tile is never active: the spotlight is the only element that takes the tint", () => {
+test("the tint and the dimming each follow ONE attribute on the tile, computed in one place", () => {
   const stage = codeOf(marketComponent("MarketStage.tsx"));
-  // Tiles are written `data-active="false"` and only the spotlight `data-active="true"`,
-  // so the tint cannot reach five markets at once.
-  assert.match(stage, /data-active="false"/);
-  assert.match(stage, /data-active="true"/);
-  assert.equal((stage.match(/data-active=/g) ?? []).length, 2);
+  // `data-active` is true for at most one tile (the chosen one) and `data-dim` only for the
+  // others while something is chosen: both are derived from `active`, never set per market,
+  // so the tint cannot reach two markets at once and nothing can be dimmed by default.
+  assert.equal((stage.match(/data-active=/g) ?? []).length, 1);
+  assert.match(stage, /const isActive = id === active;/);
+  assert.match(stage, /data-active=\{isActive \? "true" : "false"\}/);
+  assert.match(stage, /data-dim=\{active !== null && !isActive \? "true" : "false"\}/);
+});
+
+test("the other four are dimmed IN PLACE, and resting on one brings it back", () => {
+  const css = read("app", "globals.css");
+  const rule = (selector: string): string => {
+    const start = css.indexOf(`${selector} {`);
+    assert.ok(start !== -1, `no rule for ${selector}`);
+    return css.slice(start, css.indexOf("}", start));
+  };
+  // Dimmed, not removed: still on the stage, still clickable.
+  const dim = rule('.market-map .map-tile[data-dim="true"] .map-tile-plate');
+  const opacity = Number(/opacity:\s*([0-9.]+)/.exec(dim)?.[1]);
+  assert.ok(opacity > 0.2 && opacity < 0.7, `a dimmed plate is ${String(opacity)} opaque`);
+  assert.doesNotMatch(dim, /display:\s*none|visibility:\s*hidden|pointer-events:\s*none/);
+  // Hovering or keyboard-focusing a dimmed tile is the invitation to switch to it.
+  assert.match(
+    rule('.market-map .map-tile[data-dim="true"]:hover .map-tile-plate'),
+    /opacity:\s*0\.[6-9]/,
+  );
+  assert.match(
+    rule('.market-map .map-tile[data-dim="true"]:focus-visible .map-tile-plate'),
+    /opacity:\s*0\.[6-9]/,
+  );
+  // The old spotlight is gone from the stylesheet.
+  assert.doesNotMatch(css, /\.map-spotlight/);
+});
+
+test("a dimmed market keeps a readable name: only the picture recedes, never the label", () => {
+  const css = read("app", "globals.css");
+  // The tile is a button whose name is its label. Dimming the whole tile measured 1.8:1 for
+  // that name; dimming the plate alone leaves the name at the ordinary secondary colour.
+  assert.doesNotMatch(css, /\.map-tile\[data-dim="true"\]\s*\{[^}]*opacity/);
+  assert.doesNotMatch(css, /\.map-tile\[data-dim="true"\]\s+\.map-tile-label\s*\{[^}]*opacity/);
+  // Both pieces exist in the markup: the plate wrapper that fades, and the label that does not.
+  const stage = codeOf(marketComponent("MarketStage.tsx"));
+  assert.match(stage, /map-tile-plate/);
+  assert.match(stage, /map-tile-label/);
+});
+
+test("a keyboard gets the lift a mouse gets", () => {
+  const css = read("app", "globals.css");
+  assert.match(css, /\.map-tile:hover \.map-plate-raised/);
+  assert.match(css, /\.map-tile:focus-visible \.map-plate-raised/);
+  // The hover rules only run where there is hover; the focus ones always do.
+  const hoverMedia = css.indexOf("@media (hover: hover)");
+  assert.ok(hoverMedia !== -1);
+  assert.ok(css.indexOf(".map-tile:hover .map-plate-raised") > hoverMedia);
 });
 
 test("the map's material tokens exist in the light theme and in both dark blocks", () => {
@@ -375,13 +415,58 @@ test("the caption says size is not information, and names what the outlines omit
 // 7. Interaction and the entrance
 // ---------------------------------------------------------------------------
 
-test("a touch never starts the rest timer, and a return to the overview is given a quiet period", () => {
+test("hovering previews and never selects: no timer, and no select call from a pointer handler", () => {
   const stage = codeOf(marketComponent("MarketStage.tsx"));
-  assert.match(stage, /pointerType === "touch"/);
-  assert.match(stage, /MAP_DWELL_MS/);
-  assert.match(stage, /MAP_QUIET_MS/);
-  assert.ok(MAP_DWELL_MS >= 80 && MAP_DWELL_MS <= 200, "a rest should be longer than a sweep");
-  assert.ok(MAP_QUIET_MS > MAP_DWELL_MS, "the quiet period must outlast the rest timer");
+  // The 110ms rest that used to choose a market is gone, with the timer and its quiet period.
+  assert.doesNotMatch(stage, /setTimeout|clearTimeout|MAP_DWELL_MS|MAP_QUIET_MS/);
+  // Pointer and focus handlers only move the PREVIEW; choosing happens on click alone.
+  for (const handler of ["onPointerEnter", "onPointerLeave", "onFocus", "onBlur"]) {
+    const start = stage.indexOf(`${handler}=`);
+    assert.ok(start !== -1, `no ${handler}`);
+    const body = stage.slice(start, stage.indexOf("\n", stage.indexOf("}", start)) + 1);
+    assert.doesNotMatch(body, /onSelect|onBack/, `${handler} must not choose a market`);
+  }
+  assert.match(stage, /onClick=\{\(\) => onSelect\(id\)\}/);
+});
+
+test("a touch neither previews nor leaves a sticky hover, and keyboard focus previews", () => {
+  const stage = codeOf(marketComponent("MarketStage.tsx"));
+  assert.match(stage, /event\.pointerType !== "touch"/);
+  // A mouse click also focuses the button; only `:focus-visible` (a keyboard) is a preview.
+  assert.match(stage, /matches\(":focus-visible"\)/);
+  // The preview belongs to the overview: once a market is chosen, the readout is the way back.
+  assert.match(stage, /active === null \? markets\.find/);
+});
+
+test("each plate is a real button that names its market and controls the panel", () => {
+  const stage = codeOf(marketComponent("MarketStage.tsx"));
+  assert.match(stage, /<button\s+type="button"\s+data-market=\{id\}/);
+  assert.match(stage, /aria-pressed=\{isActive\}/);
+  assert.match(stage, /aria-controls=\{panelId\}/);
+  // The silhouette inside is hidden from assistive technology: the label is the name.
+  assert.match(codeOf(marketComponent("MarketPlate.tsx")), /aria-hidden="true"/);
+  // The tiles are one labelled list, in the reading order they are given.
+  assert.match(stage, /aria-label="Markets on the map"/);
+});
+
+test("the separate country list is gone: the synthesis renders no market button of its own", () => {
+  const synthesis = codeOf(marketComponent("MarketSynthesisMap.tsx"));
+  assert.doesNotMatch(synthesis, /<button/);
+  assert.doesNotMatch(synthesis, /Markets on the map/);
+  // Escape anywhere in the section goes back, and focus returns to the tile that was chosen.
+  assert.match(synthesis, /event\.key === "Escape"/);
+  assert.match(synthesis, /\.map-tile\[data-market=/);
+  assert.match(synthesis, /\.focus\(/);
+  // The panel never changes on hover, only on a choice.
+  assert.doesNotMatch(synthesis, /onPointer|onMouse|hover/i);
+});
+
+test("the way back is in the readout, is named, and is only there while a market is chosen", () => {
+  assert.equal(MARKET_READOUT.back, "Back to all markets");
+  const stage = codeOf(marketComponent("MarketStage.tsx"));
+  assert.match(stage, /active !== null \? \(/);
+  assert.match(stage, /onClick=\{onBack\}/);
+  assert.match(stage, /MARKET_READOUT\.back/);
 });
 
 test("the entrance staggers by a token that reduced motion sets to zero", () => {

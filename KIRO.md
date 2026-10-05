@@ -3,7 +3,8 @@
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
 **Last updated:** 2026-10-05 (Linux) — **final-polish revision cycle IN PROGRESS: Batches 1–3
-of 4 COMPLETE, Batch 3 awaiting the user's review; Batch 4 not started.** Read
+of 4 COMPLETE; Batch 3 and its refinement (the map as its own navigation, plus an editorial
+orientation) await the user's review; Batch 4 not started.** Read
 "Final-polish cycle" directly below first. The paragraphs after it, up to §0, are the
 2026-09-17 record and are historical: the divergence they describe no longer exists.
 
@@ -19,7 +20,7 @@ this file updated, and **one local commit** (no push). Then **stop** for the use
 | ----- | ------------------------------------------------------------------------------------------- | ----------- |
 | 1     | Charts: five-market zoom smoothness (measured first, regression-tested, re-measured after); tooltip in Geist; axis titles unified; "Oil peak" off the axis title; one wording for the shaded band | **COMPLETE** — accepted |
 | 2     | Layout A1–A3, before/after at 375/768/1024/1280/1440/1920; keep the editorial composition unless evidence says otherwise | **COMPLETE** — accepted (the user's instruction to continue, 2026-10-05) |
-| 3     | Market Synthesis map, direction B — only after Batches 1–2 are reviewed and accepted        | **COMPLETE** — see "Batch 3" below; awaiting review |
+| 3     | Market Synthesis map, direction B — only after Batches 1–2 are reviewed and accepted        | **COMPLETE** — see "Batch 3" below, and "Batch 3 refinement" directly under it (which supersedes the interaction described in the first); awaiting review |
 | 4     | Full validation (item E) and documentation (the drift listed below)                         | not started |
 
 Revisions 10 (colour accents), 11 (motion) and 13 (affordance audit) overlap items C, D and
@@ -287,6 +288,12 @@ Synthesis map, direction B).
 ### Batch 3 — Market Synthesis map, direction B (COMPLETE, 2026-10-05; the commit is the
 "Batch 3" row under "Landed")
 
+> **Superseded in part by "Batch 3 refinement" below.** The separate key, the 110ms rest that
+> chose a market, and the single-market spotlight described in this record no longer exist: the
+> five plates are the buttons, hovering only previews, and a chosen market leaves the other four
+> on the stage, dimmed. The geometry, the raised-plate material, the entrance, the locator, the
+> caption and the measurements of the silhouettes below still stand.
+
 **Reconciled first (all re-verified, none assumed).** `HEAD` = `6fcefdd` (Batch 2), `5eb37a4`
 (Batch 1) below it; `main` is 2 ahead / 0 behind `origin/main`; `git ls-remote origin
 refs/heads/main` = `dfdf0ed`, so nothing has been pushed; tree clean, no stash. Batch 2 is
@@ -484,6 +491,173 @@ add to Batch 4's list.
 
 **Next step:** STOP for the user's review of Batch 3. On acceptance, Batch 4.
 
+### Batch 3 refinement — the map as its own navigation, and an editorial orientation (COMPLETE, 2026-10-05; the commit is the "Batch 3 refinement" row under "Landed")
+
+**Request (the user, after reviewing Batch 3).** Remove the separate country-selection list; make
+the map the primary navigation; show all five plates in the overview; hover lifts a market and
+shows a concise, calm preview; click focuses it with the other four de-emphasised without losing
+their place; a clear but restrained "Back to all markets"; and, if the space under the section
+header can serve a legitimate editorial purpose, a short analytical orientation there. No chart
+changes, no analytical changes, no unrelated polish.
+
+**The interaction model, as built.** all five markets → hover to preview → click to focus →
+inspect → back to all markets.
+
+- *Five plates, five buttons.* Each silhouette is a real `<button>` (`aria-pressed`,
+  `aria-controls` the panel), named by its label, in one `<ul aria-label="Markets on the map">`
+  in the reading order. The SVG inside is `aria-hidden`; the name is the label. The identity dot
+  that the removed list carried now sits in each plate's label, so colour-and-name is still
+  one glance. Tab reaches the five in order; Enter and Space choose.
+- *Hover (a mouse or pen) or keyboard focus* lifts the plate, darkens its label and shows a
+  preview in the **readout**, the one line of the stage under the tiles: the market, the
+  pipeline's classification and robustness, and (from a 36rem stage) the first sentence of its
+  evidence statement. It is assembled by `marketPreview` from strings the panel already renders,
+  so it cannot say anything the panel does not, and it never names the editorial panel, so
+  Singapore's Maturity Gap can only ever appear beside its evidence group (§19 rule 3). The
+  locator rings the previewed market too. **It never selects**: nothing is chosen, and the panel
+  does not change, however long the pointer rests. A touch neither previews nor leaves a sticky
+  hover behind a tap.
+- *Click, Enter, Space or a tap* focuses a market: its plate takes its identity tint and rises
+  higher, the panel shows its evidence, and the other four plates fade to 0.42 **in place** — same
+  positions (asserted), names at full contrast, still buttons. Resting on a dimmed one brings
+  it to 0.85, which is the invitation to switch; clicking it moves the focus straight there.
+  Clicking the chosen plate again lets go, as the removed list's toggle did.
+- *Back.* "← Back to all markets" sits in the readout, directly under the tiles, where the eye
+  already is (it was under the panel before, out of sight on a phone); Escape anywhere in the
+  section does the same. Either returns to five equal plates, and focus goes to the tile that
+  was chosen, because the Back button has just unmounted and focus must not fall to the top of
+  the document.
+- *The readout* has one height in every state (measured: 0.0px spread across rest, two hovers and
+  focused at 1440, 1024 and 375 in both themes), so nothing below the stage ever moves. At rest it
+  says how to use the map (one hint for a pointer, one for touch, chosen by `hover: hover`: a
+  phone has no "rest on a market"); while a market is chosen it is the Back control.
+
+**Decision: the separate selector is removed.** Every market had two buttons, the plate (which
+had become decorative) and a list under it (which was the control). The list was a 44px row
+(two rows, about 108px, on a phone), and its one real job — keyboard and large-target access
+to a picture — is done better by making the plates the buttons: they are 106×105 at 375,
+193×163 at 1440, the identity dot moved into their labels, and a test asserts each market has
+exactly one button in the section.
+
+**Rationale for keeping all five on the stage.** (1) At rest it is the honest default: equal
+plates, nothing singled out. (2) Comparing is the point of this section, and the orientation says
+the markets differ: a one-market-at-a-time stage hid the other four and made the reader remember
+them. (3) The other four stay as spatial context and are one click away, so switching never needs
+a detour through "all". (4) The stage no longer changes content or size between states, so there
+is no unmount, no fade-swap and nothing to replay: the dimming and the lift are CSS transitions
+on `opacity`, `transform` and `fill` using the existing duration and easing tokens, which the
+reduced-motion rule already collapses to 1ms.
+
+**Removed.** The list of market buttons; the 110ms rest that chose a market, its 400ms quiet
+period and the touch rule for it (`MAP_DWELL_MS`, `MAP_QUIET_MS`); the single-market spotlight
+(`.map-spotlight`, `MarketPlate`'s `variant`); the fixed-aspect stage (it is content-sized now).
+
+**The editorial space.** Inspected first, at six widths. From `xl` the title column ends at
+y = 144 at 1440 while the lead and the finding run to y = 364: a void of about 420×220px under the
+title (about 550×190 at 1920). Below `xl` the header stacks and nothing is empty. Judged: it can
+carry one short paragraph that no other element carries — *why the reader is asked to compare
+markets here, after the worldwide chart* — so it does, and only there. The copy is
+`MARKET_SYNTHESIS_ORIENTATION`:
+
+> One worldwide line cannot show whether individual markets moved alike. Set side by side, they
+> differ in when interest peaked and in how, if at all, it is associated with crude prices, so
+> the worldwide pattern needs country-level context.
+
+Every claim is one the analysis already makes, and a test ties each to the artifacts (the peaks
+are not one week or one month; the five do not share one classification and at least one has
+no detectable or no conclusive association; a worldwide series exists), so it fails loudly if the
+data ever stops supporting it. It has no number (those stay in the finding below it and in the
+panel, with their caveats), no ranking, and none of "produce", "drive", "respond", "effect" or
+"impact": the section lead says "patterns" for the same reason. It sits in the label column
+through a new **optional `aside` prop on `SectionHeader`**, used by this one header and
+asserted to be used by no other: with an aside the title and the paragraph are wrapped as the
+label-column grid item (its first baseline is still the title's, so the baseline alignment with
+the lead is unchanged); without one the markup is byte-identical to before. It ends almost level
+with the lead (y = 279 against 269 at 1440), the section grows by 11px at `xl`, and the void
+shrinks to the part beside the finding paragraph (about 420×100), which is left alone. Below `xl`
+it follows the title and precedes the lead. **Batch 2's A2 decision stands for the other three
+sections** (how-to-read, ev-interest-markets, structure); this is the one place the user asked
+for the space to carry content.
+
+**Files changed (13).** `web/app/globals.css`, `web/app/page.tsx` (one prop, one import),
+`web/e2e/market.e2e.ts`, `web/src/components/layout/SectionHeader.tsx` (optional `aside`),
+`web/src/components/market/{MarketLocator,MarketPlate,MarketStage,MarketSynthesisMap}.tsx`,
+`web/src/components/market/{contract,map-layout}.ts`, `web/src/content/markets.ts`,
+`web/tests/{market-map,market-synthesis}.test.ts`. Nothing under `pipeline/`, `data/`,
+`web/src/data/`, `web/src/lib/`, `reports/` or `docs/`, and no chart file.
+
+**Tests.** Unit 361 → 373. `market-map.test.ts` 23 → 30: the tint and the dimming each follow one
+attribute computed in one place; the other four are dimmed in place and resting on one restores
+it; a dimmed market keeps a readable name (only the plate recedes); a keyboard gets the lift a
+mouse gets; hovering previews and never selects (no timer, and no pointer or focus handler calls
+`onSelect` or `onBack`); a touch neither previews nor leaves a hover, and only `:focus-visible`
+previews; each plate is a real named button that controls the panel; the synthesis renders no
+button of its own; the way back is named and only there while a market is chosen. A mutation
+check proved the hover test real: making `onPointerEnter` call `onSelect` fails exactly that test.
+`market-synthesis.test.ts` 38 → 43: the orientation is two sentences, has no number and none of
+the causal words; each of its claims is tied to the artifacts; it appears on exactly one header;
+a preview equals the panel's words and an independently composed timing phrase; a preview never
+names an editorial panel (Singapore's level-only association is affirmed in it). The new strings
+also join the existing ranking and causal scans. E2E 159 → 170: the "market map" block rewritten,
+12 → 17, and a new "market synthesis orientation" block of 6. The 17 cover the default; no second
+selector (one button per market in the section); hover previews and selects nothing even after
+700ms; choosing focuses with the four dimmed in place (positions asserted equal, names at full
+opacity); switching by clicking a dimmed one; Back returning five equal plates with focus on the
+tile; Escape from the map and from the panel, and the same tile again; the keyboard in order with
+a visible ring, Enter and Space; Singapore's rule 3 in both the preview and the panel; the picture
+hidden from assistive technology with exactly five focusable things; the locator is not a control;
+a tap on a phone-sized touch context; the entrance once; reduced motion; the stage keeping its
+size through hover and choice; the caption; the phone. The 6 cover the orientation in the label
+column at 1920 / 1440 / 1280 and stacked at 1024 / 375, and its reading order. 23/23, and 69/69
+over three repeats.
+
+**Validation (the final tree).** `npm run verify` exit 0 — typecheck, lint, unit 373/373, Prettier;
+`next build` clean; Playwright **170/170** on a fresh build with nothing else running. Python:
+pytest 191 passed / 1 skipped, ruff + format clean, mypy clean, `pipeline.build --check` all 4
+artifacts up to date; the artifact digests and the four tree hashes are identical to §9. **One
+honest note.** The first full browser run gave 169/170: `chart.e2e.ts` "zooming changes the view
+and reset returns it" timed out on a 4-second tooltip poll after a Ctrl + wheel zoom. I had the
+Python gates (pytest, ruff, mypy) running at the same time, it passes 5/5 alone with one worker,
+and the next full run was 170/170; no chart file is touched by this change. It is a
+load-sensitive test, left alone because the chart work is Batch 1's and was to stay untouched;
+Batch 4's full validation is the place to decide whether to widen that poll.
+
+**Reviewed in a browser.** Overview, hover, focused and (at 375) a touch tap at 1920 / 1440 / 1280 /
+1024 / 768 / 375 in the light theme and at 1440 / 375 in the dark one, on the production build. No
+horizontal overflow and no console message in any. Measured: the stage is the same height at rest,
+under two different hovers and focused (spread 0.0px at 1440, 1024 and 375, both themes); a
+dimmed market's name is 5.54:1 (light) and 6.86:1 (dark) against the stage (whole-tile dimming
+measured about 1.8:1 and was replaced by plate-only dimming); the keyboard ring is 4px and the
+edge tiles sit 13px inside the stage at 1440 and 375, so it is never clipped; a tap on
+`hover: none` chooses at once and shows the touch hint. The user's own `next dev` server on :3000
+has a failing HMR websocket, so React does not hydrate there; it was left running and was not used
+for any interaction check (everything above ran against production builds on :3100).
+
+**Remaining issues — judgement calls, none a defect, none blocking.**
+
+1. A chosen market is no longer drawn large. Batch 3's spotlight showed it at about 484×302px
+   (1440); now it is the size of its tile (about 158×99 for the United States at 1440, and
+   83×52 at 375, where Singapore is 88×45), tinted, lifted
+   and with the other four receding. That follows from "keep all five", but the picture of the
+   place is smaller. If it is missed, the smallest way back is to let the chosen plate scale up in
+   place over its dimmed neighbours (a transform only); it needs clamping at the stage's edges and
+   changes the composition, so it was not built.
+2. On a phone the orientation adds about 120px (five lines) before the first plate.
+3. The preview's timing sentence and the focused hint appear only from a 36rem stage; narrower,
+   the readout shows the market and its classification alone, to keep one height.
+4. The geometry file and its exports are still called `spotlight-geometry.ts` / `SPOTLIGHT_*`
+   though they now draw the tiles; renaming a generated file and its generator was out of scope.
+5. Batch 3's remaining issues 2–7 are unchanged (the locator fades in last; the hover lift is
+   about 2px; the plate-against-ground contrast; equal-size outlines; the floating indicator on a
+   phone; `GRATICULE_PATH`). Issue 1 (the top row 14px from the stage edge) stands too, though the
+   stage is now content-sized rather than fixed-aspect.
+
+**Not done here (by scope).** Any chart (Batch 1's zoom, scroll and presentation are untouched),
+Batch 2's A1–A3 (A2 stands for the three other sections), and Batch 4.
+
+**Next step:** STOP for the user's review of the refinement. On acceptance, Batch 4 (full
+validation, item E, and the documentation drift listed under Phase 0).
+
 ### Reconciled before any change
 
 - `main` = `origin/main` = `854685e` at the start of the cycle, linear history. The §9
@@ -513,6 +687,7 @@ add to Batch 4's list.
 | `fix: keep chart zoom gliding…` | **Batch 1** — zoom motion states, Geist chart type, annotations — unit 348/348, E2E 155/155. One commit per batch: its own hash is not written here (amending to add it would change it); read it with `git log -1 --format=%h --grep "keep chart zoom gliding"` |
 | `fix: align Scope's lead and tighten Comparability's gap…` | **Batch 2** — layout A1 (Scope lead), A3 (Comparability gap); A2 investigated and left unchanged, documented — unit 348/348, E2E 155/155. Read with `git log -1 --format=%h --grep "align Scope's lead"` |
 | `feat: market synthesis as a spotlight stage…` | **Batch 3** — the map becomes a stage: five raised-plate silhouettes, or one large with a world locator; 1:10m geometry, locator dot contrast fix — unit 361/361, E2E 159/159. Read with `git log -1 --format=%h --grep "spotlight stage"` |
+| `feat: make the market map its own navigation…` | **Batch 3 refinement** — the separate key is removed and the five plates are the buttons (hover previews, click focuses with the other four dimmed in place, Back / Escape); an editorial orientation in the empty label column under the Market Synthesis title — unit 373/373, E2E 170/170. Read with `git log -1 --format=%h --grep "its own navigation"` |
 
 **Revision 7.** The five synthesis cards became a map, a key and a panel. The map
 encodes location only: Natural Earth 1:110m via `world-atlas` 2.0.2, Equal Earth
