@@ -314,3 +314,18 @@ export const MARKET_SYNTHESIS_WORDING_NOTE =
   "interpretive narrative that will surround it — the argument each panel makes — is " +
   "still being written, and the panel names remain editorial readings rather than " +
   "findings.";
+
+/**
+ * The caption under the market stage: what the drawing is, and what it leaves out.
+ *
+ * Two facts a reader cannot see for themselves and would otherwise assume the other way.
+ * Every outline is fitted to the SAME frame, so Singapore's island looks as large as the
+ * United States — the sentence says that size here is not information, and points at the
+ * small map, which is the one place relative size is true. And the United States and Norway
+ * are drawn as their contiguous states and their mainland; a caption that named only the
+ * first fact would let a reader think the outlines were complete.
+ */
+export const MARKET_STAGE_NOTE =
+  "Each outline is scaled to fill its frame, so its size says nothing about a market; " +
+  "the small map shows where it is. The United States is drawn without Alaska and Hawaii, " +
+  "and Norway without Svalbard.";

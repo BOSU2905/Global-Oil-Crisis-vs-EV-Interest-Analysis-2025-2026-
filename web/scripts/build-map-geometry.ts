@@ -1,28 +1,40 @@
 /**
- * Builds `src/components/market/map-geometry.ts` — the base map for the market synthesis.
+ * Builds the geometry the market synthesis draws, in two files from one pinned source.
+ *
+ *   src/components/market/map-geometry.ts        the WORLD, for the locator (1:110m)
+ *   src/components/market/spotlight-geometry.ts  five SILHOUETTES, for the stage (1:10m)
  *
  * WHY A SCRIPT AND NOT A DEPENDENCY
- * The map needs five country outlines and a world landmass, once, at one size. A runtime
- * geography stack (d3-geo, topojson-client, world-atlas) would add three dependencies to
- * draw a picture that never changes. So the data is read here, projected, simplified and
- * written out as plain SVG path strings that are committed — and this script is kept so
- * the result can be reproduced byte for byte, the same standard the pipeline holds.
+ * The map needs a world landmass and five country outlines, once each, at fixed sizes. A
+ * runtime geography stack (d3-geo, topojson-client, world-atlas) would add three
+ * dependencies to draw pictures that never change. So the data is read here, projected,
+ * simplified and written out as plain SVG path strings that are committed — and this
+ * script is kept so the result can be reproduced byte for byte, the same standard the
+ * pipeline holds.
  *
  * SOURCE
- * Natural Earth 1:110m admin-0 countries and land (public domain), via the `world-atlas`
- * 2.0.2 TopoJSON build (ISC). Not installed: fetch it into a scratch folder.
+ * Natural Earth (public domain) via the `world-atlas` 2.0.2 TopoJSON build (ISC): the
+ * world from the 1:110m files, the silhouettes from the 1:10m file. One package, one
+ * version. Not installed: fetch it into a scratch folder.
  *
  *   npm pack world-atlas@2.0.2 && tar -xzf world-atlas-2.0.2.tgz      (outside the repo)
  *   node scripts/build-map-geometry.ts <path-to-the-unpacked-package-folder>
- *   npx prettier --write src/components/market/map-geometry.ts
+ *   npx prettier --write src/components/market/map-geometry.ts src/components/market/spotlight-geometry.ts
  *
- * The SHA-256 of both input files is written into the output, so a rebuild from a
+ * The SHA-256 of every input file is written into the output it fed, so a rebuild from a
  * different source is visible in the diff.
  *
- * PROJECTION: EQUAL EARTH
- * An equal-AREA projection (Šavrič, Patterson & Jenny, 2018), chosen for honesty rather
- * than looks: on this map no market is enlarged or shrunk relative to another by the
- * projection itself. Mercator would have inflated Norway several times over.
+ * WHY THE SILHOUETTES READ 1:10m
+ * 1:110m draws a market a few hundred units across and omits Singapore; 1:50m gives
+ * Singapore 9 vertices, a visible polygon at silhouette size; 1:10m gives it 40.
+ *
+ * PROJECTIONS, AND WHY BOTH ARE EQUAL-AREA
+ * The world uses Equal Earth (Šavrič, Patterson & Jenny, 2018), an equal-AREA projection
+ * chosen for honesty rather than looks: on that map no market is enlarged or shrunk
+ * relative to another by the projection itself. Mercator would have inflated Norway
+ * several times over. Each silhouette uses a Lambert azimuthal equal-area projection
+ * centred on its own market — the same guarantee, with far less shape distortion than one
+ * world projection gives a single country, because the market is near the centre.
  */
 
 import { createHash } from "node:crypto";
@@ -110,6 +122,56 @@ const KEEP_PART: Readonly<
   malaysia: () => true,
   norway: (ring) => ring.every(([, lat]) => lat > 50),
 };
+
+// --- The silhouettes (the stage) ---------------------------------------------------------
+
+/**
+ * The frame every silhouette is drawn in, in viewBox units. The outline is fitted to
+ * `FIT` inside it: `FIT.x` units of margin at each side so a wide outline does not touch
+ * the edge of its tile, `FIT.y` above for a beacon standing on its outline, and
+ * `FRAME.height - FIT.y - FIT.height` underneath for the plate's depth and shadow.
+ */
+const FRAME = { width: 480, height: 320 } as const;
+const FIT = { x: 24, y: 32, width: 432, height: 256 } as const;
+/** Douglas–Peucker tolerance, in FRAME units: under a pixel at the largest size shown. */
+const TOLERANCE_SILHOUETTE = 0.6;
+/** Rings smaller than this many square FRAME units are dropped: under ~3px at that size. */
+const MIN_AREA_SILHOUETTE = 4;
+
+interface Silhouette {
+  /** ISO 3166-1 numeric id in the 1:10m set. */
+  readonly iso: string;
+  /** Centre of the market's own equal-area projection, in degrees. */
+  readonly centre: Position;
+  /** Which rings of the market's geometry are drawn. */
+  readonly keep: (ring: readonly Position[]) => boolean;
+}
+
+/**
+ * Which parts of each market are drawn, and why.
+ *
+ * The United States is the contiguous states and Norway its mainland: a silhouette has
+ * to be one legible shape, and Alaska, Hawaii, Svalbard and Jan Mayen are thousands of
+ * kilometres from the rest, so including them would shrink the outline the reader is
+ * meant to see to a fraction of the frame. The page says so in a caption. Bouvet Island,
+ * which the 1:10m data counts as Norway, is Antarctic and is dropped by the same rule.
+ * Singapore, Malaysia and Indonesia are drawn whole.
+ */
+const SILHOUETTES = {
+  indonesia: { iso: "360", centre: [118, -2.5], keep: () => true },
+  us: {
+    iso: "840",
+    centre: [-96, 38],
+    keep: (ring) => ring.every(([lon, lat]) => lon > -126 && lon < -66 && lat > 24 && lat < 50),
+  },
+  singapore: { iso: "702", centre: [103.82, 1.35], keep: () => true },
+  malaysia: { iso: "458", centre: [109.7, 4.2], keep: () => true },
+  norway: {
+    iso: "578",
+    centre: [16, 64.5],
+    keep: (ring) => ring.every(([lon, lat]) => lon > 3 && lon < 32 && lat > 57 && lat < 72),
+  },
+} as const satisfies Record<keyof typeof ANCHORS, Silhouette>;
 
 // ---------------------------------------------------------------------------
 // TopoJSON decoding
@@ -297,6 +359,191 @@ function meridian(lon: number, step: number): Position[] {
   return points;
 }
 
+// ---------------------------------------------------------------------------
+// Silhouettes: a local equal-area projection per market, fitted to one frame
+// ---------------------------------------------------------------------------
+
+/**
+ * Lambert azimuthal equal-area projection centred on `[lon0, lat0]`, on the unit sphere.
+ * Closed form (Snyder, *Map Projections — A Working Manual*, eq. 24-2). y points UP here;
+ * `fitSilhouette` flips it. Equal-area, so the market's own parts keep their true area
+ * ratios — Sumatra against Borneo, the peninsula against Sabah.
+ */
+function azimuthalEqualArea([lon0, lat0]: Position): (point: Position) => Position {
+  const lambda0 = lon0 * RAD;
+  const sinPhi0 = Math.sin(lat0 * RAD);
+  const cosPhi0 = Math.cos(lat0 * RAD);
+  return ([lon, lat]) => {
+    const dLambda = lon * RAD - lambda0;
+    const sinPhi = Math.sin(lat * RAD);
+    const cosPhi = Math.cos(lat * RAD);
+    const k = Math.sqrt(2 / (1 + sinPhi0 * sinPhi + cosPhi0 * cosPhi * Math.cos(dLambda)));
+    return [
+      k * cosPhi * Math.sin(dLambda),
+      k * (cosPhi0 * sinPhi - sinPhi0 * cosPhi * Math.cos(dLambda)),
+    ];
+  };
+}
+
+interface FittedSilhouette {
+  readonly rings: Position[][];
+  readonly anchor: Position;
+  /** Tight bounding box of what is drawn, in FRAME units. */
+  readonly width: number;
+  readonly height: number;
+}
+
+function extentOf(rings: readonly (readonly Position[])[]): {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+} {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const ring of rings) {
+    for (const [x, y] of ring) {
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+/**
+ * Project a market's rings, scale them to fill `FIT` in ONE dimension (the other is
+ * centred), drop the specks and simplify.
+ *
+ * EVERY MARKET FILLS THE SAME BOX. That is the point and also the limit: an outline's
+ * drawn size says nothing about the market, so the page captions it. Fitting happens
+ * twice because the specks are dropped by AREA IN FRAME UNITS, which needs a scale, and
+ * the scale should come from what survives (otherwise one remote islet would set the box
+ * and leave the main shape short of it).
+ */
+function fitSilhouette(
+  rings: readonly (readonly Position[])[],
+  centre: Position,
+  anchor: Position,
+): FittedSilhouette {
+  const project = azimuthalEqualArea(centre);
+  const projected = rings.map((ring) => ring.map(project));
+
+  const fitTo = (
+    source: readonly (readonly Position[])[],
+  ): {
+    readonly scale: number;
+    readonly place: (point: Position) => Position;
+  } => {
+    const { minX, maxX, minY, maxY } = extentOf(source);
+    const scale = Math.min(FIT.width / (maxX - minX), FIT.height / (maxY - minY));
+    const left = FIT.x + (FIT.width - (maxX - minX) * scale) / 2;
+    const top = FIT.y + (FIT.height - (maxY - minY) * scale) / 2;
+    return { scale, place: ([x, y]) => [left + (x - minX) * scale, top + (maxY - y) * scale] };
+  };
+
+  const rough = fitTo(projected);
+  const survivors = projected.filter(
+    (ring) => area(ring.map(rough.place)) >= MIN_AREA_SILHOUETTE,
+  );
+  if (survivors.length === 0)
+    throw new Error("a silhouette lost every ring to the noise floor");
+
+  const fitted = fitTo(survivors);
+  const drawn = survivors
+    .map((ring) => simplify(ring.map(fitted.place), TOLERANCE_SILHOUETTE))
+    .filter((ring) => ring.length >= 4);
+  const box = extentOf(drawn);
+  return {
+    rings: drawn,
+    anchor: fitted.place(project(anchor)),
+    width: box.maxX - box.minX,
+    height: box.maxY - box.minY,
+  };
+}
+
+function buildSpotlight(dir: string): void {
+  const countriesFile = join(dir, "countries-10m.json");
+  const sha = createHash("sha256").update(readFileSync(countriesFile)).digest("hex");
+  const countries = JSON.parse(readFileSync(countriesFile, "utf8")) as Topology;
+  const arcs = decodeArcs(countries);
+  const geometries = countries.objects["countries"]?.geometries ?? [];
+
+  const plates: string[] = [];
+  const anchors: string[] = [];
+  const extents: string[] = [];
+  for (const [market, spec] of Object.entries(SILHOUETTES) as [
+    keyof typeof SILHOUETTES,
+    Silhouette,
+  ][]) {
+    const geometry = geometries.find((entry) => entry.id === spec.iso);
+    if (geometry === undefined)
+      throw new Error(`no 1:10m geometry for ${market} (${spec.iso})`);
+    const fitted = fitSilhouette(
+      ringsOf(arcs, geometry).filter(spec.keep),
+      spec.centre,
+      ANCHORS[market],
+    );
+    plates.push(`  ${market}: "${pathOf(fitted.rings)}",`);
+    anchors.push(`  ${market}: { x: ${fmt(fitted.anchor[0])}, y: ${fmt(fitted.anchor[1])} },`);
+    extents.push(
+      `  ${market}: { width: ${fmt(fitted.width)}, height: ${fmt(fitted.height)} },`,
+    );
+  }
+
+  const output = `/**
+ * GENERATED by \`scripts/build-map-geometry.ts\`. Do not edit by hand — rebuild it.
+ *
+ * Natural Earth 1:10m (public domain) via world-atlas 2.0.2 (ISC). Each outline is drawn
+ * in a Lambert azimuthal equal-area projection centred on its own market, fitted to one
+ * frame and simplified to ${String(TOLERANCE_SILHOUETTE)} units; parts under ${String(MIN_AREA_SILHOUETTE)} square units are dropped.
+ *
+ *   countries-10m.json  sha256 ${sha}
+ *
+ * Shapes only: no value from the analysis is encoded here. Every outline fills the SAME
+ * frame in at least one dimension, so drawn size carries no information about a market —
+ * the world locator (\`map-geometry.ts\`, equal-area) is where relative size can be read.
+ * The United States is its contiguous states and Norway its mainland.
+ */
+
+import type { CountryId } from "../../data/artifact-types.ts";
+
+export const SPOTLIGHT_VIEWBOX = { width: ${String(FRAME.width)}, height: ${String(FRAME.height)} } as const;
+
+/** The box every outline is fitted to inside the frame: each fills it in at least one dimension. */
+export const SPOTLIGHT_FIT = { x: ${String(FIT.x)}, y: ${String(FIT.y)}, width: ${String(FIT.width)}, height: ${String(FIT.height)} } as const;
+
+/** Each market's outline, in the frame above, ready to stack into a raised plate. */
+export const SPOTLIGHT_PLATES: Readonly<Record<CountryId, string>> = {
+${plates.join("\n")}
+};
+
+/** Where each market's beacon stands on its own outline, in frame units. */
+export const SPOTLIGHT_ANCHORS: Readonly<Record<CountryId, { readonly x: number; readonly y: number }>> = {
+${anchors.join("\n")}
+};
+
+/** The bounding box of each outline, in frame units: what fills the frame, and how. */
+export const SPOTLIGHT_EXTENTS: Readonly<Record<CountryId, { readonly width: number; readonly height: number }>> = {
+${extents.join("\n")}
+};
+`;
+
+  const target = join(
+    import.meta.dirname,
+    "..",
+    "src",
+    "components",
+    "market",
+    "spotlight-geometry.ts",
+  );
+  writeFileSync(target, output);
+  console.log(`wrote ${target}: ${String(output.length)} bytes`);
+}
+
 function main(): void {
   const dir = process.argv[2];
   if (dir === undefined) {
@@ -396,6 +643,8 @@ ${anchors.join("\n")}
   console.log(
     `wrote ${target}: ${String(output.length)} bytes, viewBox ${String(WIDTH)}×${fmt(HEIGHT)}`,
   );
+
+  buildSpotlight(dir);
 }
 
 main();

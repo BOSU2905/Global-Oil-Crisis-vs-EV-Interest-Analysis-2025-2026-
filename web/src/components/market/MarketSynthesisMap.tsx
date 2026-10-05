@@ -10,7 +10,7 @@ import { SERIES_IDENTITY } from "../../styles/chart-language.ts";
 import { Card } from "../content/Card.tsx";
 import { EDITORIAL } from "../layout/contract.ts";
 import { MarketEvidenceRow } from "./MarketEvidenceRow.tsx";
-import { MarketMap } from "./MarketMap.tsx";
+import { MarketStage } from "./MarketStage.tsx";
 
 interface MarketSynthesisMapProps {
   readonly synthesis: MarketSynthesis;
@@ -20,23 +20,25 @@ interface MarketSynthesisMapProps {
 const PANEL_ID = "market-synthesis-panel";
 
 /**
- * "Five markets, one oil shock, five different patterns" — the synthesis as a map.
+ * "Five markets, one oil shock, five different patterns" — the synthesis as a picture.
  *
- * WHAT CHANGED, AND WHAT DID NOT (Revision 7)
- * The five stacked evidence cards became one map, one key and one panel. The EVIDENCE did
- * not change: the panel renders the same `MarketEvidenceRow` the deep dives use, read from
+ * WHAT CHANGED, AND WHAT DID NOT (Revision 7, then Batch 3)
+ * The five stacked evidence cards became a map, a key and a panel (Revision 7); the map
+ * then became a stage (Batch 3) — five silhouettes, or one large with a small locator —
+ * because a world map made the markets specks (see `MarketStage`). The EVIDENCE did not
+ * change: the panel renders the same `MarketEvidenceRow` the deep dives use, read from
  * the same view model, so the two can never disagree.
  *
  * NOTHING IS EMPHASISED UNTIL THE READER CHOOSES
- * By default no market is selected: every plate is the same neutral height, every beacon
+ * By default no market is selected: every tile is the same size and depth, every beacon
  * the same size, and the panel shows all five markets' relationships at once — so the
  * classification of every market is visible without any interaction (§5 rule 5), and no
- * market is singled out by the page's own choice. A market lifts when the reader rests on
- * it, taps it, or presses it in the key; pressing it again, Escape, or "Show all five
- * markets" returns to the overview.
+ * market is singled out by the page's own choice. A market takes the stage when the reader
+ * rests on it, taps it, or presses it in the key; pressing it again, Escape, or "Show all
+ * five markets" returns to the overview.
  *
  * WHAT STAYS VISIBLE REGARDLESS
- * The finding above the map — interest rose in all five, the peaks did not coincide, no
+ * The finding above the stage — interest rose in all five, the peaks did not coincide, no
  * market reaches a robust positive association — is plain text, outside every control,
  * because `product-architecture.md` §6 forbids a finding that lives behind interaction.
  *
@@ -87,17 +89,18 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
       </div>
 
       <div className={`${EDITORIAL.grid} gap-y-(--grid-gap)`}>
-        <div className="xl:col-span-8">
-          <MarketMap
+        <div className="xl:col-span-7">
+          <MarketStage
             markets={synthesis.markets}
             active={active}
+            changed={changed}
             onSelect={(id) => {
               if (id !== active) show(id);
             }}
           />
 
           {/*
-            The key: the map's legend, and its keyboard and touch control. Real buttons —
+            The key: the stage's legend, and its keyboard and touch control. Real buttons —
             each one does something — so they look like buttons, unlike the inert pills
             that used to sit in the scope section.
           */}
@@ -140,7 +143,7 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
           </ul>
         </div>
 
-        <div id={PANEL_ID} className="xl:col-span-4">
+        <div id={PANEL_ID} className="xl:col-span-5">
           {/* Announced, so a keyboard reader hears what the panel now shows. */}
           <p className="sr-only" aria-live="polite">
             {market === null ? "Showing all five markets." : `Showing ${market.label}.`}
@@ -152,7 +155,8 @@ export function MarketSynthesisMap({ synthesis, className }: MarketSynthesisMapP
                 <h3 className="text-h4 text-fg">All Five Markets</h3>
                 <p className="mt-2 text-meta text-fg-muted">
                   The pipeline&rsquo;s classification of each market&rsquo;s association with
-                  crude prices. Choose a market on the map, or below it, to read its evidence.
+                  crude prices. Choose an outline, or a name below it, to read that
+                  market&rsquo;s evidence.
                 </p>
                 <ul className="mt-4 flex flex-col divide-y divide-border">
                   {synthesis.markets.map((entry) => (

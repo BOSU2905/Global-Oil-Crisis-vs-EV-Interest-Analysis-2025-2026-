@@ -2,8 +2,8 @@
 
 **Project:** Global Oil Crisis vs EV Interest Analysis (2025/2026)
 
-**Last updated:** 2026-10-02 (Linux) — **final-polish revision cycle IN PROGRESS: Batches 1
-and 2 of 4 COMPLETE, Batch 2 awaiting the user's review; Batch 3 not started.** Read
+**Last updated:** 2026-10-05 (Linux) — **final-polish revision cycle IN PROGRESS: Batches 1–3
+of 4 COMPLETE, Batch 3 awaiting the user's review; Batch 4 not started.** Read
 "Final-polish cycle" directly below first. The paragraphs after it, up to §0, are the
 2026-09-17 record and are historical: the divergence they describe no longer exists.
 
@@ -18,8 +18,8 @@ this file updated, and **one local commit** (no push). Then **stop** for the use
 | Batch | Scope                                                                                       | State       |
 | ----- | ------------------------------------------------------------------------------------------- | ----------- |
 | 1     | Charts: five-market zoom smoothness (measured first, regression-tested, re-measured after); tooltip in Geist; axis titles unified; "Oil peak" off the axis title; one wording for the shaded band | **COMPLETE** — accepted |
-| 2     | Layout A1–A3, before/after at 375/768/1024/1280/1440/1920; keep the editorial composition unless evidence says otherwise | **COMPLETE** — see "Batch 2" below; awaiting review |
-| 3     | Market Synthesis map, direction B — only after Batches 1–2 are reviewed and accepted        | not started |
+| 2     | Layout A1–A3, before/after at 375/768/1024/1280/1440/1920; keep the editorial composition unless evidence says otherwise | **COMPLETE** — accepted (the user's instruction to continue, 2026-10-05) |
+| 3     | Market Synthesis map, direction B — only after Batches 1–2 are reviewed and accepted        | **COMPLETE** — see "Batch 3" below; awaiting review |
 | 4     | Full validation (item E) and documentation (the drift listed below)                         | not started |
 
 Revisions 10 (colour accents), 11 (motion) and 13 (affordance audit) overlap items C, D and
@@ -33,7 +33,8 @@ E and are folded into Batches 1–4 rather than run separately.
    hover / click / button selection; keep the composition compact; existing dependencies
    only (Singapore's outline needs Natural Earth 1:50m from the same `world-atlas` package).
    Direction A (compact regional windows) is the fallback if B adds needless complexity or
-   costs usability. **Not started** — Batch 3.
+   costs usability. **Built in Batch 3** — B was kept; the build differs from this paragraph
+   in two places, both recorded under "Batch 3" below.
 2. **Revision 12 (reading-preference modes): deferred, not implemented.** Reason: there is
    no demonstrated user need for another preference control. Accessibility obligations are
    unchanged — reduced motion, keyboard operation, readable contrast, visible focus.
@@ -283,6 +284,206 @@ The map (Batch 3) and the doc drift from Phase 0 (Batch 4) are untouched.
 **Next step:** STOP for the user's review of Batch 2. On acceptance, Batch 3 (the Market
 Synthesis map, direction B).
 
+### Batch 3 — Market Synthesis map, direction B (COMPLETE, 2026-10-05; the commit is the
+"Batch 3" row under "Landed")
+
+**Reconciled first (all re-verified, none assumed).** `HEAD` = `6fcefdd` (Batch 2), `5eb37a4`
+(Batch 1) below it; `main` is 2 ahead / 0 behind `origin/main`; `git ls-remote origin
+refs/heads/main` = `dfdf0ed`, so nothing has been pushed; tree clean, no stash. Batch 2 is
+treated as accepted: the instruction to continue with Batch 3 is the acceptance the plan table
+required. A `next dev` server (pid 6509, :3000) was already running from the user's session; it
+writes `.next/dev`, a production build writes `.next/`, so the two do not collide, and it was
+left alone. Scratch (mockups, baseline PNGs, the unpacked `world-atlas`) is in `/tmp/kiro-b3/`,
+not durable. The Phase 0 mockups in `/tmp/kiro-phase0/` no longer exist; the only surviving
+description of Direction A is the one line in the decisions above.
+
+**Baseline, measured on a production build of `6fcefdd` (six widths, every market selected).**
+
+| Width | Map     | US      | Indonesia | Norway | Malaysia | Singapore |
+| ----- | ------- | ------- | --------- | ------ | -------- | --------- |
+| 375   | 343×151 | 92×53   | 43×20     | 17×14  | 18×8     | **3×3**   |
+| 768   | 720×316 | 193×112 | 91×42     | 35×31  | 38×17    | 7×7       |
+| 1024  | 976×428 | 262×151 | 124×58    | 47×41  | 52×22    | 10×10     |
+| 1280  | 699×307 | 188×108 | 89×41     | 34×30  | 37×16    | 7×7       |
+| 1920  | 912×400 | 245×142 | 116×54    | 44×39  | 48×21    | 9×9       |
+
+Zero horizontal overflow and zero console messages at every width.
+
+**What already works, and is kept unchanged:** the raised-plate material (one neutral
+material, one height, identity colour only on the active plate); the honest default (nothing
+selected, all five classifications listed); the key (five `aria-pressed` buttons, Escape and
+"Show all five markets" release, `aria-live` line); `MarketEvidenceRow` and the whole panel;
+the finding paragraph above the map; the entrance observer that never replays a map already
+on screen; the stagger token and reduced motion; every analytical input (`lib/market-synthesis`,
+`content/markets`, the artifacts).
+
+**What is wrong, specifically.** The five markets are specks on a world canvas (Singapore 3×3px
+on a phone, 9×9 at 1920); selecting one shows a dimmed world and changes only the panel text,
+so the map gives no picture of the place; the three Southeast Asian labels fan out on leader
+lines; each name is shown three times (label, key, panel); and on a phone the map is 149px tall
+with its labels switched off — a desktop map scaled down, which `product-architecture.md` §7
+("Adaptation is by layout decision, not by scaling desktop CSS down") rules out.
+
+**Correction to the earlier plan.** The decision above says Singapore's outline needs Natural
+Earth **1:50m**. Measured: Singapore is **9 vertices** at 1:50m (an obvious polygon at spotlight
+size) and **40** at 1:10m, both in the same `world-atlas` 2.0.2 package already used (ISC,
+integrity verified against the registry; its 110m files hash to the values recorded in
+`map-geometry.ts`, and regenerating `map-geometry.ts` from them reproduces the committed file
+byte for byte). The spotlight therefore reads **1:10m**. No new dependency either way.
+
+**Behaviour, as built.**
+
+- *Default (nothing selected).* The stage shows all five markets as equal raised-plate
+  silhouettes, one tile each, in the editorial reading order, every tile the same size and
+  depth; the panel lists all five classifications. The page still singles out no market.
+- *A market selected* (rest 110ms with a mouse, click or tap on a tile, or the key). The stage
+  shows that one silhouette large, in its identity tint, beside the evidence panel; the others
+  leave. Release: Escape, pressing the key again, or "Show all five markets" (unchanged).
+- *The locator* is a small, display-only world inset under the stage, beside the caption. It is
+  not a control: at inset size Malaysia and Singapore are about 2.7px apart, which no pointer can
+  separate; the key (44px targets) is the equivalent control. It shows where the markets are
+  (neutral dots), and the active market's plate and marker in its identity colour.
+- *Scale honesty.* Each outline is fitted to one common box, so drawn size says nothing about a
+  market; a visible caption says so, and says the United States is the contiguous states and
+  Norway the mainland (Alaska, Hawaii and Svalbard are not drawn in the silhouettes).
+- *Layout.* From `xl` the stage sits beside the panel (7 of 12 columns against the panel's 5);
+  below it the composition stacks (stage, key, panel). Inside the stage the tiles are ALWAYS
+  3 + 2, centred, in a grid that stops widening at 40rem. What follows the stage's own width (a
+  container query, not the viewport) is its shape: 4:3, then 3:2 from `@xl`, then a fixed 26rem
+  from `@4xl`. The stage is the same size in both states, so choosing a market never moves what
+  is below it.
+
+**Interpretation to flag.** "Keep the compact arrangement as a fallback where the available space
+requires it" is read as: the same composition, reflowed for narrow space (stacked, 3 + 2 tiles,
+smaller locator) — not Direction A's regional windows, which were not built.
+
+**What was built.**
+
+- `MarketStage.tsx` (new) — the figure: the stage ground, five tiles or one spotlight, the
+  entrance observer, the rest timer (110ms; a touch never starts it; a 400ms quiet period after
+  a return to the overview), and the locator and caption under it.
+- `MarketPlate.tsx` (new) — one market's raised plate and beacon; the SAME SVG at tile and at
+  spotlight size, so a market looks like itself in both.
+- `MarketLocator.tsx` (new) — the display-only world inset: `aria-hidden`, no handlers.
+- `spotlight-geometry.ts` (new, generated, 30 KB) — the five silhouettes. Natural Earth 1:10m,
+  each in a Lambert azimuthal equal-area projection centred on its own market (equal-area, so a
+  market's parts keep their true ratios), fitted to ONE frame. `build-map-geometry.ts` now writes
+  it and `map-geometry.ts` from one pinned source; the United States is its contiguous states and
+  Norway its mainland.
+- `map-layout.ts` reworked (`PLATE_DEPTH`, `SHADOW_OFFSET`, `BEACON`, `LOCATOR`, `MAP_DWELL_MS`,
+  `MAP_QUIET_MS`; nothing keyed by market). `MarketMap.tsx` deleted. `MarketSynthesisMap.tsx`
+  renders `MarketStage` (7 columns against the panel's 5, was 8 / 4). `MARKET_STAGE_NOTE` added to
+  `content/markets.ts`. The market section of `globals.css` reworked.
+- Unchanged: `map-geometry.ts` (now only the locator's world), `MarketEvidenceRow`, the key, the
+  panel, the finding paragraph, the view model and every artifact.
+
+**Two deviations from the plan this section opened with, decided in the build.** Neither changes
+what the stage says. (1) The tiles are ALWAYS 3 + 2, not a row of five on a wide stage: a row of
+five gives about 120px tiles in a 605px stage against 201px for 3 + 2, barely above the phone's
+106px, so the grid stops widening at 40rem and a wide stage gets margin rather than bigger
+silhouettes. (2) The locator sits under the stage beside the caption, not in a corner of it:
+every corner is somebody's coastline (Florida, the Norwegian coast, Peninsular Malaysia), and a
+silhouette should not be cut to make room for its own key.
+
+**Measured after, on a production build (same six widths; the drawn outline, in px).** Drawn size
+differs between markets only because each outline fills one frame in one dimension; it says nothing
+about a market, and the caption says so.
+
+One market selected (the spotlight):
+
+| Width | Stage   | US      | Indonesia | Norway  | Malaysia | Singapore |
+| ----- | ------- | ------- | --------- | ------- | -------- | --------- |
+| 375   | 343×258 | 271×169 | 285×104   | 137×169 | 285×96   | 285×146   |
+| 768   | 720×481 | 583×364 | 614×223   | 295×364 | 614×206  | 614×314   |
+| 1024  | 976×418 | 502×313 | 529×192   | 254×314 | 529×178  | 529×270   |
+| 1280  | 605×404 | 484×302 | 510×185   | 245×302 | 510×171  | 510×261   |
+| 1440  | 605×404 | 484×302 | 510×185   | 245×302 | 510×171  | 510×261   |
+| 1920  | 792×529 | 644×402 | 679×247   | 326×402 | 679×228  | 679×347   |
+
+Nothing selected (the five tiles):
+
+| Width       | US      | Indonesia | Norway | Malaysia | Singapore |
+| ----------- | ------- | --------- | ------ | -------- | --------- |
+| 375         | 90×56   | 94×34     | 45×56  | 94×32    | 94×48     |
+| 768 / 1024 / 1920 | 175×109 | 184×67 | 89×109 | 184×62 | 184×94    |
+| 1280 / 1440 | 165×103 | 174×63    | 83×103 | 174×58   | 174×89    |
+
+Singapore went from 3×3px to 94×48 (tile) and 285×146 (spotlight) on a phone, and from 9×9 to
+184×94 and 679×347 at 1920. The stage is the same size in both states at all six widths
+(measured; asserted at 1440, 1024 and 375).
+
+**Reviewed in a browser, not only asserted.** The overview, all five spotlights, the locator,
+hover, tap, the key and its focus ring at 375 / 768 / 1024 / 1280 / 1440 / 1920 in the light theme
+and at 1440 / 375 in the dark one. The entrance was sampled frame by frame: the tiles rise in
+reading order and are all in by about 1.1s, the locator fades in last (fully visible at about
+1.3s), `data-intro` hands back to `done` at about 1.4s and no animation is left running. Hover:
+the plate lifts 5 frame units (about 2px on a tile at 1440) with its shadow deepening and its
+label darkening, reached within 70ms, after which the 110ms rest selects; a touch tap selects
+at once (375, touch). No horizontal overflow and no console message at any width, in either
+theme. The accessibility tree holds no picture: the key is a list of five `aria-pressed`
+buttons, the panel is announced through the live region, and Singapore's Maturity Gap is shown
+with its Level-only association in the same view. While looking, a screenshot of a section
+taller than the viewport stitched the sticky header into the middle of it; that is a capture
+artifact of `element.screenshot`, not a page defect, and the viewport captures were redone.
+
+**One defect found and fixed.** The locator's resting dot was `--color-fg-subtle`: 2.41:1 against
+the land in the light theme (3.09:1 dark), under the 3:1 a graphic that says where needs. It is
+`--color-fg-muted` now: 3.76:1 light, 4.78:1 dark, re-measured on the rebuilt bundle. Nothing
+else measured under its bar: tile labels 5.54:1 light / 6.86:1 dark; the caption 4.50:1 / 6.18:1.
+
+**Tests.** Unit 348 → 361: `tests/market-map.test.ts` 10 → 23 — every outline fills the same
+frame and none overflows it; every beacon stands ON its outline (a point-in-polygon test on the
+generated path data, not a bounding box); Singapore keeps at least 25 vertices (the reason the
+silhouettes read 1:10m); one depth and one beacon size for every market, and no component names
+a market; tint only on the active state; the locator is display-only and draws the active market
+last; a size budget on the generated file and its source hash recorded in it; the caption; touch
+and the quiet period; the entrance hands itself back. E2E 155 → 159: the "market map" block in
+`e2e/market.e2e.ts` was rewritten, 8 → 12. The original eight targeted the world map — four
+failed against the stage and the phone test passed only vacuously (`.map-label` no longer
+exists, so "is hidden" was trivially true). The new twelve: the default state; a rest selects and
+tints only the spotlight; Singapore's evidence group beside its editorial panel; the key from the
+keyboard; the picture hidden from assistive technology with no tab stop; the locator is not a
+control; a touch does not select but a mouse does (with the mouse as the positive control); the
+entrance once and never replayed; reduced motion; the stage keeps its size and sits beside the
+panel from `xl`; the caption in both states; the phone (silhouettes at least 90px wide where
+Singapore was 3px, two rows, the spotlight filling the stage, 44px keys, no overflow). 12/12,
+and 48/48 over four repeats. The reduced-motion probe was checked for sensitivity: it reads
+0.36s / 0.56s normally and 0.001s / 0.001s under `reduce`.
+
+**Validation (all run on the final tree).** `npm run verify` exit 0 — typecheck, lint, unit
+361/361, format; `next build` clean; Playwright 159/159 (fresh build, from a free :3100). Python:
+pytest 191 passed / 1 skipped, ruff + format clean, mypy clean, `pipeline.build --check` all 4
+artifacts up to date. Nothing under `pipeline/`, `data/`, `web/src/data/`, `web/src/lib/`,
+`reports/`, `docs/`, `METHODOLOGY.md` or `README.md` changed; the artifact digests and the four
+tree hashes are identical to the ones recorded in §9. `map-geometry.ts` is unchanged against
+`HEAD`, and both generated files regenerate byte for byte from `world-atlas` 2.0.2 (its
+`countries-10m.json` sha256 begins `3bc6f1d3`, as recorded in the file).
+
+**Remaining design issues — judgement calls, none a defect, none blocking.**
+
+1. At 1280–1440 the stage is 605px wide and the 3 + 2 grid nearly fills it, so the top row sits
+   about 14px from the stage's side edges while the top and bottom margins are generous. At
+   768 / 1024 (720 and 976px stages) the 640px grid leaves wide side margins instead. Tightening
+   either is a composition change, so it was left for the user.
+2. The locator fades in last, so for the first second of the entrance the stage has no locator.
+   Deliberate (the eye reads the row first); under reduced motion it is immediate.
+3. The tile hover lift is about 2px. It is present and measured, with the shadow and the label as
+   the louder cues, but it is quiet.
+4. The plate against the stage ground is 1.23:1 (white on `--map-land`). That is Revision 7's
+   shared material and decorative: the labels, the key and the panel carry the information.
+5. Singapore and Malaysia are drawn as large as the United States, by design (each outline fills
+   one frame). The caption says so and points to the locator, the one place relative size is true.
+6. Not Batch 3: at 375 the floating section indicator overlaps panel text (Phase 0 item E).
+7. `map-geometry.ts` still exports `GRATICULE_PATH`, which no component draws any more. It is
+   tree-shaken out of the client chunks (checked), and removing it would change a generated file
+   that currently reproduces byte for byte, so it stays.
+
+**Not done here (by scope).** Batch 4 (full validation, item E, and the documentation drift
+listed under Phase 0). No `docs/*.md` file mentions the map, so there is no map-related drift to
+add to Batch 4's list.
+
+**Next step:** STOP for the user's review of Batch 3. On acceptance, Batch 4.
+
 ### Reconciled before any change
 
 - `main` = `origin/main` = `854685e` at the start of the cycle, linear history. The §9
@@ -311,6 +512,7 @@ Synthesis map, direction B).
 | `b76cc10` | Revision 7 — market synthesis map — unit 335/335, E2E 144/144             |
 | `fix: keep chart zoom gliding…` | **Batch 1** — zoom motion states, Geist chart type, annotations — unit 348/348, E2E 155/155. One commit per batch: its own hash is not written here (amending to add it would change it); read it with `git log -1 --format=%h --grep "keep chart zoom gliding"` |
 | `fix: align Scope's lead and tighten Comparability's gap…` | **Batch 2** — layout A1 (Scope lead), A3 (Comparability gap); A2 investigated and left unchanged, documented — unit 348/348, E2E 155/155. Read with `git log -1 --format=%h --grep "align Scope's lead"` |
+| `feat: market synthesis as a spotlight stage…` | **Batch 3** — the map becomes a stage: five raised-plate silhouettes, or one large with a world locator; 1:10m geometry, locator dot contrast fix — unit 361/361, E2E 159/159. Read with `git log -1 --format=%h --grep "spotlight stage"` |
 
 **Revision 7.** The five synthesis cards became a map, a key and a panel. The map
 encodes location only: Natural Earth 1:110m via `world-atlas` 2.0.2, Equal Earth
@@ -330,6 +532,8 @@ the content. The entrance plays once on scroll, in reading order, `--stagger` 90
 says "five different patterns", not the brief's "different responses": a response is a
 reaction to the price, which this analysis does not establish. Tests:
 `tests/market-map.test.ts` (10) and the "market map" block in `e2e/market.e2e.ts` (8).
+**Batch 3 superseded the map itself** (world map → stage, see "Batch 3") and rewrote both:
+23 unit tests and 12 E2E tests now; the paragraph above describes Revision 7 as it landed.
 
 Found while building it: a race in the Revision 8 selector. On a deep link, the first
 placement smooth-scrolled the strip back toward 0 while the hash selection measured the
